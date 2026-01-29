@@ -3,23 +3,42 @@
   "hooks": {
     "SessionStart": [
       {
+        "matcher": "startup",
         "hooks": [
           {
             "type": "command",
             "command": "{{CLAUDE_HOME}}/scripts/load-memory.sh"
           }
         ]
+      },
+      {
+        "matcher": "resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{CLAUDE_HOME}}/scripts/load-memory.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{CLAUDE_HOME}}/scripts/post-compact.sh"
+          }
+        ]
       }
     ]
   },
   "env": {
-    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "128000",
-    "DISABLE_TELEMETRY": "1",
-    "MAX_THINKING_TOKENS": "30000"
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "48000",
+    "DISABLE_TELEMETRY": "1"
   },
   "permissions": {
     "allow": [
       "WebSearch",
+      "WebFetch",
       "mcp__Framelink_Figma_MCP__get_figma_data",
       "mcp__Framelink_Figma_MCP__download_figma_images",
       "mcp__context7__get-library-docs",

@@ -13,7 +13,7 @@ SYSTEM_PROMPT=2100
 SYSTEM_TOOLS=17800
 MCP_TOOLS=900
 CUSTOM_AGENTS=1100
-MEMORY_FILES=7200
+MEMORY_FILES=9600
 SKILLS=100
 # BASE_OVERHEAD = system prompt + tools + MCP + agents + memory files
 BASE_OVERHEAD=$((SYSTEM_PROMPT + SYSTEM_TOOLS + MCP_TOOLS + CUSTOM_AGENTS + MEMORY_FILES + SKILLS))
@@ -48,4 +48,6 @@ TOTAL_K=$(( (TOTAL + 999) / 1000 ))
 # Calculate percentage - round UP
 PERCENT=$(( (TOTAL * 100 + CONTEXT_WINDOW_SIZE - 1) / CONTEXT_WINDOW_SIZE ))
 
-echo "${TOTAL_K}k (${PERCENT}%)"
+REMAINING_PERCENTAGE=$(echo "$input" | jq -r '.context_window.remaining_percentage // 100')
+
+echo "${TOTAL_K}k (${PERCENT}%) (${REMAINING_PERCENTAGE}%)"

@@ -12,16 +12,65 @@ This system maintains project context between sessions using files in `.project-
 
 ```
 .project-meta/memory/
-  project-overview.md   # ~800 words - project structure, tech stack, architecture
-  changelog.md          # ~1500 words - history of changes (FIFO by date)
-  recent-session.md     # ~1500 words - FULL last session context (primary file!)
+  project-overview.md    # ~1000 words - project essence, purpose, key concepts
+  project-structure.md   # NO LIMIT - file tree with short descriptions
+  changelog.md           # ~1500 words - history of changes (FIFO by date)
+  recent-session.md      # ~1500 words - FULL last session context (primary file!)
 ```
 
 ### project-overview.md
-- **Purpose:** Quick understanding of project
-- **Contains:** Tech stack, architecture, folder structure, key patterns
-- **Update:** Only on major architectural changes
-- **Limit:** ~800 words
+- **Purpose:** Deep understanding of project's essence and architecture
+- **Contains:** Project purpose, business logic, tech stack, architecture decisions, key patterns, conventions, important integrations
+- **Does NOT contain:** File/folder structure (moved to project-structure.md)
+- **Update:** Only on major architectural changes or when project scope changes
+- **Limit:** ~1000 words
+- **Focus areas:**
+  - What the project does and why it exists
+  - Core business logic and domain concepts
+  - Technology choices and reasoning
+  - Architectural patterns used
+  - Key conventions and rules
+  - External integrations and dependencies
+  - Environment setup notes
+
+### project-structure.md
+- **Purpose:** Quick reference for file locations and their purposes
+- **Contains:** Full directory tree with one-line descriptions for each file/folder
+- **Update:** When files/folders are added, removed, or significantly restructured
+- **Limit:** NO LIMIT (scales with project size)
+- **Format:**
+```markdown
+## Project Structure
+
+```
+project-root/
+├── src/
+│   ├── app/                    # Next.js App Router pages
+│   │   ├── (auth)/             # Auth-related routes group
+│   │   ├── api/                # API route handlers
+│   │   └── layout.tsx          # Root layout with providers
+│   ├── components/
+│   │   ├── ui/                 # Shadcn UI components
+│   │   └── features/           # Feature-specific components
+│   ├── lib/                    # Utility functions and configs
+│   ├── hooks/                  # Custom React hooks
+│   └── types/                  # TypeScript type definitions
+├── public/                     # Static assets
+├── prisma/                     # Database schema and migrations
+└── package.json                # Dependencies and scripts
+```
+
+### Key Files
+| File | Purpose |
+|------|---------|
+| `src/lib/auth.ts` | Authentication configuration |
+| `src/lib/db.ts` | Database client instance |
+```
+- **Guidelines:**
+  - Include ALL directories, but only important files
+  - One-line descriptions should explain PURPOSE, not content
+  - Use Key Files table for critical configuration files
+  - Update when adding new feature folders or restructuring
 
 ### changelog.md
 - **Purpose:** Track project evolution
@@ -204,9 +253,10 @@ Added dark mode
 **Then:**
 
 1. Create `.project-meta/memory/` directory
-2. Explore project structure
+2. Explore project structure thoroughly
 3. Create initial files:
-   - `project-overview.md` - document what you discover
+   - `project-overview.md` - document project essence, purpose, tech stack, architecture
+   - `project-structure.md` - generate full directory tree with descriptions
    - `changelog.md` - start with init entry
    - `recent-session.md` - note initial setup
 
@@ -216,16 +266,18 @@ Added dark mode
 
 | File | Target | Max |
 |------|--------|-----|
-| project-overview.md | 600 | 800 |
+| project-overview.md | 800 | 1000 |
+| project-structure.md | - | NO LIMIT |
 | changelog.md | 1200 | 1500 |
 | recent-session.md | 1000 | 1500 |
 
-**Total:** ~3000-4000 words max
+**Total:** ~4000-5000 words (excluding project-structure.md)
 
 When limit exceeded:
 - `changelog.md` - remove oldest `priority: minor` entries first, then `normal`
 - `recent-session.md` - prioritize most recent/relevant context
-- `project-overview.md` - condense descriptions
+- `project-overview.md` - condense less critical details, keep core concepts
+- `project-structure.md` - never reduce (scales with project)
 
 ---
 
@@ -240,10 +292,109 @@ When limit exceeded:
 
 ---
 
+## Generating project-structure.md
+
+### What to Include
+
+**Always include:**
+- ALL directories (with purpose description)
+- Configuration files in root (package.json, tsconfig.json, etc.)
+- Entry points (layout.tsx, page.tsx, index.ts)
+- Critical business logic files
+- API routes and handlers
+- Database schemas and migrations
+- Type definition files
+
+**Skip:**
+- Individual component files in large component folders (describe folder purpose instead)
+- Test files (unless testing patterns are important)
+- Auto-generated files (.next/, node_modules/, dist/)
+- Lock files (package-lock.json, pnpm-lock.yaml)
+
+### Tree Generation Strategy
+
+1. Start from project root
+2. Go 2-3 levels deep for most directories
+3. Go deeper (4-5 levels) for critical paths like `src/app/` or `src/features/`
+4. Use `...` to indicate more files exist in large directories
+
+### Description Guidelines
+
+| Element Type | Description Focus |
+|--------------|-------------------|
+| Directory | What type of files it contains and why |
+| Config file | What it configures |
+| Page/Route | What page/feature it represents |
+| Component | Only if critical (skip generic components) |
+| Utility | What problem it solves |
+| Type file | What domain it defines types for |
+
+### Example of Good Structure Doc
+
+```markdown
+# Project Structure
+
+## Directory Tree
+
+```
+my-app/
+├── src/
+│   ├── app/                        # Next.js App Router
+│   │   ├── (auth)/                 # Auth-protected routes group
+│   │   │   ├── dashboard/          # Main dashboard page
+│   │   │   └── settings/           # User settings pages
+│   │   ├── (public)/               # Public routes group
+│   │   │   ├── login/              # Login page
+│   │   │   └── signup/             # Registration page
+│   │   ├── api/                    # API route handlers
+│   │   │   ├── auth/               # Auth endpoints (login, logout, refresh)
+│   │   │   └── users/              # User CRUD endpoints
+│   │   ├── layout.tsx              # Root layout with providers
+│   │   └── page.tsx                # Landing page
+│   ├── components/
+│   │   ├── ui/                     # Shadcn UI primitives (button, input, etc.)
+│   │   ├── forms/                  # Form components with validation
+│   │   └── layout/                 # Header, footer, sidebar, navigation
+│   ├── features/                   # Feature-based modules
+│   │   ├── auth/                   # Auth logic, hooks, context
+│   │   └── users/                  # User management logic
+│   ├── hooks/                      # Shared custom hooks
+│   ├── lib/                        # Utilities and configurations
+│   │   ├── auth.ts                 # NextAuth configuration
+│   │   ├── db.ts                   # Prisma client instance
+│   │   └── utils.ts                # Helper functions
+│   └── types/                      # Global TypeScript types
+├── prisma/
+│   ├── schema.prisma               # Database schema definition
+│   └── migrations/                 # Database migrations history
+├── public/                         # Static assets (images, fonts)
+├── package.json                    # Dependencies and scripts
+├── tsconfig.json                   # TypeScript configuration
+└── tailwind.config.ts              # Tailwind CSS configuration
+```
+
+## Key Files Reference
+
+| File | Purpose | Notes |
+|------|---------|-------|
+| `src/lib/auth.ts` | NextAuth.js config | Credentials + Google OAuth providers |
+| `src/lib/db.ts` | Prisma client | Singleton pattern for connection |
+| `prisma/schema.prisma` | DB schema | User, Session, Account models |
+| `src/middleware.ts` | Route protection | Redirects unauthenticated users |
+```
+
+---
+
 ## Why This System Works
 
 1. **recent-session.md** = Your "working memory" - what you're actively doing
 2. **changelog.md** = Your "long-term memory" - what happened over time
-3. **project-overview.md** = Your "reference docs" - how the project works
+3. **project-overview.md** = Your "conceptual understanding" - WHY and HOW the project works
+4. **project-structure.md** = Your "navigation map" - WHERE things are located
+
+The separation of concepts (overview) from structure (file tree) allows:
+- Faster file location lookups without wading through architecture explanations
+- Deeper project understanding without cluttering with file paths
+- Scalable structure documentation that grows with the project
 
 The next session reads these files and immediately has context to continue work.

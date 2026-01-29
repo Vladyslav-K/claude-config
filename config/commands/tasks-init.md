@@ -12,7 +12,7 @@ $ARGUMENTS
 Read task description files from `.project-meta/tasks/init/`, analyze them, and create a structured task management system using Markdown format for better readability and token efficiency.
 
 ## Input
-Files in `.project-meta/tasks/init/` directory (usually .md files with free-form task descriptions)
+Files or folders with files in `.project-meta/tasks/init/` directory (usually .md files with free-form task descriptions)
 
 ## Output
 - `.project-meta/tasks/tasks.md` — Markdown file with full task context (READ ONLY after creation)
@@ -20,26 +20,94 @@ Files in `.project-meta/tasks/init/` directory (usually .md files with free-form
 
 ## Execution Steps
 
-**YOU execute all steps yourself. Only use codebase-searcher for research if needed.**
+**CRITICAL: Follow the delegation workflow to save tokens and extend session length.**
 
-1. **Read all files** from `.project-meta/tasks/init/`
-2. **Analyze content** — extract individual tasks from free-form descriptions
-3. **For each task determine:**
-    - Unique ID (sequential number)
-    - Short title
-    - Full context (everything needed to execute the task independently)
-    - Files that will be created/modified
-    - Dependencies on other tasks
-4. **Research codebase** (if needed) — use codebase-searcher agent to find:
-    - Existing patterns relevant to tasks
-    - Import paths used in project
-    - Code style conventions
-    - Include this context in each task's Context section
-5. **Create tasks.md yourself** — use Write tool to create the file in structured Markdown format
-6. **Create status.md yourself** — use Write tool to create file with initial statuses (all pending)
-7. **Show summary** to user
+### Step 1: Read Init Files (YOU do this)
+Read all files from `.project-meta/tasks/init/` yourself using Read tool.
 
-**IMPORTANT:** You create all files. codebase-searcher only helps with reading/searching existing code.
+### Step 2: Analyze Content (YOU do this)
+Extract individual tasks from free-form descriptions:
+- Unique ID (sequential number)
+- Short title
+- Files that will be created/modified
+- Dependencies on other tasks
+
+### Step 3: Research Codebase (DELEGATE to codebase-searcher)
+
+**Delegate research to `codebase-searcher` agent:**
+```
+Task tool:
+  subagent_type: "codebase-searcher"
+  prompt: |
+    ## PROJECT MEMORY (READ FIRST)
+    If exists: .project-meta/memory/ - read for project context.
+
+    ## RESEARCH TASK
+    Find patterns and code examples for these tasks:
+    [LIST TASKS HERE]
+
+    ## WHAT TO RETURN
+    1. FULL CODE of similar components (not summaries)
+    2. Exact import paths used in this project
+    3. Type/interface definitions
+    4. Code style patterns
+    5. Actual file paths
+```
+
+**Run multiple codebase-searcher agents in parallel** if researching different areas.
+
+### Step 4: Create Files (DELEGATE to frontend-worker)
+
+**Delegate file creation to `frontend-worker` agent:**
+```
+Task tool:
+  subagent_type: "frontend-worker"
+  prompt: |
+    ## PROJECT MEMORY (READ FIRST)
+    If exists: .project-meta/memory/ - read for project context.
+
+    ## TASK
+    Create task management files for this project.
+
+    ## FILES TO CREATE
+    1. .project-meta/tasks/tasks.md - task definitions
+    2. .project-meta/tasks/status.md - status tracking
+
+    ## TASKS DATA
+    [PASTE ANALYZED TASKS WITH RESEARCH CONTEXT]
+
+    ## FORMAT REQUIREMENTS
+    [PASTE FORMAT FROM THIS SKILL]
+
+    ## POST-TASK
+    Verify files were created correctly.
+```
+
+### Step 5: Verify (YOU do this - CRITICAL)
+
+**⚠️ You MUST read the created files! Don't assume agent did it right!**
+
+**After frontend-worker completes:**
+1. **READ tasks.md** using Read tool (don't skip!)
+   - Is the format correct? (headers, separators, metadata fields)
+   - Are ALL tasks from init files included?
+   - Does EACH task have full Context section?
+   - Do Context sections include actual code patterns from research?
+
+2. **READ status.md** using Read tool
+   - Are all tasks listed in the table?
+   - Are all statuses set to `pending`?
+   - Is the format correct?
+
+3. **If ANY issues found:**
+   - Document SPECIFICALLY what's wrong
+   - Re-delegate fix to frontend-worker with exact corrections
+   - Re-verify after fix
+
+**Don't proceed until YOU verified both files are correct!**
+
+### Step 6: Show Summary
+Report to user what was created.
 
 ## tasks.md Format
 
@@ -193,11 +261,14 @@ WHAT NOT TO DO:
 ## Important Rules
 
 1. **DO NOT delete files from init/** — user manages them manually
-2. **Include FULL context in Context section** — you won't see conversation history when executing
-3. **Research codebase patterns** — include actual code examples, not descriptions
-4. **Use exact file paths** — absolute or relative from project root
-5. **One task per logical unit** — don't combine unrelated changes
-6. **Order by dependencies** — tasks with no deps should come first
+2. **Include FULL context in Context section** — frontend-worker won't see conversation history
+3. **DELEGATE research to codebase-searcher** — include actual code examples, not descriptions
+4. **DELEGATE file creation to frontend-worker** — saves tokens
+5. **VERIFY created files yourself** — read and check format/content
+6. **Use exact file paths** — absolute or relative from project root
+7. **One task per logical unit** — don't combine unrelated changes
+8. **Order by dependencies** — tasks with no deps should come first
+9. **Run agents in parallel when possible** — research for different areas simultaneously
 
 ## Example Output Summary
 

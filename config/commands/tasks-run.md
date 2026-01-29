@@ -131,43 +131,43 @@ Task tool:
 
 **Update status.md BEFORE delegating:** Set status to `running`
 
-### 4. Verify Each Task (YOU do this - CRITICAL)
+### 4. Verify Each Task (DELEGATE to code-reviewer)
 
-**⚠️ VERIFICATION IS NOT JUST LINT CHECK! You MUST read the actual code!**
+**Delegate verification to code-reviewer agent. It reads tasks.md and verifies against requirements.**
 
-**After frontend-worker completes EACH task:**
+#### Step A: Delegate to code-reviewer
 
-#### A. READ THE CODE (mandatory!)
-1. Use Read tool to open EVERY file created/modified
-2. Actually read and understand what the agent wrote
-3. This is NOT optional - agents make mistakes!
+```
+Task tool:
+  subagent_type: "code-reviewer"
+  prompt: |
+    Verify Task [N]: [Title]
 
-#### B. COMPARE TO REQUIREMENTS
-1. Open the Context section from tasks.md for this task
-2. Go through EACH requirement listed there
-3. Check: Is this requirement implemented in the code?
-4. Check: Is it implemented CORRECTLY?
-5. Check: Did agent add anything NOT in requirements?
+    Files created/modified:
+    - [list files]
 
-#### C. VERIFY PATTERNS
-1. Does the code follow patterns specified in Context?
-2. Are imports correct (from right paths)?
-3. Are types/interfaces used correctly?
+    Read .project-meta/tasks/tasks.md to get full Context section for this task.
+    Verify all requirements from Context are implemented correctly.
+```
 
-#### D. DECISION
-- **If issues found:**
-  - Document SPECIFICALLY what's wrong
-  - Re-delegate to frontend-worker with exact fixes needed
-  - Do NOT mark as done until YOU verify the fix
-- **If ALL requirements met correctly:** Update status.md to `done`
+**Note:** code-reviewer works in isolated context. It reads tasks.md itself to get requirements.
+
+#### Step B: Review the Report
+
+Read code-reviewer's report:
+- **APPROVE** → Update status.md to `done`, proceed to next task
+- **NEEDS REVISION** → Delegate fixes to frontend-worker, then re-verify
+
+#### Step C: Decision
+
+- **If approved:** Update status.md to `done`
+- **If needs fixes:** Re-delegate to frontend-worker with specific issues from report
 - **If blocked:** Update status.md to `blocked` with reason
 
-**Common agent mistakes to watch for:**
-- Missing requirements (forgot to implement something)
-- Wrong imports (used different library/path)
-- Added extra features not requested
-- Wrong types or missing type safety
-- Didn't follow specified patterns
+**Why this approach:**
+- code-reviewer reads files in isolated context (saves main session tokens)
+- Detailed verification without bloating your context
+- User can do separate verification session if needed
 
 ### 5. Continue Until Done
 Repeat steps 2-4 until:
@@ -238,33 +238,24 @@ After completing:
 2. Fix any issues found
 ```
 
-### Verification Checklist (YOU do this after each task)
-
-**⚠️ THIS IS NOT JUST RUNNING LINT! You must READ and UNDERSTAND the code!**
+### Verification Checklist
 
 ```
-STEP 1: READ THE CODE (mandatory - don't skip!)
-- [ ] Used Read tool to open EVERY created/modified file
-- [ ] Actually read the code (not just checked if file exists)
+STEP 1: DELEGATE TO code-reviewer
+- [ ] Called code-reviewer with task ID and file list
+- [ ] Prompt includes: "Read .project-meta/tasks/tasks.md for requirements"
 
-STEP 2: COMPARE TO REQUIREMENTS (mandatory!)
-- [ ] Opened Context section for this task
-- [ ] Checked EACH requirement - is it implemented?
-- [ ] Checked EACH requirement - is it implemented CORRECTLY?
-- [ ] No extra features added that weren't requested
+STEP 2: READ THE REPORT
+- [ ] code-reviewer returned detailed report
+- [ ] Verdict: APPROVE or NEEDS REVISION
 
-STEP 3: VERIFY PATTERNS
-- [ ] Follows code patterns from Context
-- [ ] Uses correct imports (paths, libraries)
-- [ ] Types/interfaces are correct
-
-STEP 4: QUALITY (only after steps 1-3!)
-- [ ] No TypeScript errors
-- [ ] No lint warnings
+STEP 3: ACT ON VERDICT
+- [ ] If APPROVE → update status.md to done
+- [ ] If NEEDS REVISION → delegate fixes to frontend-worker → re-verify
 ```
 
-**If ANY step 1-3 fails:** Re-delegate to frontend-worker with SPECIFIC issues.
-**Only mark as done when YOU verified all requirements are correctly implemented.**
+**If code-reviewer finds issues:** Re-delegate to frontend-worker with specific fixes from report.
+**Mark as done when code-reviewer approves.**
 
 ## blocked-report.md Format
 
@@ -303,8 +294,8 @@ These tasks cannot proceed because they depend on blocked tasks:
 1. **NEVER modify tasks.md** — it's read-only after initialization
 2. **Update status.md after EVERY task** — not in batches
 3. **DELEGATE code writing to frontend-worker** — saves tokens, extends session
-4. **⚠️ VERIFY = READ CODE, NOT JUST LINT** — open files, read code, compare to requirements!
-5. **Agents make mistakes** — ALWAYS verify before marking done
+4. **DELEGATE verification to code-reviewer** — it reads tasks.md for requirements
+5. **code-reviewer works in isolated context** — tell it to read tasks.md itself
 6. **Run tasks in parallel when possible** — tasks with no deps on each other
 7. **Continue past blocked tasks** — don't stop, do what you can
 8. **Generate blocked-report.md ONLY at the end** — not during execution
@@ -331,19 +322,22 @@ Delegating to frontend-worker agents (in parallel):
 [Waiting for agents to complete...]
 
 Verifying Task 1: AuthContext
-├─ Reading src/contexts/auth-context.tsx
-├─ Checking: context provider exists ✓
-├─ Checking: useAuth hook exists ✓
-├─ Checking: types correct ✓
+├─ Delegating to code-reviewer...
+│   └─ "Verify Task 1, read tasks.md for requirements"
+│   └─ code-reviewer reads tasks.md, reads created files
+├─ Reading report...
+│   └─ Verdict: APPROVE ✅
+│   └─ All requirements from Context implemented correctly
 └─ Status: done ✓
 
 Verifying Task 4: API /auth/login
-├─ Reading src/app/api/auth/login/route.ts
-├─ Checking: POST handler exists ✓
-├─ Issue: Missing error handling for invalid credentials
-└─ Re-delegating fix to frontend-worker...
-
-[After fix verified]
+├─ Delegating to code-reviewer...
+├─ Reading report...
+│   └─ Verdict: NEEDS REVISION ⚠️
+│   └─ Issue: Missing error handling for invalid credentials
+├─ Delegating fix to frontend-worker...
+├─ Re-verifying with code-reviewer...
+│   └─ Verdict: APPROVE ✅
 └─ Status: done ✓
 
 [continues with remaining tasks...]

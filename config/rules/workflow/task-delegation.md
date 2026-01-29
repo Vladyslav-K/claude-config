@@ -9,6 +9,7 @@
 Instead of writing code directly, you delegate work to specialized agents:
 - `codebase-searcher` - for all research and file reading
 - `frontend-worker` - for all code writing
+- `code-reviewer` - for detailed code verification (has access to full conversation!)
 
 This saves tokens in your main session, allowing longer conversations.
 
@@ -31,6 +32,8 @@ Read these files FIRST to understand project context before proceeding.
 ```
 
 **Always include this section in prompts to codebase-searcher and frontend-worker.**
+
+**Note:** `code-reviewer` works in isolated context. Tell it to read `.project-meta/tasks/tasks.md` to get task requirements.
 
 ---
 
@@ -106,42 +109,53 @@ Fix any issues found.
 
 **Run multiple frontend-worker agents in parallel** if tasks don't conflict.
 
-### Step 3: Verification (YOU do this - CRITICAL)
+### Step 3: Verification (DELEGATE to code-reviewer)
 
-**This is NOT just running lint. You MUST verify the code matches requirements.**
+**Delegate verification to code-reviewer. It reads task definitions and verifies code.**
 
-#### Verification Process:
+#### A. Delegate to code-reviewer
 
-1. **Read the created/modified files yourself**
-   - Use Read tool to examine what agent produced
+```markdown
+Task tool:
+  subagent_type: "code-reviewer"
+  prompt: |
+    Verify the implementation of [task description].
 
-2. **Compare against requirements**
-   - Does the code match user's original request?
-   - Does it follow the patterns you specified?
-   - Are all features implemented correctly?
-   - Is anything missing or added that shouldn't be?
+    Files to review:
+    - [list of created/modified files]
 
-3. **Run quality checks**
-   - Execute `format-and-check` (or equivalent)
-   - Fix any lint/type errors
+    Read .project-meta/tasks/tasks.md to get full requirements.
+    Verify all requirements from Context section are implemented.
+```
 
-4. **Report issues or confirm success**
-   - If issues found → delegate fix to frontend-worker with SPECIFIC error details
-   - If correct → confirm to user
+**Important:** code-reviewer works in isolated context. It must read tasks.md itself to get requirements.
+
+#### B. Review the Report
+
+Read code-reviewer's report:
+- **APPROVE** → update status, proceed to next task
+- **NEEDS REVISION** → delegate fixes to frontend-worker, then re-verify
+
+#### C. Run Quality Checks
+
+- Execute `format-and-check` (or equivalent)
+- If issues found → delegate fixes to frontend-worker
+
+#### D. Confirm or Re-delegate
+
+- If all good → confirm to user
+- If issues → fix and re-verify
 
 #### Verification Checklist:
 ```
-- [ ] Read all files created/modified by agent
-- [ ] Code matches user's original request
-- [ ] All specified features are implemented
-- [ ] No extra features added that weren't requested
-- [ ] Follows patterns from codebase-searcher research
-- [ ] Code style matches project conventions
-- [ ] No TypeScript errors
-- [ ] No lint warnings
+- [ ] Delegated to code-reviewer with file list
+- [ ] Told code-reviewer to read tasks.md for requirements
+- [ ] Read verification report
+- [ ] Verdict: APPROVE → done, NEEDS REVISION → fix and re-verify
+- [ ] format-and-check passes
 ```
 
-**If agent produced wrong result, document what's wrong and re-delegate with corrections.**
+**Why this approach:** code-reviewer reads files in isolated context (saves main session tokens). User can do separate verification session if needed.
 
 ---
 
@@ -159,9 +173,11 @@ Fix any issues found.
 
 ### Verification Phase
 - ❌ Only running lint/typecheck
-- ✅ Reading code and comparing to requirements
-- ❌ Assuming agent did it right
-- ✅ Verifying every requirement is met
+- ✅ Using code-reviewer for detailed verification
+- ❌ Assuming frontend-worker did it right
+- ✅ code-reviewer reads tasks.md for requirements
+- ❌ Skipping verification entirely
+- ✅ Re-verify after fixes until APPROVE
 
 ---
 
@@ -214,9 +230,14 @@ User: "Add a new button component"
     TASK: User asked: 'Add a new button component'
     [Full structured prompt with patterns from research]"
 
-3. VERIFY (you):
-   - Read /src/components/ui/button.tsx
-   - Compare to requirements
-   - Run format-and-check
-   - Confirm or re-delegate fixes
+3. VERIFY (code-reviewer):
+   a. Delegate to code-reviewer:
+      "Verify /src/components/ui/button.tsx
+       Read .project-meta/tasks/tasks.md for requirements."
+      → code-reviewer reads tasks.md, reads created file, verifies
+   b. Read code-reviewer's report:
+      → APPROVE: done!
+      → NEEDS REVISION: delegate fix to frontend-worker, re-verify
+   c. Run format-and-check
+   d. Confirm to user
 ```

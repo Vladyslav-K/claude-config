@@ -1,0 +1,5 @@
+- Use **`i18next`** for translations.
+- Implement proper **locale detection**.
+- Use proper **number and date formatting**.
+- Implement proper **RTL support**.
+- Use proper **currency formatting**.

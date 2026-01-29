@@ -1,0 +1,13 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*~
+
+# Misc
+.idea
+
+# Don't commit credentials (just in case)
+.credentials.json

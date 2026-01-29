@@ -1,0 +1,9 @@
+# Force LF line endings for all text files (cross-platform consistency)
+* text=auto eol=lf
+
+# Shell scripts must have LF
+*.sh text eol=lf
+
+# Markdown and JSON
+*.md text eol=lf
+*.json text eol=lf

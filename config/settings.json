@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{CLAUDE_HOME}}/scripts/load-memory.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "128000",
+    "DISABLE_TELEMETRY": "1",
+    "MAX_THINKING_TOKENS": "30000"
+  },
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "mcp__Framelink_Figma_MCP__get_figma_data",
+      "mcp__Framelink_Figma_MCP__download_figma_images",
+      "mcp__context7__get-library-docs",
+      "mcp__context7__resolve-library-id",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(mv:*)",
+      "Bash(mkdir:*)",
+      "Bash(jq:*)",
+      "Bash(cat:*)",
+      "Read(//private/tmp/**)",
+      "Bash(echo:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run format:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm install:*)",
+      "Bash(npm remove:*)",
+      "Bash(npm run format-and-check:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm format:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm format-and-check:*)",
+      "Bash(pnpm run typecheck:*)",
+      "Bash(pnpm run format:*)",
+      "Bash(pnpm run lint:*)",
+      "Bash(pnpm run build:*)",
+      "Bash(pnpm run format-and-check:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm remove:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Bash(sudo:*)",
+      "Bash(git reset:*)",
+      "Bash(chmod 777:*)",
+      "Bash(npm publish:*)",
+      "Bash(docker run --privileged:*)",
+      "Bash(chmod -R:*)",
+      "Bash(curl | sh:*)",
+      "Bash(dd if=:*)",
+      "Bash(mkfs:*)",
+      "Bash(fdisk:*)",
+      "Bash(> /dev/sd*:*)",
+      "Bash(git push --force:*)",
+      "Bash(--dangerously-skip-permissions:*)",
+      "Bash(git clean -fd:*)",
+      "Bash(docker run -v /:/:*)",
+      "Bash(eval:*)",
+      "Bash(git push --force-with-lease:*)"
+    ],
+    "ask": [
+      "Bash(rm:*)"
+    ]
+  },
+  "enabledPlugins": {
+    "explanatory-output-style@claude-code-plugins": true
+  },
+  "outputStyle": "Explanatory",
+  "alwaysThinkingEnabled": true,
+  "includeCoAuthoredBy": false,
+  "feedbackSurveyState": {
+    "lastShownTime": 1754036467609
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "npx -y ccstatusline@latest",
+    "padding": 0
+  }
+}

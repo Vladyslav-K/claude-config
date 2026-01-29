@@ -1,0 +1,3 @@
+- Use **Zod** for schema validation.
+- Implement proper **error messages**.
+- Use proper form libraries (e.g., **React Hook Form**).

@@ -1,0 +1,14 @@
+- If project has his own rules, follow project rules.
+- Use **spaces** for indentation.
+- Use **semicolons** in end of code.
+- Use **single quotes** for strings (except to avoid escaping).
+- Eliminate **unused variables**.
+- Add **space after keywords**.
+- Add **space before function declaration parentheses**.
+- Always use **strict equality (`===`)** instead of loose equality (`==`).
+- **Space infix operators**.
+- Add **space after commas**.
+- Use **curly braces for multi-line `if` statements**.
+- Always handle **error parameters in callbacks**.
+- Limit line length to **80 characters**.
+- Use **trailing commas** in multiline object/array literals.

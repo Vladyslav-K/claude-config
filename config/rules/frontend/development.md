@@ -1,0 +1,7 @@
+- Write **clean, maintainable, and scalable code**.
+- Follow **SOLID principles**.
+- Follow **DRY (Don't Repeat Yourself) principles**.
+- Follow **KISS (Keep It Simple, Stupid) principles**.
+- Emphasize **type safety and static analysis**.
+- Practice **component-driven development**.
+- Follow **instructions about libraries only if project doesn't have any**, in another case **use the same libraries and code style like in project**.

@@ -1,0 +1,11 @@
+{
+  "name": "claude-config",
+  "version": "1.0.0",
+  "description": "Claude Code configuration sync",
+  "private": true,
+  "scripts": {
+    "pull": "./sync.sh pull",
+    "push": "./sync.sh push",
+    "status": "./sync.sh status"
+  }
+}

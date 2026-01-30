@@ -1,4 +1,4 @@
-**MEMORY SYSTEM ACTIVE:** Read `.claude/rules/memory-system.md` for project memory management. At session start, check if `.claude/memory/` exists and read its contents.
+**MEMORY SYSTEM ACTIVE:** Read `.claude/rules/workflow/memory-system.md` for project memory management. At session start, check if `.project-meta/memory/` exists and read its contents.
 
 ---
 

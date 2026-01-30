@@ -70,11 +70,13 @@ fi
 LINE2="${MAGENTA}${MODEL} | v${VERSION} | Tokens: ${FORMATTED_TOKENS}${RESET}"
 
 # ============================================
-# LINE 3: Context
+# LINE 3: Context | Cost
 # ============================================
 
 CONTEXT_CACHE_FILE="$CLAUDE_DIR/.context-cache"
+COST_CACHE_FILE="$CLAUDE_DIR/.cost-cache"
 
+# Context
 REMAINING_PCT=$(echo "$INPUT" | jq -r '.context_window.remaining_percentage // ""')
 
 if [[ -z "$REMAINING_PCT" ]] || [[ "$REMAINING_PCT" == "null" ]] || [[ "$REMAINING_PCT" == "0" ]]; then
@@ -92,7 +94,25 @@ else
     echo "$CONTEXT_PCT" > "$CONTEXT_CACHE_FILE"
 fi
 
-LINE3="${YELLOW}Context: ${CONTEXT_PCT}%${RESET}"
+# Cost
+COST_RAW=$(echo "$INPUT" | jq -r '.cost.total_cost_usd // ""')
+
+if [[ -z "$COST_RAW" ]] || [[ "$COST_RAW" == "null" ]]; then
+    if [[ -f "$COST_CACHE_FILE" ]]; then
+        COST=$(cat "$COST_CACHE_FILE")
+    else
+        COST="?"
+    fi
+else
+    COST=$(printf "%.2f" "$COST_RAW")
+    echo "$COST" > "$COST_CACHE_FILE"
+fi
+
+# Lines changed
+LINES_ADDED=$(echo "$INPUT" | jq -r '.cost.total_lines_added // 0')
+LINES_REMOVED=$(echo "$INPUT" | jq -r '.cost.total_lines_removed // 0')
+
+LINE3="${YELLOW}Context: ${CONTEXT_PCT}% | +${LINES_ADDED} -${LINES_REMOVED} | \$${COST}${RESET}"
 
 # ============================================
 # OUTPUT

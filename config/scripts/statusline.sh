@@ -28,7 +28,6 @@ CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 # ============================================
 TRANSCRIPT_CACHE_FILE="$CLAUDE_DIR/.transcript-cache"
 CONTEXT_CACHE_FILE="$CLAUDE_DIR/.context-cache"
-COST_CACHE_FILE="$CLAUDE_DIR/.cost-cache"
 
 # Check if this is a new chat (transcript changed or empty)
 CACHED_TRANSCRIPT=""
@@ -38,7 +37,7 @@ fi
 
 # If transcript is empty or different from cached - reset cache
 if [[ -z "$TRANSCRIPT" ]] || [[ "$TRANSCRIPT" != "$CACHED_TRANSCRIPT" ]]; then
-    rm -f "$CONTEXT_CACHE_FILE" "$COST_CACHE_FILE" 2>/dev/null
+    rm -f "$CONTEXT_CACHE_FILE" 2>/dev/null
     if [[ -n "$TRANSCRIPT" ]]; then
         echo "$TRANSCRIPT" > "$TRANSCRIPT_CACHE_FILE"
     else
@@ -114,19 +113,9 @@ else
     echo "$CONTEXT_PCT" > "$CONTEXT_CACHE_FILE"
 fi
 
-# Cost
-COST_RAW=$(echo "$INPUT" | jq -r '.cost.total_cost_usd // ""')
-
-if [[ -z "$COST_RAW" ]] || [[ "$COST_RAW" == "null" ]]; then
-    if [[ -f "$COST_CACHE_FILE" ]]; then
-        COST=$(cat "$COST_CACHE_FILE")
-    else
-        COST="?"
-    fi
-else
-    COST=$(printf "%.2f" "$COST_RAW")
-    echo "$COST" > "$COST_CACHE_FILE"
-fi
+# Cost (direct from API)
+COST_RAW=$(echo "$INPUT" | jq -r '.cost.total_cost_usd // 0')
+COST=$(printf "%.2f" "$COST_RAW")
 
 # Lines changed
 LINES_ADDED=$(echo "$INPUT" | jq -r '.cost.total_lines_added // 0')

@@ -49,7 +49,6 @@ SYNC_ITEMS=(
     "agents"
     "commands"
     "scripts"
-    "statusline-custom"
 )
 
 # Files to exclude from sync

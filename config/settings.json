@@ -112,7 +112,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "npx -y ccstatusline@latest",
+    "command": "{{CLAUDE_HOME}}/scripts/statusline.sh",
     "padding": 0
   }
 }

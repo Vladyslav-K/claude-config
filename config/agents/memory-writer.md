@@ -1,7 +1,7 @@
 ---
 name: memory-writer
 description: "Use this agent to update project memory files after completing tasks or when user requests memory save. This agent specializes in writing clear, comprehensive session context that enables seamless continuation in future sessions.\\n\\nExamples:\\n\\n<example>\\nContext: User completed a feature and wants to save context.\\nuser: \"збережи пам'ять\"\\nassistant: \"Let me save the session context using the memory-writer agent.\"\\n<Task tool call with subagent_type: \"memory-writer\" with full context of what was done>\\n</example>\\n\\n<example>\\nContext: Session ending after implementing multiple changes.\\nuser: \"update memory\"\\nassistant: \"I'll update the memory files with all the work we did.\"\\n<Task tool call with subagent_type: \"memory-writer\" with detailed summary of all changes>\\n</example>"
-tools: Read, Write, Edit, Glob
+tools: Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
 model: sonnet
 color: green
 ---

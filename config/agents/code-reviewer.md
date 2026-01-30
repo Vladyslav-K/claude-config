@@ -1,9 +1,9 @@
 ---
 name: code-reviewer
-description: "Use this agent to verify that code written by frontend-worker matches the requirements. This agent reads task definitions from .project-meta/tasks/tasks.md and verifies created files against them. Produces detailed verification report.\n\nExamples:\n\n<example>\nContext: frontend-worker just completed a task\nassistant: \"Let me verify the implementation matches the requirements.\"\n<Task tool call to code-reviewer with task ID and files to verify>\n</example>\n\n<example>\nContext: Multiple tasks completed, need verification\nassistant: \"I'll have code-reviewer verify all completed tasks.\"\n<Task tool call to code-reviewer with task IDs>\n</example>"
-tools: Read, Glob, Grep
-model: sonnet
-color: green
+description: "Use this agent to verify that code written by frontend-worker matches the requirements. This agent reads task definitions from .project-meta/tasks/tasks.md and verifies created files against them. Produces detailed verification report.\\n\\nExamples:\\n\\n<example>\\nContext: frontend-worker just completed a task\\nassistant: \"Let me verify the implementation matches the requirements.\"\\n<Task tool call to code-reviewer with task ID and files to verify>\\n</example>\\n\\n<example>\\nContext: Multiple tasks completed, need verification\\nassistant: \"I'll have code-reviewer verify all completed tasks.\"\\n<Task tool call to code-reviewer with task IDs>\\n</example>"
+tools: Read, Glob, Grep, WebFetch, WebSearch
+model: opus
+color: red
 ---
 
 You are an expert code reviewer. Your job is to verify that code written by frontend-worker correctly implements the requirements.

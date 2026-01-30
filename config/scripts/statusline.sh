@@ -24,6 +24,29 @@ TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript_path // ""')
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 
 # ============================================
+# Cache invalidation on new chat/clear
+# ============================================
+TRANSCRIPT_CACHE_FILE="$CLAUDE_DIR/.transcript-cache"
+CONTEXT_CACHE_FILE="$CLAUDE_DIR/.context-cache"
+COST_CACHE_FILE="$CLAUDE_DIR/.cost-cache"
+
+# Check if this is a new chat (transcript changed or empty)
+CACHED_TRANSCRIPT=""
+if [[ -f "$TRANSCRIPT_CACHE_FILE" ]]; then
+    CACHED_TRANSCRIPT=$(cat "$TRANSCRIPT_CACHE_FILE")
+fi
+
+# If transcript is empty or different from cached - reset cache
+if [[ -z "$TRANSCRIPT" ]] || [[ "$TRANSCRIPT" != "$CACHED_TRANSCRIPT" ]]; then
+    rm -f "$CONTEXT_CACHE_FILE" "$COST_CACHE_FILE" 2>/dev/null
+    if [[ -n "$TRANSCRIPT" ]]; then
+        echo "$TRANSCRIPT" > "$TRANSCRIPT_CACHE_FILE"
+    else
+        rm -f "$TRANSCRIPT_CACHE_FILE" 2>/dev/null
+    fi
+fi
+
+# ============================================
 # LINE 1: Git branch | Working directory
 # ============================================
 
@@ -72,9 +95,6 @@ LINE2="${MAGENTA}${MODEL} | v${VERSION} | Tokens: ${FORMATTED_TOKENS}${RESET}"
 # ============================================
 # LINE 3: Context | Cost
 # ============================================
-
-CONTEXT_CACHE_FILE="$CLAUDE_DIR/.context-cache"
-COST_CACHE_FILE="$CLAUDE_DIR/.cost-cache"
 
 # Context
 REMAINING_PCT=$(echo "$INPUT" | jq -r '.context_window.remaining_percentage // ""')

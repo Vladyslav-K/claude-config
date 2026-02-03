@@ -5,9 +5,6 @@
 # Read JSON from stdin into variable
 INPUT=$(cat)
 
-# Debug: log raw input to file (remove after debugging)
-echo "$INPUT" > /tmp/statusline-debug.json
-
 # Colors (ANSI)
 BLUE='\033[94m'
 MAGENTA='\033[95m'
@@ -114,8 +111,8 @@ else
 fi
 
 # Cost (direct from API)
-COST_RAW=$(echo "$INPUT" | jq -r '.cost.total_cost_usd // 0')
-COST=$(printf "%.2f" "$COST_RAW")
+# LC_ALL=C forces C locale for awk to use period as decimal separator
+COST=$(echo "$INPUT" | jq -r '.cost.total_cost_usd // 0' | LC_ALL=C awk '{printf "%.2f", $1}')
 
 # Lines changed
 LINES_ADDED=$(echo "$INPUT" | jq -r '.cost.total_lines_added // 0')

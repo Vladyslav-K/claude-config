@@ -42,6 +42,7 @@
       "mcp__Framelink_Figma_MCP__get_figma_data",
       "mcp__Framelink_Figma_MCP__download_figma_images",
       "mcp__context7__get-library-docs",
+      "mcp__context7__query-docs",
       "mcp__context7__resolve-library-id",
       "Bash(find:*)",
       "Bash(ls:*)",

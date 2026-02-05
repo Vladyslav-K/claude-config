@@ -13,8 +13,9 @@ RESET='\033[0m'
 BOLD='\033[1m'
 
 # Parse JSON fields once
-CWD=$(echo "$INPUT" | jq -r '.cwd // ""')
-# Shorten home directory prefix to ~
+CWD_FULL=$(echo "$INPUT" | jq -r '.cwd // ""')
+# Shorten home directory prefix to ~ for display only
+CWD="$CWD_FULL"
 if [[ -n "$HOME" ]] && [[ "$CWD" == "$HOME"* ]]; then
     CWD="~${CWD#$HOME}"
 fi
@@ -51,8 +52,8 @@ fi
 # ============================================
 
 GIT_BRANCH=""
-if [[ -n "$CWD" ]] && [[ -d "$CWD" ]]; then
-    GIT_BRANCH=$(git -C "$CWD" branch --show-current 2>/dev/null || echo "")
+if [[ -n "$CWD_FULL" ]] && [[ -d "$CWD_FULL" ]]; then
+    GIT_BRANCH=$(git -C "$CWD_FULL" branch --show-current 2>/dev/null || echo "")
 fi
 
 if [[ -n "$GIT_BRANCH" ]]; then

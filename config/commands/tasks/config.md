@@ -14,6 +14,7 @@ Create the required folder structure for the task management system used by othe
 .project-meta/
 └── tasks/
     ├── init/                    # For /tasks-init: place task description files here
+    │   └── screenshots/         # Screenshots, designs, and Figma JSON for task reference
     ├── estimation/              # For /tasks-estimate: place xlsx/md task files here
     │   └── screenshots/         # Screenshots/designs for estimation reference
     └── estimation-small/        # For /tasks-estimate-small: place md task files here
@@ -26,7 +27,7 @@ Create the required folder structure for the task management system used by othe
 Create all required folders:
 
 ```bash
-mkdir -p .project-meta/tasks/init
+mkdir -p .project-meta/tasks/init/screenshots
 mkdir -p .project-meta/tasks/estimation/screenshots
 mkdir -p .project-meta/tasks/estimation-small
 ```
@@ -48,6 +49,7 @@ Report what was created with usage instructions:
 
 Created folders:
 - .project-meta/tasks/init/
+- .project-meta/tasks/init/screenshots/
 - .project-meta/tasks/estimation/
 - .project-meta/tasks/estimation/screenshots/
 - .project-meta/tasks/estimation-small/
@@ -56,7 +58,10 @@ Created folders:
 
 ### /tasks-init
 1. Add task description files (.md) to `.project-meta/tasks/init/`
-2. Run `/tasks-init` to create tasks.md and status.md
+2. (Optional) Add screenshots (.png, .jpg) to `.project-meta/tasks/init/screenshots/`
+3. (Optional) Add Figma JSON exports (.json) to `.project-meta/tasks/init/screenshots/`
+4. Run `/tasks-init` to create tasks.md and status.md
+5. Pass extra context: `/tasks-init focus on mobile first`
 
 ### /tasks-run
 1. First run `/tasks-init` to create task files

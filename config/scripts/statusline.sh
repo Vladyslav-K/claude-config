@@ -14,6 +14,10 @@ BOLD='\033[1m'
 
 # Parse JSON fields once
 CWD=$(echo "$INPUT" | jq -r '.cwd // ""')
+# Shorten home directory prefix to ~
+if [[ -n "$HOME" ]] && [[ "$CWD" == "$HOME"* ]]; then
+    CWD="~${CWD#$HOME}"
+fi
 MODEL_NAME=$(echo "$INPUT" | jq -r '.model.display_name // ""')
 VERSION=$(echo "$INPUT" | jq -r '.version // ""')
 TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript_path // ""')

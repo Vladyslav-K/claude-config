@@ -65,13 +65,14 @@ If a task has both frontend and backend parts, estimate ONLY the frontend portio
   - `screenshots/user-profile-*.png` files
 - Folder contents override file name matching
 
-### Step 3: Research Codebase (DELEGATE to codebase-searcher)
+### Step 3: Research Codebase (DELEGATE to Explore agent)
 
 **If you are in a project directory, delegate research:**
 
 ```
 Task tool:
-  subagent_type: "codebase-searcher"
+  subagent_type: "Explore"
+  description: "Research codebase for estimation"
   prompt: |
     ## PROJECT MEMORY (READ FIRST)
     If exists: .project-meta/memory/ - read for project context.
@@ -79,6 +80,11 @@ Task tool:
     ## RESEARCH FOR ESTIMATION
     I need to estimate these frontend tasks:
     [LIST FRONTEND TASKS HERE]
+
+    ## THINK DEEPLY ABOUT:
+    - What exact files and patterns are relevant to each task?
+    - What is the real complexity based on existing codebase?
+    - Are there reusable components that reduce effort?
 
     ## FIND FOR EACH TASK
     1. Does similar component/feature already exist?
@@ -95,7 +101,7 @@ Task tool:
     - Technical considerations: [any complexity factors]
 ```
 
-**Run codebase-searcher sequentially.** If tasks cover different areas, include all areas in a single research prompt.
+**Use `"very thorough"` thoroughness.** If tasks cover different areas, include all areas in a single research prompt.
 
 ### Step 4: Estimate Each Task (YOU do this)
 
@@ -198,7 +204,7 @@ Example:
 1. **ONLY estimate frontend tasks** — skip backend, devops, mobile native
 2. **Read task files yourself** — don't delegate task reading
 3. **Read screenshots yourself** — visual context is critical for UI estimates
-4. **Use codebase-searcher for research** — to understand what exists
+4. **Use Explore agent for research** — to understand what exists
 5. **For .xlsx use openpyxl** — as specified in global rules
 6. **Round estimates** — to reasonable numbers (0.5h, 1h, 2h, 4h, 8h, etc.)
 7. **Document assumptions** — especially for high estimates

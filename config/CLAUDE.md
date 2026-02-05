@@ -28,11 +28,11 @@
 **READ: `.claude/rules/workflow/task-delegation.md` for full workflow.**
 
 **Summary:**
-1. **Research** → Delegate to `codebase-searcher` when needed (include memory paths!)
+1. **Research** → Delegate to built-in `Explore` agent when needed (include memory paths!)
 2. **Implement** → YOU write and edit code directly
 3. **Verify** → Run format-and-check, fix any issues
 
-**Available agents:** Only `codebase-searcher` (research).
+**Available agents:** Only `Explore` (built-in, research only).
 All code writing, editing, review, and memory updates — YOU do directly.
 
 ---

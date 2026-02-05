@@ -1,6 +1,6 @@
 ---
 name: tasks-run
-description: Execute tasks from .project-meta/tasks/tasks.md, update status.md after each task. Executes tasks sequentially. Creates blocked-report.md at the end if any tasks are blocked. Use when user says /tasks-run or wants to execute initialized tasks.
+description: Execute tasks from .project-meta/tasks/tasks.md, update status.md after each task. Parallelizes independent tasks (no shared files, no deps between them) for speed, runs dependent tasks sequentially. Creates blocked-report.md at the end if any tasks are blocked. Use when user says /tasks-run or wants to execute initialized tasks.
 ---
 
 # Task Execution
@@ -85,36 +85,71 @@ Extract:
 
 ## Execution Steps
 
-**CRITICAL: Execute tasks SEQUENTIALLY. One task at a time.**
-
 ### 1. Read Current State (YOU do this)
 ```
-1. Read tasks.md — parse all tasks with their contexts
-2. Read status.md — get current statuses from table
-3. Merge: create list of tasks with contexts and statuses
+1. Read tasks.md and status.md IN PARALLEL (two Read calls in one message)
+2. Parse all tasks with their contexts
+3. Get current statuses from table
+4. Merge: create list of tasks with contexts and statuses
 ```
 
-### 2. Find Next Task to Execute (YOU do this)
+### 2. Find Available Tasks (YOU do this)
 ```
 1. Find all tasks with status "pending"
 2. Filter out tasks with unmet dependencies (deps not "done")
-3. Pick the FIRST available task (lowest ID)
+3. From available tasks, identify PARALLEL GROUPS (see below)
 ```
 
-### 3. Execute Task (YOU do this)
+### CRITICAL: Parallel Task Execution
 
-**For each task, implement it directly:**
+**Check if multiple available tasks can run in parallel:**
 
-1. Update status.md: Set task status to `running`
+```
+Available tasks: [Task 3, Task 4, Task 5]
+
+Can they run in parallel?
+├─ Check 1: Do any share FILES? (compare Files: lists)
+│   ├─ Task 3: src/components/btn.tsx
+│   ├─ Task 4: src/components/input.tsx
+│   └─ Task 5: src/components/btn.tsx  ← CONFLICTS with Task 3!
+│
+├─ Check 2: Do any depend on each other?
+│   ├─ Task 3: Deps: 1 (done ✓)
+│   ├─ Task 4: Deps: 2 (done ✓)
+│   └─ Task 5: Deps: 1 (done ✓)
+│
+└─ Result:
+   ├─ Group 1 (parallel): Task 3 + Task 4 (no shared files, no shared deps)
+   └─ Group 2 (after Group 1): Task 5 (shares files with Task 3)
+```
+
+**Parallel safety rules:**
+
+| Check | Parallel OK? |
+|-------|-------------|
+| Tasks share NO files AND have no dependency between them | ✅ Run in parallel |
+| Tasks share ANY file | ❌ Run sequentially |
+| Task B depends on Task A | ❌ Run sequentially |
+| Tasks modify different files but import from same module | ✅ Usually safe |
+
+**When in doubt → run sequentially.** Better slow than broken.
+
+### 3. Execute Task(s) (YOU do this)
+
+**For a single task or each task in a parallel group:**
+
+1. Update status.md: Set task status(es) to `running`
 2. Read the task's Context section carefully
 3. If Context references screenshots or Figma JSON, read those files
 4. Implement the task using Write/Edit tools following the Context instructions
 5. Follow code patterns specified in Context
 6. Follow CODE STYLE rules from Context
 
-### 4. Verify Task (YOU do this)
+**For parallel tasks:** Use multiple Write/Edit tool calls in a single message when creating/editing DIFFERENT files. Read multiple Context sections and screenshots in parallel too.
 
-After implementing each task:
+### 4. Verify Task(s) (YOU do this)
+
+After implementing each task (or parallel group):
 
 1. **Run format-and-check** (or format, lint, typecheck)
 2. **Fix any issues** found
@@ -123,14 +158,14 @@ After implementing each task:
 
 ### 5. Update Status
 
-After task passes verification:
-- Update status.md: Set task status to `done`
+After task(s) pass verification:
+- Update status.md: Set task status(es) to `done`
 - Update progress percentage
 - Update timestamp
 
 If task is blocked:
 - Update status.md: Set status to `blocked` with reason in Blocker column
-- Move to next available task
+- Move to next available task(s)
 
 ### 6. Continue Until Done
 Repeat steps 2-5 until:
@@ -208,49 +243,60 @@ These tasks cannot proceed because they depend on blocked tasks:
 ## Important Rules
 
 1. **NEVER modify tasks.md** — it's read-only after initialization
-2. **Update status.md after EVERY task** — not in batches
-3. **Execute tasks SEQUENTIALLY** — one at a time, in order
-4. **Implement code YOURSELF** — use Write/Edit tools directly
-5. **Verify YOURSELF** — run format-and-check, read files, check requirements
-6. **Continue past blocked tasks** — don't stop, do what you can
-7. **Generate blocked-report.md ONLY at the end** — not during execution
-8. **Run format-and-check after all tasks** — for final lint/format cleanup
+2. **Update status.md after EVERY task or parallel group** — not in large batches
+3. **Parallelize independent tasks** — when tasks share NO files and have NO dependency between them, execute in parallel for speed
+4. **When in doubt → sequential** — better slow than broken
+5. **Implement code YOURSELF** — use Write/Edit tools directly
+6. **Verify YOURSELF** — run format-and-check, read files, check requirements
+7. **Continue past blocked tasks** — don't stop, do what you can
+8. **Generate blocked-report.md ONLY at the end** — not during execution
+9. **Run format-and-check after all tasks** — for final lint/format cleanup
 
 ## Example Execution Flow
 
 ```
-Reading task state...
+Reading task state... (read tasks.md + status.md in parallel)
 Parsing tasks.md...
 Found 8 tasks: 0 done, 0 running, 8 pending
 
-Finding next available task...
-Task #1: AuthContext (no deps) → available
+Finding available tasks...
+Task #1: AuthContext (no deps, files: src/contexts/auth.tsx) → available
+Task #4: API types (no deps, files: src/types/api.ts) → available
+Task #5: Utils (no deps, files: src/lib/utils.ts) → available
 
-Updating status.md: #1 → running
+Parallel check:
+├─ #1, #4, #5 share NO files ✓
+├─ #1, #4, #5 have NO deps between them ✓
+└─ → Run #1 + #4 + #5 in PARALLEL
 
-Implementing Task 1: AuthContext
-├─ Reading Context section...
-├─ Creating src/contexts/auth-context.tsx...
+Updating status.md: #1, #4, #5 → running
+
+Implementing Tasks 1, 4, 5 in parallel:
+├─ Reading 3 Context sections in parallel...
+├─ Writing 3 files in parallel (different files)...
 ├─ Running format-and-check...
 ├─ All checks pass ✓
-└─ Updating status.md: #1 → done
+└─ Updating status.md: #1, #4, #5 → done
 
-Finding next available task...
-Task #2: LoginForm (deps: 1 ✓) → available
+Finding available tasks...
+Task #2: LoginForm (deps: 1 ✓, files: src/components/login-form.tsx)
+Task #3: RegisterForm (deps: 1 ✓, files: src/components/register-form.tsx)
 
-Updating status.md: #2 → running
+Parallel check:
+├─ #2, #3 share NO files ✓
+├─ #2, #3 have NO deps between them ✓
+└─ → Run #2 + #3 in PARALLEL
 
-Implementing Task 2: LoginForm
-├─ Reading Context section...
-├─ Reading screenshot: screenshots/login-form.png
-├─ Creating src/components/login-form.tsx...
+Implementing Tasks 2, 3 in parallel:
+├─ Reading Context sections + screenshots in parallel...
+├─ Writing different component files in parallel...
 ├─ Running format-and-check...
-├─ Found 1 lint error → fixing...
+├─ Found 1 lint error in #2 → fixing...
 ├─ Re-running format-and-check...
 ├─ All checks pass ✓
-└─ Updating status.md: #2 → done
+└─ Updating status.md: #2, #3 → done
 
-[continues sequentially with remaining tasks...]
+[continues with remaining tasks...]
 
 All tasks complete!
 
@@ -261,6 +307,7 @@ Final verification:
 Summary:
 - Completed: 8/8
 - Blocked: 0/8
+- Parallel groups used: 3 (saved ~40% time)
 ```
 
 ## Quick Reference: Task Metadata

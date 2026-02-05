@@ -36,7 +36,7 @@ This system maintains project context between sessions using files in `.project-
 ### project-structure.md
 - **Purpose:** Quick reference for file locations and their purposes
 - **Contains:** Full directory tree with one-line descriptions for each file/folder
-- **Update:** When files/folders are added, removed, or significantly restructured
+- **Update:** **MANDATORY** when ANY files/folders are created, deleted, or moved during a session. This file becomes stale fast — treat it as a living document that must reflect the actual project state.
 - **Limit:** NO LIMIT (scales with project size)
 - **Format:**
 ```markdown
@@ -136,19 +136,35 @@ Before writing, mentally gather:
 - Next steps in priority order
 - User preferences noted during session
 
-### Step 2: Update Memory Files Directly
+### Step 2: Check File Changes
+
+**Before writing memory, build a list of ALL files created/deleted/moved during this session.**
+
+Ask yourself:
+- Did I create any NEW files? → List them
+- Did I delete any files? → List them
+- Did I move/rename any files? → List them
+
+**If the answer to ANY of the above is YES → `project-structure.md` MUST be updated.**
+
+### Step 3: Update Memory Files Directly
 
 Write/edit memory files at `{CWD}/.project-meta/memory/` using Write or Edit tools:
 
 1. **recent-session.md** (ALWAYS update) — full rewrite with current session context
-2. **changelog.md** (if meaningful changes were made) — append new dated entry
-3. **project-structure.md** (if files/folders added or restructured) — update tree
+2. **project-structure.md** (ALWAYS update if files were created/deleted/moved) — add new files to tree, remove deleted ones. **This is NOT optional** — stale structure kills navigation in future sessions.
+3. **changelog.md** (if meaningful changes were made) — append new dated entry
 4. **project-overview.md** (only on major architectural changes) — update relevant sections
 
-### Step 3: Confirm to User
+**⚡ PARALLEL WRITES:** All memory files are independent. Write/Edit them in parallel (multiple tool calls in one message) to save time. For example, write `recent-session.md`, `project-structure.md`, and `changelog.md` simultaneously — they never conflict.
+
+**⚠️ SELF-CHECK:** Before confirming to user, verify: "Did I create/delete files this session? If yes, did I update project-structure.md?" If you missed it — go back and update.
+
+### Step 4: Confirm to User
 
 After writing files:
 - Tell user: "Пам'ять оновлено ✓"
+- If project-structure.md was updated, mention: "Структуру оновлено"
 
 ### Template for recent-session.md
 

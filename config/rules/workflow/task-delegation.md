@@ -7,7 +7,7 @@
 ## Overview
 
 You handle all code writing and editing directly. The only agent you delegate to:
-- `codebase-searcher` - for research and file reading (read-only)
+- Built-in `Explore` agent — for deep codebase research (read-only)
 
 All implementation, bug fixes, refactoring, verification, and memory updates — you do yourself.
 
@@ -15,9 +15,9 @@ All implementation, bug fixes, refactoring, verification, and memory updates —
 
 ## Research Criteria
 
-### When to DELEGATE research to codebase-searcher
+### When to DELEGATE research to Explore agent
 
-Delegate to `codebase-searcher` when:
+Delegate to `Explore` agent when:
 - **Unknown patterns:** Need to find how project does something
 - **Large codebase:** Need to search across many files
 - **Multiple examples:** Need 2-3 similar implementations for reference
@@ -35,26 +35,55 @@ Handle directly when:
 ```
 Is task clear without research?
 ├─ NO → Need to search many files?
-│        ├─ YES → codebase-searcher
+│        ├─ YES → Explore agent (choose thoroughness)
 │        └─ NO → Search yourself (Glob/Grep/Read)
 └─ YES → Implement directly
 ```
 
+### Thoroughness Guide
+
+Choose the right level based on task scope:
+
+| Level | When to use | Example |
+|-------|------------|---------|
+| `"quick"` | Find one specific file/pattern | "Find Button component" |
+| `"medium"` | Understand a feature area, find 2-3 patterns | "How are forms built in this project?" |
+| `"very thorough"` | Deep analysis across multiple areas, architecture understanding | "Full auth system analysis with all related components, hooks, types" |
+
+**Default to `"very thorough"` for implementation research** — it's better to gather more context than to miss critical patterns.
+
 ---
 
-## Sequential Execution
+## Execution Order
 
-**All tasks execute sequentially.** Do NOT run multiple agents or tasks in parallel.
+**Default: sequential.** Finish research → implement → verify.
 
-**Order of operations:**
-1. Finish research before starting implementation
-2. Finish one task before starting the next
-3. Run format-and-check after implementation
+**But: parallelize independent operations when safe.**
 
-**Why sequential:**
-- Prevents file conflicts
-- Ensures each step has full context from previous steps
-- Simpler debugging when issues arise
+### What CAN run in parallel
+
+| Operation | Condition |
+|-----------|-----------|
+| Multiple Read/Glob/Grep calls | Always safe |
+| Multiple Write/Edit to DIFFERENT files | Always safe |
+| Multiple memory file writes | Always safe (different files) |
+| Multiple independent tasks (tasks:run) | Only if NO shared files AND NO dependency between them |
+
+### What MUST stay sequential
+
+| Operation | Why |
+|-----------|-----|
+| Research → Implementation | Need research results to write code |
+| Implementation → format-and-check | Need files written before checking |
+| Tasks with shared files | File conflict risk |
+| Tasks with dependency chain | Later task needs earlier task's output |
+
+### Rule of thumb
+
+**Before parallelizing, check:**
+1. Do these operations touch the SAME files? → Sequential
+2. Does one operation NEED the result of another? → Sequential
+3. Neither? → **Run in parallel for speed**
 
 ---
 
@@ -75,9 +104,9 @@ Is task clear without research?
 
 ## CRITICAL: Memory System Integration
 
-**codebase-searcher MUST receive memory context if it exists.**
+**Explore agent MUST receive memory context if it exists.**
 
-Before delegating to codebase-searcher, check if memory exists and include in prompt:
+Before delegating to Explore, check if memory exists and include in prompt:
 
 ```markdown
 ## PROJECT MEMORY (READ FIRST)
@@ -93,30 +122,41 @@ Read these files FIRST to understand project context before proceeding.
 
 ## Workflow Steps
 
-### Step 1: Research Phase (codebase-searcher)
+### Step 1: Research Phase (Explore agent)
 
 1. Read and understand user's task
 2. Check if memory exists: `.project-meta/memory/`
-3. Delegate research to `codebase-searcher` with memory paths
+3. Delegate research to `Explore` agent with memory paths
 
-**codebase-searcher prompt template:**
-```markdown
-## PROJECT MEMORY (READ FIRST)
-Memory files exist at: {CWD}/.project-meta/memory/
-Read these files FIRST to understand project context.
-
-## RESEARCH TASK
-[What you need to find]
-
-## WHAT TO RETURN
-1. FULL CODE of similar components (not summaries - actual code)
-2. Exact import paths used in this project
-3. Type/interface definitions that will be needed
-4. Actual file paths (absolute paths)
-5. Code style patterns observed
-
-Return actual code snippets I can use as reference.
+**Explore agent invocation:**
 ```
+Task tool:
+  subagent_type: "Explore"
+  description: "Research [what you're looking for]"
+  prompt: |
+    ## PROJECT MEMORY (READ FIRST)
+    Memory files exist at: {CWD}/.project-meta/memory/
+    Read these files FIRST to understand project context.
+
+    ## RESEARCH TASK
+    [What you need to find — be specific about what information you need]
+
+    ## THINK DEEPLY ABOUT:
+    - What exact files and patterns are relevant to this task?
+    - What is the minimum set of information needed to implement correctly?
+    - Are there edge cases or non-obvious dependencies?
+
+    ## WHAT TO RETURN
+    1. FULL CODE of similar components (not summaries - actual code)
+    2. Exact import paths used in this project
+    3. Type/interface definitions that will be needed
+    4. Actual file paths (absolute paths)
+    5. Code style patterns observed
+
+    Return actual code snippets I can use as reference.
+```
+
+**Thoroughness:** Use `"very thorough"` for implementation research, `"medium"` for quick lookups.
 
 ### Step 2: Implementation (YOU do this)
 
@@ -184,7 +224,7 @@ Use this checklist when verifying your own work:
 - Wrong data flow/state management approach
 - Multiple interconnected bugs
 
-→ Research with codebase-searcher first, then fix.
+→ Research with Explore agent first, then fix.
 
 ---
 
@@ -213,7 +253,7 @@ Use this checklist when verifying your own work:
 ```
 User: "Add a new button component"
 
-1. RESEARCH (codebase-searcher):
+1. RESEARCH (Explore agent, "very thorough"):
    "PROJECT MEMORY at .project-meta/memory/ - read first.
     Find existing button patterns, UI components structure,
     design system conventions. Return FULL CODE of examples."

@@ -80,12 +80,13 @@ Extract individual tasks from free-form descriptions:
 - Associated screenshots (list matched image files)
 - Associated Figma JSON (list matched .json files with key design specs extracted)
 
-### Step 4: Research Codebase (DELEGATE to codebase-searcher)
+### Step 4: Research Codebase (DELEGATE to Explore agent)
 
-**Delegate research to `codebase-searcher` agent:**
+**Delegate research to built-in `Explore` agent:**
 ```
 Task tool:
-  subagent_type: "codebase-searcher"
+  subagent_type: "Explore"
+  description: "Research codebase patterns for tasks"
   prompt: |
     ## PROJECT MEMORY (READ FIRST)
     If exists: .project-meta/memory/ - read for project context.
@@ -93,6 +94,11 @@ Task tool:
     ## RESEARCH TASK
     Find patterns and code examples for these tasks:
     [LIST TASKS HERE]
+
+    ## THINK DEEPLY ABOUT:
+    - What exact files and patterns are relevant to these tasks?
+    - What is the minimum set of information needed to implement correctly?
+    - Are there edge cases or non-obvious dependencies?
 
     ## WHAT TO RETURN
     1. FULL CODE of similar components (not summaries)
@@ -102,6 +108,8 @@ Task tool:
     5. Actual file paths
 ```
 
+**Use `"very thorough"` thoroughness** for comprehensive codebase analysis.
+
 ### Step 5: Create Files (YOU do this)
 
 **Create both files directly using Write tool:**
@@ -109,7 +117,7 @@ Task tool:
 1. Create `.project-meta/tasks/tasks.md` following the format below
 2. Create `.project-meta/tasks/status.md` following the format below
 
-Include actual code patterns from codebase-searcher research in Context sections.
+Include actual code patterns from Explore agent research in Context sections.
 
 ### Step 6: Verify (YOU do this)
 
@@ -323,7 +331,7 @@ WHAT NOT TO DO:
 
 1. **DO NOT delete files from init/** — user manages them manually
 2. **Include FULL context in Context section** — it must contain everything needed for execution
-3. **DELEGATE research to codebase-searcher** — include actual code examples, not descriptions
+3. **DELEGATE research to Explore agent** — include actual code examples, not descriptions
 4. **CREATE files yourself** — use Write tool directly
 5. **VERIFY created files yourself** — read and check format/content
 6. **Use exact file paths** — absolute or relative from project root

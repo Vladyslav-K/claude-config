@@ -48,13 +48,14 @@ If a task has both frontend and backend parts, estimate ONLY the frontend portio
 
 **CRITICAL:** Read files yourself, don't delegate. You need full understanding of scope.
 
-### Step 2: Research Codebase (DELEGATE to codebase-searcher)
+### Step 2: Research Codebase (DELEGATE to Explore agent)
 
 **Delegate research to understand what already exists:**
 
 ```
 Task tool:
-  subagent_type: "codebase-searcher"
+  subagent_type: "Explore"
+  description: "Research codebase for estimation"
   prompt: |
     ## PROJECT MEMORY (READ FIRST)
     If exists: .project-meta/memory/ - read for project context.
@@ -62,6 +63,11 @@ Task tool:
     ## RESEARCH FOR ESTIMATION
     I need to estimate these frontend tasks:
     [LIST FRONTEND TASKS HERE]
+
+    ## THINK DEEPLY ABOUT:
+    - What exact files and patterns are relevant to each task?
+    - What is the real complexity based on existing codebase?
+    - Are there reusable components that reduce effort?
 
     ## FIND FOR EACH TASK
     1. Does similar component/feature already exist?
@@ -77,6 +83,8 @@ Task tool:
     - Estimated complexity vs existing features: [comparison]
     - Technical considerations: [any complexity factors]
 ```
+
+**Use `"very thorough"` thoroughness** for comprehensive analysis.
 
 ### Step 3: Estimate Each Task (YOU do this)
 
@@ -206,7 +214,7 @@ Full details with reasoning in estimation.md
 
 1. **ONLY estimate frontend tasks** — skip backend, devops, mobile native
 2. **Read task files yourself** — don't delegate task reading
-3. **Use codebase-searcher for research** — to understand what exists
+3. **Use Explore agent for research** — to understand what exists
 4. **Write detailed reasoning** — explain WHY for each estimate
 5. **Round estimates** — to reasonable numbers (0.5h, 1h, 2h, 4h, 8h, etc.)
 6. **Document assumptions** — especially for high estimates

@@ -95,7 +95,7 @@ Task tool:
     - Technical considerations: [any complexity factors]
 ```
 
-**Run multiple codebase-searcher agents in parallel** if tasks cover different areas.
+**Run codebase-searcher sequentially.** If tasks cover different areas, include all areas in a single research prompt.
 
 ### Step 4: Estimate Each Task (YOU do this)
 

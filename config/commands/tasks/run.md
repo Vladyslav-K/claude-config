@@ -85,7 +85,7 @@ Extract:
 
 ## Execution Steps
 
-**CRITICAL: Follow the delegation workflow to save tokens and extend session length.**
+**CRITICAL: Execute tasks SEQUENTIALLY. One task at a time.**
 
 ### 1. Read Current State (YOU do this)
 ```
@@ -94,93 +94,55 @@ Extract:
 3. Merge: create list of tasks with contexts and statuses
 ```
 
-### 2. Find Next Task(s) to Execute (YOU do this)
+### 2. Find Next Task to Execute (YOU do this)
 ```
 1. Find all tasks with status "pending"
 2. Filter out tasks with unmet dependencies (deps not "done")
-3. Identify tasks that CAN run in parallel (no deps on each other)
+3. Pick the FIRST available task (lowest ID)
 ```
 
-### 3. Execute Task (DELEGATE to frontend-worker)
+### 3. Execute Task (YOU do this)
 
-**For each task, delegate to `frontend-worker`:**
+**For each task, implement it directly:**
 
-```
-Task tool:
-  subagent_type: "frontend-worker"
-  prompt: |
-    ## PROJECT MEMORY (READ FIRST)
-    If exists: .project-meta/memory/ - read for project context.
+1. Update status.md: Set task status to `running`
+2. Read the task's Context section carefully
+3. If Context references screenshots or Figma JSON, read those files
+4. Implement the task using Write/Edit tools following the Context instructions
+5. Follow code patterns specified in Context
+6. Follow CODE STYLE rules from Context
 
-    ## TASK
-    [COPY EXACT TASK TITLE FROM tasks.md]
+### 4. Verify Task (YOU do this)
 
-    ## CONTEXT (FROM tasks.md)
-    [PASTE FULL CONTEXT SECTION HERE]
+After implementing each task:
 
-    ## FILES TO CREATE/MODIFY
-    [LIST FROM TASK]
+1. **Run format-and-check** (or format, lint, typecheck)
+2. **Fix any issues** found
+3. **Re-read created/modified files** to verify they match Context requirements
+4. **If issues found:** Fix them directly, re-run format-and-check
 
-    ## POST-TASK
-    After completing:
-    1. Run format-and-check (or format, lint, typecheck)
-    2. Fix any issues found
-```
+### 5. Update Status
 
-**PARALLEL EXECUTION:** If multiple tasks have no dependencies on each other, launch multiple frontend-worker agents in parallel using a single message with multiple Task tool calls.
+After task passes verification:
+- Update status.md: Set task status to `done`
+- Update progress percentage
+- Update timestamp
 
-**Update status.md BEFORE delegating:** Set status to `running`
+If task is blocked:
+- Update status.md: Set status to `blocked` with reason in Blocker column
+- Move to next available task
 
-### 4. Verify Each Task (DELEGATE to code-reviewer)
-
-**Delegate verification to code-reviewer agent. It reads tasks.md and verifies against requirements.**
-
-#### Step A: Delegate to code-reviewer
-
-```
-Task tool:
-  subagent_type: "code-reviewer"
-  prompt: |
-    Verify Task [N]: [Title]
-
-    Files created/modified:
-    - [list files]
-
-    Read .project-meta/tasks/tasks.md to get full Context section for this task.
-    Verify all requirements from Context are implemented correctly.
-```
-
-**Note:** code-reviewer works in isolated context. It reads tasks.md itself to get requirements.
-
-#### Step B: Review the Report
-
-Read code-reviewer's report:
-- **APPROVE** → Update status.md to `done`, proceed to next task
-- **NEEDS REVISION** → Delegate fixes to frontend-worker, then re-verify
-
-#### Step C: Decision
-
-- **If approved:** Update status.md to `done`
-- **If needs fixes:** Re-delegate to frontend-worker with specific issues from report
-- **If blocked:** Update status.md to `blocked` with reason
-
-**Why this approach:**
-- code-reviewer reads files in isolated context (saves main session tokens)
-- Detailed verification without bloating your context
-- User can do separate verification session if needed
-
-### 5. Continue Until Done
-Repeat steps 2-4 until:
+### 6. Continue Until Done
+Repeat steps 2-5 until:
 - All tasks are `done`, OR
 - All remaining tasks are `blocked` or waiting for blocked tasks
 
-### 6. Final Verification (YOU do this)
+### 7. Final Verification (YOU do this)
 After all tasks complete:
-1. **Quick review of all created files** — ensure nothing was missed
-2. Run `format-and-check` (or equivalent) — for lint/format issues
-3. If issues found → delegate fixes to frontend-worker
+1. Run `format-and-check` (or equivalent) — for final lint/format cleanup
+2. Fix any issues found
 
-### 7. Generate Blocked Report (if needed)
+### 8. Generate Blocked Report (if needed)
 If any tasks have status `blocked`, create `.project-meta/tasks/blocked-report.md`
 
 ## status.md Update Format
@@ -198,64 +160,18 @@ When updating status.md:
 - `done` — completed
 - `blocked` — cannot proceed
 
-## How to Delegate Tasks to frontend-worker
+## Verification Checklist
 
-**CRITICAL:** Delegate ALL code writing to frontend-worker. You only coordinate, verify, and update status.
-
-### Frontend-worker Prompt Template
-
-```markdown
-## PROJECT MEMORY (READ FIRST)
-If exists: .project-meta/memory/ - read for project context.
-
-## TASK
-[EXACT task title from tasks.md]
-
-## CONTEXT (COPY FROM tasks.md)
-[PASTE the FULL Context section - it contains everything needed]
-
-## FILES
-- [file1.tsx] - [create/modify]: [what to do]
-- [file2.tsx] - [create/modify]: [what to do]
-
-## CODE STYLE RULES
-- Use functional components with TypeScript
-- Use 'function' keyword for components
-- Use spaces for indentation, semicolons, single quotes
-- Use Tailwind CSS
-- Use Shadcn UI components
-- Wrap callbacks in useCallback
-
-## WHAT NOT TO DO
-- Do NOT add comments unrelated to code
-- Do NOT create test files
-- Do NOT over-engineer
-- Do NOT add features not specified in Context
-
-## POST-TASK
-After completing:
-1. Run format-and-check (or format, lint, typecheck)
-2. Fix any issues found
+After each task:
 ```
-
-### Verification Checklist
-
+- [ ] All requirements from Context section are implemented
+- [ ] Code compiles without errors (TypeScript)
+- [ ] format-and-check passes
+- [ ] No console.log, debugger, or commented-out code
+- [ ] Types are properly defined
+- [ ] Follows patterns specified in Context
+- [ ] No extra features added beyond what Context specifies
 ```
-STEP 1: DELEGATE TO code-reviewer
-- [ ] Called code-reviewer with task ID and file list
-- [ ] Prompt includes: "Read .project-meta/tasks/tasks.md for requirements"
-
-STEP 2: READ THE REPORT
-- [ ] code-reviewer returned detailed report
-- [ ] Verdict: APPROVE or NEEDS REVISION
-
-STEP 3: ACT ON VERDICT
-- [ ] If APPROVE → update status.md to done
-- [ ] If NEEDS REVISION → delegate fixes to frontend-worker → re-verify
-```
-
-**If code-reviewer finds issues:** Re-delegate to frontend-worker with specific fixes from report.
-**Mark as done when code-reviewer approves.**
 
 ## blocked-report.md Format
 
@@ -293,13 +209,12 @@ These tasks cannot proceed because they depend on blocked tasks:
 
 1. **NEVER modify tasks.md** — it's read-only after initialization
 2. **Update status.md after EVERY task** — not in batches
-3. **DELEGATE code writing to frontend-worker** — saves tokens, extends session
-4. **DELEGATE verification to code-reviewer** — it reads tasks.md for requirements
-5. **code-reviewer works in isolated context** — tell it to read tasks.md itself
-6. **Run tasks in parallel when possible** — tasks with no deps on each other
-7. **Continue past blocked tasks** — don't stop, do what you can
-8. **Generate blocked-report.md ONLY at the end** — not during execution
-9. **Run format-and-check after all tasks** — for final lint/format cleanup
+3. **Execute tasks SEQUENTIALLY** — one at a time, in order
+4. **Implement code YOURSELF** — use Write/Edit tools directly
+5. **Verify YOURSELF** — run format-and-check, read files, check requirements
+6. **Continue past blocked tasks** — don't stop, do what you can
+7. **Generate blocked-report.md ONLY at the end** — not during execution
+8. **Run format-and-check after all tasks** — for final lint/format cleanup
 
 ## Example Execution Flow
 
@@ -308,51 +223,39 @@ Reading task state...
 Parsing tasks.md...
 Found 8 tasks: 0 done, 0 running, 8 pending
 
-Finding tasks with no blocking deps...
-Available: #1, #4, #5, #6 (can run in parallel!)
+Finding next available task...
+Task #1: AuthContext (no deps) → available
 
-Updating status.md: #1, #4, #5, #6 → running
+Updating status.md: #1 → running
 
-Delegating to frontend-worker agents (in parallel):
-├─ Task 1: AuthContext → frontend-worker
-├─ Task 4: API /auth/login → frontend-worker
-├─ Task 5: API /auth/register → frontend-worker
-└─ Task 6: Dashboard header → frontend-worker
+Implementing Task 1: AuthContext
+├─ Reading Context section...
+├─ Creating src/contexts/auth-context.tsx...
+├─ Running format-and-check...
+├─ All checks pass ✓
+└─ Updating status.md: #1 → done
 
-[Waiting for agents to complete...]
+Finding next available task...
+Task #2: LoginForm (deps: 1 ✓) → available
 
-Verifying Task 1: AuthContext
-├─ Delegating to code-reviewer...
-│   └─ "Verify Task 1, read tasks.md for requirements"
-│   └─ code-reviewer reads tasks.md, reads created files
-├─ Reading report...
-│   └─ Verdict: APPROVE ✅
-│   └─ All requirements from Context implemented correctly
-└─ Status: done ✓
+Updating status.md: #2 → running
 
-Verifying Task 4: API /auth/login
-├─ Delegating to code-reviewer...
-├─ Reading report...
-│   └─ Verdict: NEEDS REVISION ⚠️
-│   └─ Issue: Missing error handling for invalid credentials
-├─ Delegating fix to frontend-worker...
-├─ Re-verifying with code-reviewer...
-│   └─ Verdict: APPROVE ✅
-└─ Status: done ✓
+Implementing Task 2: LoginForm
+├─ Reading Context section...
+├─ Reading screenshot: screenshots/login-form.png
+├─ Creating src/components/login-form.tsx...
+├─ Running format-and-check...
+├─ Found 1 lint error → fixing...
+├─ Re-running format-and-check...
+├─ All checks pass ✓
+└─ Updating status.md: #2 → done
 
-[continues with remaining tasks...]
-
-Finding next available tasks...
-Tasks with all deps done: #2 (deps: 1 ✓), #3 (deps: 1 ✓)
-
-[Delegating #2 and #3 in parallel...]
+[continues sequentially with remaining tasks...]
 
 All tasks complete!
 
 Final verification:
 ├─ Running format-and-check...
-├─ Found 2 lint errors
-├─ Delegating fix to frontend-worker...
 └─ All checks pass ✓
 
 Summary:

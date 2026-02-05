@@ -159,13 +159,13 @@ Please export these to /public/images/[folder]/ and let me know when ready."
 
 ---
 
-## 8. When Delegating to frontend-worker
+## 8. Pre-Implementation Checklist
 
-Include ALL of the above in your prompt:
+Before writing any design implementation code, ensure you have prepared:
 - Full dimension table with calculated values
 - Color table with exact hex codes
 - Responsive breakpoint strategy
 - Image paths or TODO placeholders
 - Layout structure (flexbox/grid, positioning, z-index)
 
-**Never delegate design tasks without exact specifications.**
+**Never start coding design tasks without exact specifications.**

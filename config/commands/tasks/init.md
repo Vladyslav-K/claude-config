@@ -46,8 +46,6 @@ Files or folders with files in `.project-meta/tasks/init/` directory (usually .m
 
 ## Execution Steps
 
-**CRITICAL: Follow the delegation workflow to save tokens and extend session length.**
-
 ### Step 1: Read Init Files (YOU do this)
 Read all files from `.project-meta/tasks/init/` root yourself using Read tool.
 
@@ -104,41 +102,19 @@ Task tool:
     5. Actual file paths
 ```
 
-**Run multiple codebase-searcher agents in parallel** if researching different areas.
+### Step 5: Create Files (YOU do this)
 
-### Step 5: Create Files (DELEGATE to frontend-worker)
+**Create both files directly using Write tool:**
 
-**Delegate file creation to `frontend-worker` agent:**
-```
-Task tool:
-  subagent_type: "frontend-worker"
-  prompt: |
-    ## PROJECT MEMORY (READ FIRST)
-    If exists: .project-meta/memory/ - read for project context.
+1. Create `.project-meta/tasks/tasks.md` following the format below
+2. Create `.project-meta/tasks/status.md` following the format below
 
-    ## TASK
-    Create task management files for this project.
+Include actual code patterns from codebase-searcher research in Context sections.
 
-    ## FILES TO CREATE
-    1. .project-meta/tasks/tasks.md - task definitions
-    2. .project-meta/tasks/status.md - status tracking
+### Step 6: Verify (YOU do this)
 
-    ## TASKS DATA
-    [PASTE ANALYZED TASKS WITH RESEARCH CONTEXT]
-
-    ## FORMAT REQUIREMENTS
-    [PASTE FORMAT FROM THIS SKILL]
-
-    ## POST-TASK
-    Verify files were created correctly.
-```
-
-### Step 6: Verify (YOU do this - CRITICAL)
-
-**⚠️ You MUST read the created files! Don't assume agent did it right!**
-
-**After frontend-worker completes:**
-1. **READ tasks.md** using Read tool (don't skip!)
+**After creating files, re-read them to verify:**
+1. **READ tasks.md** using Read tool
    - Is the format correct? (headers, separators, metadata fields)
    - Are ALL tasks from init files included?
    - Does EACH task have full Context section?
@@ -149,12 +125,7 @@ Task tool:
    - Are all statuses set to `pending`?
    - Is the format correct?
 
-3. **If ANY issues found:**
-   - Document SPECIFICALLY what's wrong
-   - Re-delegate fix to frontend-worker with exact corrections
-   - Re-verify after fix
-
-**Don't proceed until YOU verified both files are correct!**
+3. **If ANY issues found:** Fix them directly with Edit tool.
 
 ### Step 7: Show Summary
 Report to user what was created.
@@ -271,7 +242,7 @@ Updated: YYYY-MM-DD HH:mm
 
 ## Context Section Guidelines
 
-The Context section is CRITICAL — you will only see this when executing. Include:
+The Context section is CRITICAL — it contains everything needed for execution. Include:
 
 1. **ACTION**: What operation (CREATE NEW FILE / MODIFY FILE / DELETE)
 2. **PURPOSE**: Why this task is needed
@@ -351,14 +322,13 @@ WHAT NOT TO DO:
 ## Important Rules
 
 1. **DO NOT delete files from init/** — user manages them manually
-2. **Include FULL context in Context section** — frontend-worker won't see conversation history
+2. **Include FULL context in Context section** — it must contain everything needed for execution
 3. **DELEGATE research to codebase-searcher** — include actual code examples, not descriptions
-4. **DELEGATE file creation to frontend-worker** — saves tokens
+4. **CREATE files yourself** — use Write tool directly
 5. **VERIFY created files yourself** — read and check format/content
 6. **Use exact file paths** — absolute or relative from project root
 7. **One task per logical unit** — don't combine unrelated changes
 8. **Order by dependencies** — tasks with no deps should come first
-9. **Run agents in parallel when possible** — research for different areas simultaneously
 
 ## Example Output Summary
 
@@ -386,10 +356,7 @@ Tasks created:
 7. Dashboard stats (depends on: 6) [has screenshot]
 8. Dashboard charts (depends on: 6) [has screenshot]
 
-Execution order recommendation:
-1. Start with: 1, 4, 5, 6 (no dependencies)
-2. Then: 2, 3 (after task 1)
-3. Then: 7, 8 (after task 6)
+Execution order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 Files created:
 - .project-meta/tasks/tasks.md

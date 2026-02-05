@@ -23,23 +23,17 @@
 
 ---
 
-## CRITICAL: Task Delegation Workflow
+## CRITICAL: Task Workflow
 
 **READ: `.claude/rules/workflow/task-delegation.md` for full workflow.**
 
 **Summary:**
-1. **Research** → Delegate to `codebase-searcher` (include memory paths!)
-2. **Implement** → Delegate to `frontend-worker` (include memory paths!)
-3. **Verify** → YOU read the code and verify it matches requirements (not just lint!)
+1. **Research** → Delegate to `codebase-searcher` when needed (include memory paths!)
+2. **Implement** → YOU write and edit code directly
+3. **Verify** → Run format-and-check, fix any issues
 
-**Why delegation?** Saves tokens, extends session length significantly.
-
-**CRITICAL:** After agents complete, YOU must:
-- Read created/modified files
-- Verify code matches user's original request
-- Check all requirements are implemented
-- Run format-and-check
-- Re-delegate with specific fixes if issues found
+**Available agents:** Only `codebase-searcher` (research) and `memory-writer` (memory updates).
+All code writing, editing, and review — YOU do directly.
 
 ---
 

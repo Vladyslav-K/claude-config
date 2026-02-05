@@ -32,8 +32,8 @@
 2. **Implement** → YOU write and edit code directly
 3. **Verify** → Run format-and-check, fix any issues
 
-**Available agents:** Only `codebase-searcher` (research) and `memory-writer` (memory updates).
-All code writing, editing, and review — YOU do directly.
+**Available agents:** Only `codebase-searcher` (research).
+All code writing, editing, review, and memory updates — YOU do directly.
 
 ---
 

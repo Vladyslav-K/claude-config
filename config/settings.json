@@ -1,40 +1,10 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "{{CLAUDE_HOME}}/scripts/load-memory.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "resume",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "{{CLAUDE_HOME}}/scripts/load-memory.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "{{CLAUDE_HOME}}/scripts/post-compact.sh"
-          }
-        ]
-      }
-    ]
-  },
   "env": {
     "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "48000",
     "DISABLE_TELEMETRY": "1"
   },
+  "includeCoAuthoredBy": false,
   "permissions": {
     "allow": [
       "WebSearch",
@@ -101,18 +71,49 @@
       "Bash(rm:*)"
     ]
   },
-  "enabledPlugins": {
-    "explanatory-output-style@claude-code-plugins": true
-  },
-  "outputStyle": "Explanatory",
-  "alwaysThinkingEnabled": true,
-  "includeCoAuthoredBy": false,
-  "feedbackSurveyState": {
-    "lastShownTime": 1754036467609
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{CLAUDE_HOME}}/scripts/load-memory.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{CLAUDE_HOME}}/scripts/load-memory.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{CLAUDE_HOME}}/scripts/post-compact.sh"
+          }
+        ]
+      }
+    ]
   },
   "statusLine": {
     "type": "command",
     "command": "{{CLAUDE_HOME}}/scripts/statusline.sh",
     "padding": 0
-  }
+  },
+  "enabledPlugins": {
+    "explanatory-output-style@claude-code-plugins": true
+  },
+  "outputStyle": "Explanatory",
+  "alwaysThinkingEnabled": true,
+  "feedbackSurveyState": {
+    "lastShownTime": 1754036467609
+  },
+  "language": "Ukrainian"
 }

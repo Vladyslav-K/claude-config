@@ -6,11 +6,10 @@
 
 ## Overview
 
-You handle all code writing and editing directly. The only agents you delegate to:
+You handle all code writing and editing directly. The only agent you delegate to:
 - `codebase-searcher` - for research and file reading (read-only)
-- `memory-writer` - for updating project memory files
 
-All implementation, bug fixes, refactoring, and verification — you do yourself.
+All implementation, bug fixes, refactoring, verification, and memory updates — you do yourself.
 
 ---
 

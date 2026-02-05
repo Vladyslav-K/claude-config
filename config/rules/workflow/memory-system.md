@@ -122,73 +122,72 @@ Regular feature or fix...
 
 ## How to Update Memory
 
-### Step 1: Prepare Context Summary
+**You update memory files DIRECTLY using Write/Edit tools. No delegation to agents.**
 
-**BEFORE calling the memory-writer agent, YOU must prepare a comprehensive context summary.**
+### Step 1: Gather Context
 
-Gather and write out:
+Before writing, mentally gather:
+- What was the user's original request?
+- What approach was taken and why?
+- What files were created/modified/deleted?
+- Key technical details for next session
+- Issues encountered and solutions
+- Current state (working / not working / incomplete)
+- Next steps in priority order
+- User preferences noted during session
+
+### Step 2: Update Memory Files Directly
+
+Write/edit memory files at `{CWD}/.project-meta/memory/` using Write or Edit tools:
+
+1. **recent-session.md** (ALWAYS update) — full rewrite with current session context
+2. **changelog.md** (if meaningful changes were made) — append new dated entry
+3. **project-structure.md** (if files/folders added or restructured) — update tree
+4. **project-overview.md** (only on major architectural changes) — update relevant sections
+
+### Step 3: Confirm to User
+
+After writing files:
+- Tell user: "Пам'ять оновлено ✓"
+
+### Template for recent-session.md
 
 ```markdown
-## SESSION CONTEXT FOR MEMORY
+# Recent Session
 
-### Task Overview
+## Date
+[YYYY-MM-DD]
+
+## Task Overview
 [What was the user's original request? What problem were we solving?]
 
-### Approach & Decisions
+## Approach & Decisions
 [What approach did we take? Why? Any alternatives considered?]
 
-### Work Completed
-[List each change with explanation]
+## Work Completed
 - Created `/path/to/file.tsx`: [What it does, why it was created]
 - Modified `/path/to/other.ts`: [What changed, why]
 - Deleted `/path/to/old.js`: [Why removed]
 
-### Implementation Details
+## Implementation Details
 [Key technical details someone continuing this work should know]
-- Used X library because...
-- Followed Y pattern from existing code...
-- API endpoint expects Z format...
 
-### Issues Encountered
-[Any problems, blockers, or workarounds]
+## Issues Encountered
 - Issue: [description] → Solution: [how we solved it]
-- Blocker: [what's blocking] → Need: [what's needed to unblock]
 
-### Current State
+## Current State
 - What's working: [list]
 - What's not working: [list]
 - What's incomplete: [list]
 
-### Next Steps (Priority Order)
+## Next Steps (Priority Order)
 1. [HIGH] [Specific actionable task]
 2. [MEDIUM] [Specific actionable task]
 3. [LOW] [Specific actionable task]
 
-### User Preferences Noted
+## User Preferences Noted
 [Any preferences user mentioned during session]
 ```
-
-### Step 2: Call memory-writer Agent
-
-```
-Task tool:
-  subagent_type: "memory-writer"
-  run_in_background: false
-  prompt: |
-    Update memory files at: {CWD}/.project-meta/memory/
-
-    Here is the complete session context:
-
-    [PASTE YOUR CONTEXT SUMMARY HERE]
-
-    Update the memory files following the agent's format guidelines.
-```
-
-### Step 3: Confirm to User
-
-After agent completes:
-- Verify files were updated correctly
-- Tell user: "Пам'ять оновлено ✓"
 
 ---
 

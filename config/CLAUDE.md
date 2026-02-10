@@ -28,12 +28,22 @@
 **READ: `.claude/rules/workflow/task-delegation.md` for full workflow.**
 
 **Summary:**
-1. **Research** → Delegate to built-in `Explore` agent when needed (include memory paths!)
-2. **Implement** → YOU write and edit code directly
-3. **Verify** → Run format-and-check, fix any issues
+1. **Assess** → Determine task size (small / medium / large)
+2. **Small/Medium** → Research (Explore) → Implement yourself → Verify
+3. **Large / tasks:run** → Create team → Delegate to agents (opus model) → Validate results → Shutdown team
+4. **Verify** → Run format-and-check, fix any issues
 
-**Available agents:** Only `Explore` (built-in, research only).
-All code writing, editing, review, and memory updates — YOU do directly.
+**Available agents:**
+- `Explore` — built-in, research only
+- `general-purpose` with `model: "opus"` — for team implementers (same model as main chat)
+
+**CRITICAL: Validation** — After ANY delegated work, YOU personally validate the result:
+- Read output files created by agent
+- Compare with screenshots/design specs if available
+- Check code patterns and types match project conventions
+- Fix issues yourself or send corrections to agent
+
+**Context Window Strategy** — Delegate heavy work to team agents to keep main context clean. Main chat handles orchestration + validation only.
 
 ---
 
@@ -88,4 +98,3 @@ Rule: "Use tabs for indentation"
 
 ### 5. General Best Practices (LOWEST)
 Only when nothing above applies
-

@@ -19,6 +19,8 @@ Arguments are free-form text. Use them for any additional context: priorities, c
 ## Purpose
 Read task description files from `.project-meta/tasks/init/`, analyze them along with associated screenshots and Figma design specs, and create a structured task management system using Markdown format for better readability and token efficiency.
 
+**IMPORTANT:** Tasks created here will be executed by team agents (opus model) during `/tasks-run`. Context sections must be SELF-CONTAINED — include everything an agent needs to implement the task without additional research.
+
 ## Input
 
 ### Task files (root of init/)
@@ -104,8 +106,9 @@ Task tool:
     1. FULL CODE of similar components (not summaries)
     2. Exact import paths used in this project
     3. Type/interface definitions
-    4. Code style patterns
+    4. Code style patterns (indentation, quotes, semicolons, component definition style)
     5. Actual file paths
+    6. Project conventions (how components export, naming, folder structure)
 ```
 
 **Use `"very thorough"` thoroughness** for comprehensive codebase analysis.
@@ -117,7 +120,8 @@ Task tool:
 1. Create `.project-meta/tasks/tasks.md` following the format below
 2. Create `.project-meta/tasks/status.md` following the format below
 
-Include actual code patterns from Explore agent research in Context sections.
+**CRITICAL for Context sections:**
+Include actual code patterns from Explore agent research. Agent implementers will use these patterns as reference. The Context must contain EVERYTHING an agent needs — treat it as a self-contained brief.
 
 ### Step 6: Verify (YOU do this)
 
@@ -160,9 +164,15 @@ Created: YYYY-MM-DD
 FULL context including:
 - What to do and why
 - Technical details
-- Code patterns to follow (actual code examples)
+- Code patterns to follow (actual code examples from codebase)
 - Files to reference
 - Step-by-step instructions
+- Import paths to use
+- Type definitions needed
+
+NOTE: This context will be given to an implementer agent as a self-contained task brief.
+The agent will have access to project memory and codebase, but this context should
+contain everything needed to implement correctly without additional research.
 
 ### Design Specs (from Figma JSON / screenshots)
 
@@ -217,7 +227,7 @@ Full context for this task...
 - **Deps** — comma-separated task IDs that must complete first, or "none"
 - **Screenshots** — comma-separated paths to related screenshots (relative to init/), or omit if none
 - **Figma** — comma-separated paths to Figma JSON files (relative to init/), or omit if none
-- **Context** — FULL context needed to execute task (you will only see this section when executing)
+- **Context** — FULL self-contained context needed for an agent to execute the task
 - **Design Specs** — extracted dimensions, colors, typography from Figma JSON (omit if no design specs available)
 
 ## Parsing Rules (for tasks-run)
@@ -250,15 +260,19 @@ Updated: YYYY-MM-DD HH:mm
 
 ## Context Section Guidelines
 
-The Context section is CRITICAL — it contains everything needed for execution. Include:
+The Context section is CRITICAL — it must be a SELF-CONTAINED BRIEF for an implementer agent. Include:
 
 1. **ACTION**: What operation (CREATE NEW FILE / MODIFY FILE / DELETE)
 2. **PURPOSE**: Why this task is needed
 3. **CURRENT CODE**: If modifying, show relevant existing code
 4. **EXPECTED RESULT**: What the final code should do/look like
 5. **CODE PATTERNS**: Real examples from the codebase (copy-paste actual code)
-6. **CODE STYLE**: Specific rules for this project
-7. **WHAT NOT TO DO**: Explicit prohibitions
+6. **IMPORT PATHS**: Exact import statements the agent should use
+7. **TYPE DEFINITIONS**: Interfaces/types the agent needs
+8. **CODE STYLE**: Specific rules for this project
+9. **WHAT NOT TO DO**: Explicit prohibitions
+
+**Agent-readiness test:** Could an agent implement this task using ONLY this Context section + project memory, without any additional research? If no — add more detail.
 
 ## Design Specs Section Guidelines
 
@@ -272,7 +286,7 @@ When Figma JSON is available, extract and include:
 5. **BORDER**: Border radius, border width, border colors
 
 When only screenshots are available (no Figma JSON):
-1. **VISUAL REFERENCE**: Note which screenshot files to reference
+1. **VISUAL REFERENCE**: Note which screenshot files to reference (include paths)
 2. **OBSERVED LAYOUT**: Describe layout structure visible in screenshots
 3. **COMPONENT LIST**: List UI components visible in the design
 
@@ -330,13 +344,14 @@ WHAT NOT TO DO:
 ## Important Rules
 
 1. **DO NOT delete files from init/** — user manages them manually
-2. **Include FULL context in Context section** — it must contain everything needed for execution
+2. **Include FULL self-contained context** — agents must be able to implement from Context alone
 3. **DELEGATE research to Explore agent** — include actual code examples, not descriptions
 4. **CREATE files yourself** — use Write tool directly
 5. **VERIFY created files yourself** — read and check format/content
 6. **Use exact file paths** — absolute or relative from project root
 7. **One task per logical unit** — don't combine unrelated changes
 8. **Order by dependencies** — tasks with no deps should come first
+9. **Include code patterns** — agents need real examples to follow project conventions
 
 ## Example Output Summary
 
@@ -365,6 +380,7 @@ Tasks created:
 8. Dashboard charts (depends on: 6) [has screenshot]
 
 Execution order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
+Tasks will be executed by team agents (opus model) via /tasks-run
 
 Files created:
 - .project-meta/tasks/tasks.md

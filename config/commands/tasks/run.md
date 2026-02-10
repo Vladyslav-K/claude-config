@@ -1,15 +1,15 @@
 ---
 name: tasks-run
-description: Execute tasks from .project-meta/tasks/tasks.md, update status.md after each task. Parallelizes independent tasks (no shared files, no deps between them) for speed, runs dependent tasks sequentially. Creates blocked-report.md at the end if any tasks are blocked. Use when user says /tasks-run or wants to execute initialized tasks.
+description: Execute tasks from .project-meta/tasks/tasks.md using a team of agents. Parallelizes independent tasks (no shared files, no deps) for speed via separate agents. Validates each task after completion. Creates blocked-report.md at the end if any tasks are blocked. Use when user says /tasks-run or wants to execute initialized tasks.
 ---
 
-# Task Execution
+# Task Execution (Team Workflow)
 
 ## Additional context from user before start task
 $ARGUMENTS
 
 ## Purpose
-Execute tasks from the initialized task system (Markdown format), track progress in status.md, and generate a report of blocked tasks at the end.
+Execute tasks from the initialized task system using a team of implementer agents. Independent tasks run in parallel via separate agents (opus model). After each task completion, the team lead (YOU) validates the result against requirements and screenshots before marking as done.
 
 ## Input
 - `.project-meta/tasks/tasks.md` — task definitions with full context in Markdown (READ ONLY)
@@ -60,49 +60,67 @@ Created: ...
 3. **Extract metadata**:
    - `Files:` — split by comma, trim whitespace
    - `Deps:` — "none" means empty array, otherwise split by comma and parse as numbers
-4. **Extract context** — everything after `### Context` until the next `---` or end of block
-
-### Example Parsing Result
-
-From this block:
-```markdown
-## Task 3: Create UserCard component
-- Files: src/components/user-card.tsx
-- Deps: 1, 2
-
-### Context
-
-CREATE NEW FILE: src/components/user-card.tsx
-...full context here...
-```
-
-Extract:
-- ID: 3
-- Title: "Create UserCard component"
-- Files: ["src/components/user-card.tsx"]
-- Deps: [1, 2]
-- Context: "CREATE NEW FILE: src/components/user-card.tsx\n...full context here..."
+   - `Screenshots:` — paths to reference images (if present)
+   - `Figma:` — paths to design specs (if present)
+4. **Extract context** — everything after `### Context` until next `### Design Specs` or `---`
+5. **Extract design specs** — everything after `### Design Specs` until `---` (optional)
 
 ## Execution Steps
 
-### 1. Read Current State (YOU do this)
+### 1. Read and Parse (YOU do this)
+
 ```
 1. Read tasks.md and status.md IN PARALLEL (two Read calls in one message)
 2. Parse all tasks with their contexts
 3. Get current statuses from table
 4. Merge: create list of tasks with contexts and statuses
+5. Count: total, done, pending, blocked
 ```
 
-### 2. Find Available Tasks (YOU do this)
+### 2. Research Codebase (DELEGATE to Explore agent)
+
+**Before spawning implementers, research codebase patterns:**
+
+```
+Task tool:
+  subagent_type: "Explore"
+  description: "Research codebase patterns for tasks"
+  prompt: |
+    ## PROJECT MEMORY (READ FIRST)
+    If exists: {CWD}/.project-meta/memory/ - read for project context.
+
+    ## RESEARCH TASK
+    Find code patterns, conventions, and examples for these tasks:
+    [LIST ALL PENDING TASKS: titles + files]
+
+    ## WHAT TO RETURN
+    1. FULL CODE of similar components/features (actual code, not descriptions)
+    2. Exact import paths used in this project
+    3. Type/interface definitions
+    4. Code style patterns (indentation, quotes, semicolons)
+    5. Component patterns (function keyword, hooks usage, export style)
+    6. File structure conventions
+
+    Return ACTUAL code that can be used as reference.
+```
+
+### 3. Create Team (YOU do this)
+
+```
+TeamCreate:
+  team_name: "tasks-execution"
+  description: "Executing tasks from tasks.md"
+```
+
+### 4. Find Available Tasks and Group (YOU do this)
+
 ```
 1. Find all tasks with status "pending"
 2. Filter out tasks with unmet dependencies (deps not "done")
-3. From available tasks, identify PARALLEL GROUPS (see below)
+3. From available tasks, identify PARALLEL GROUPS
 ```
 
-### CRITICAL: Parallel Task Execution
-
-**Check if multiple available tasks can run in parallel:**
+### CRITICAL: Parallel Task Grouping
 
 ```
 Available tasks: [Task 3, Task 4, Task 5]
@@ -114,71 +132,134 @@ Can they run in parallel?
 │   └─ Task 5: src/components/btn.tsx  ← CONFLICTS with Task 3!
 │
 ├─ Check 2: Do any depend on each other?
-│   ├─ Task 3: Deps: 1 (done ✓)
-│   ├─ Task 4: Deps: 2 (done ✓)
-│   └─ Task 5: Deps: 1 (done ✓)
+│   (all deps already "done")
 │
 └─ Result:
-   ├─ Group 1 (parallel): Task 3 + Task 4 (no shared files, no shared deps)
-   └─ Group 2 (after Group 1): Task 5 (shares files with Task 3)
+   ├─ Group 1 (parallel): Task 3 + Task 4
+   └─ Group 2 (after Group 1): Task 5
 ```
 
 **Parallel safety rules:**
 
 | Check | Parallel OK? |
 |-------|-------------|
-| Tasks share NO files AND have no dependency between them | ✅ Run in parallel |
+| Tasks share NO files AND no dependency between them | ✅ Run in parallel |
 | Tasks share ANY file | ❌ Run sequentially |
 | Task B depends on Task A | ❌ Run sequentially |
 | Tasks modify different files but import from same module | ✅ Usually safe |
 
 **When in doubt → run sequentially.** Better slow than broken.
 
-### 3. Execute Task(s) (YOU do this)
+### 5. Spawn Implementer Agents (YOU do this)
 
-**For a single task or each task in a parallel group:**
+**CRITICAL: Use `model: "opus"` — same model as main chat.**
 
-1. Update status.md: Set task status(es) to `running`
-2. Read the task's Context section carefully
-3. If Context references screenshots or Figma JSON, read those files
-4. Implement the task using Write/Edit tools following the Context instructions
-5. Follow code patterns specified in Context
-6. Follow CODE STYLE rules from Context
+For each task in a parallel group, spawn an agent:
 
-**For parallel tasks:** Use multiple Write/Edit tool calls in a single message when creating/editing DIFFERENT files. Read multiple Context sections and screenshots in parallel too.
+```
+Task tool:
+  subagent_type: "general-purpose"
+  model: "opus"
+  team_name: "tasks-execution"
+  name: "impl-{N}"
+  mode: "bypassPermissions"
+  run_in_background: true
+  prompt: |
+    You are implementer agent "impl-{N}".
 
-### 4. Verify Task(s) (YOU do this)
+    ## YOUR TASK
+    Task {N}: {Title}
+    Files: {files list}
 
-After implementing each task (or parallel group):
+    {FULL CONTEXT from tasks.md — copy entire Context section}
 
-1. **Run format-and-check** (or format, lint, typecheck)
-2. **Fix any issues** found
-3. **Re-read created/modified files** to verify they match Context requirements
-4. **If issues found:** Fix them directly, re-run format-and-check
+    ## DESIGN SPECS
+    {Design Specs section from tasks.md if present}
 
-### 5. Update Status
+    ## SCREENSHOTS
+    {Screenshot paths if present — agent should READ these files}
 
-After task(s) pass verification:
-- Update status.md: Set task status(es) to `done`
-- Update progress percentage
-- Update timestamp
+    ## PROJECT CONTEXT
+    Working directory: {CWD}
+    Memory: {CWD}/.project-meta/memory/ (read these first!)
 
-If task is blocked:
-- Update status.md: Set status to `blocked` with reason in Blocker column
-- Move to next available task(s)
+    ## CODEBASE PATTERNS (from research)
+    {Paste relevant code patterns found by Explore agent}
 
-### 6. Continue Until Done
-Repeat steps 2-5 until:
-- All tasks are `done`, OR
-- All remaining tasks are `blocked` or waiting for blocked tasks
+    ## RULES
+    - Read project memory files FIRST for project architecture and patterns
+    - Follow existing code patterns EXACTLY
+    - Don't create tests unless specified
+    - Don't add unnecessary comments (no task descriptions, no change notes)
+    - Use English for all code and comments
+    - Follow the project's code style
+    - If screenshots exist, READ them to understand the visual design
 
-### 7. Final Verification (YOU do this)
+    ## WHEN DONE
+    1. Re-read your created/modified files to verify correctness
+    2. Run format-and-check (or format, lint, typecheck), fix any issues
+    3. Report: list all files created/modified and what was done
+```
+
+**For parallel groups:** Spawn ALL agents for the group in a SINGLE message (multiple Task tool calls in parallel).
+
+### 6. Validate Each Task (YOU do this — CRITICAL)
+
+**After each agent completes, YOU MUST validate:**
+
+1. **Read output files** the agent created/modified
+2. **If task has screenshots:**
+   - Read the screenshot file(s) using Read tool
+   - Compare with agent's implementation:
+     - All visible components present?
+     - Layout direction correct?
+     - Spacing reasonable?
+     - Colors match?
+     - Typography correct?
+     - Interactive elements present?
+3. **If task has design specs:**
+   - Verify dimensions match Figma specs
+   - Verify colors match
+   - Verify typography matches
+4. **Check code quality:**
+   - Follows project patterns (from research)
+   - Proper TypeScript types
+   - No console.log or commented code
+   - Imports from correct locations
+   - No extra features beyond requirements
+5. **Decision:**
+   - ✅ Good → Update status.md: task → `done`
+   - ⚠️ Minor issues → Fix yourself with Edit tool, then mark `done`
+   - ❌ Major issues → Send correction to agent OR fix yourself
+
+### 7. Update Status and Continue
+
+After validating current group:
+1. Update status.md: completed tasks → `done`, blocked tasks → `blocked`
+2. Update progress percentage and timestamp
+3. Find newly available tasks (dependencies now met)
+4. Analyze parallel groups again
+5. Spawn new agents for next batch
+6. Repeat steps 5-7 until all tasks done or blocked
+
+### 8. Final Verification (YOU do this)
+
 After all tasks complete:
-1. Run `format-and-check` (or equivalent) — for final lint/format cleanup
+1. Run `format-and-check` (or equivalent) — final lint/format cleanup
 2. Fix any issues found
 
-### 8. Generate Blocked Report (if needed)
+### 9. Shutdown Team
+
+```
+SendMessage type: "shutdown_request" to each active agent
+Then: TeamDelete
+```
+
+### 10. Generate Reports
+
 If any tasks have status `blocked`, create `.project-meta/tasks/blocked-report.md`
+
+Update status.md with final state and report summary to user.
 
 ## status.md Update Format
 
@@ -191,8 +272,8 @@ When updating status.md:
 
 **Status values:**
 - `pending` — not started
-- `running` — in progress
-- `done` — completed
+- `running` — in progress (agent working on it)
+- `done` — completed and validated
 - `blocked` — cannot proceed
 
 ## Verification Checklist
@@ -206,6 +287,27 @@ After each task:
 - [ ] Types are properly defined
 - [ ] Follows patterns specified in Context
 - [ ] No extra features added beyond what Context specifies
+- [ ] Design specs match (if applicable)
+- [ ] Screenshot comparison passes (if applicable)
+```
+
+## Screenshot Validation
+
+When task has screenshots:
+```
+1. Read the screenshot file (Read tool handles images)
+2. Read the created/modified code file(s)
+3. Compare:
+   - [ ] All visible components are present in code
+   - [ ] Layout structure matches (row/column, alignment)
+   - [ ] Spacing is reasonable (padding, gaps)
+   - [ ] Colors match visible design
+   - [ ] Typography looks correct (size, weight)
+   - [ ] Interactive elements present (buttons, inputs, links)
+   - [ ] Nothing extra added that's not in the design
+4. If mismatches found:
+   - Minor (missing class, wrong spacing) → fix yourself
+   - Major (missing component, wrong layout) → send to agent or fix
 ```
 
 ## blocked-report.md Format
@@ -243,14 +345,17 @@ These tasks cannot proceed because they depend on blocked tasks:
 ## Important Rules
 
 1. **NEVER modify tasks.md** — it's read-only after initialization
-2. **Update status.md after EVERY task or parallel group** — not in large batches
-3. **Parallelize independent tasks** — when tasks share NO files and have NO dependency between them, execute in parallel for speed
-4. **When in doubt → sequential** — better slow than broken
-5. **Implement code YOURSELF** — use Write/Edit tools directly
-6. **Verify YOURSELF** — run format-and-check, read files, check requirements
-7. **Continue past blocked tasks** — don't stop, do what you can
-8. **Generate blocked-report.md ONLY at the end** — not during execution
-9. **Run format-and-check after all tasks** — for final lint/format cleanup
+2. **Use TEAM workflow** — spawn agents (opus model) for implementation
+3. **ALWAYS use `model: "opus"`** — same model as main chat for implementers
+4. **VALIDATE every completed task** — read files, compare with requirements/screenshots
+5. **Update status.md after EACH validated task** — not in large batches
+6. **Parallelize independent tasks** — spawn agents in parallel when safe
+7. **When in doubt → sequential** — better slow than broken
+8. **Fix minor issues yourself** — faster than round-tripping to agent
+9. **Continue past blocked tasks** — do what you can
+10. **Run format-and-check after ALL tasks** — final cleanup
+11. **Generate blocked-report.md ONLY at the end** — not during execution
+12. **Shutdown team and clean up** — after all work is complete
 
 ## Example Execution Flow
 
@@ -259,42 +364,65 @@ Reading task state... (read tasks.md + status.md in parallel)
 Parsing tasks.md...
 Found 8 tasks: 0 done, 0 running, 8 pending
 
-Finding available tasks...
-Task #1: AuthContext (no deps, files: src/contexts/auth.tsx) → available
-Task #4: API types (no deps, files: src/types/api.ts) → available
-Task #5: Utils (no deps, files: src/lib/utils.ts) → available
+Researching codebase patterns (Explore agent, very thorough)...
+Found: component patterns, import paths, code style
 
-Parallel check:
-├─ #1, #4, #5 share NO files ✓
-├─ #1, #4, #5 have NO deps between them ✓
-└─ → Run #1 + #4 + #5 in PARALLEL
-
-Updating status.md: #1, #4, #5 → running
-
-Implementing Tasks 1, 4, 5 in parallel:
-├─ Reading 3 Context sections in parallel...
-├─ Writing 3 files in parallel (different files)...
-├─ Running format-and-check...
-├─ All checks pass ✓
-└─ Updating status.md: #1, #4, #5 → done
+Creating team "tasks-execution"...
 
 Finding available tasks...
-Task #2: LoginForm (deps: 1 ✓, files: src/components/login-form.tsx)
-Task #3: RegisterForm (deps: 1 ✓, files: src/components/register-form.tsx)
+Task #1: AuthContext (no deps, files: src/contexts/auth.tsx)
+Task #4: API types (no deps, files: src/types/api.ts)
+Task #5: Utils (no deps, files: src/lib/utils.ts)
 
-Parallel check:
-├─ #2, #3 share NO files ✓
-├─ #2, #3 have NO deps between them ✓
-└─ → Run #2 + #3 in PARALLEL
+Parallel check: #1, #4, #5 share NO files ✓ → parallel
 
-Implementing Tasks 2, 3 in parallel:
-├─ Reading Context sections + screenshots in parallel...
-├─ Writing different component files in parallel...
-├─ Running format-and-check...
-├─ Found 1 lint error in #2 → fixing...
-├─ Re-running format-and-check...
-├─ All checks pass ✓
-└─ Updating status.md: #2, #3 → done
+Spawning 3 agents (model: opus) in ONE message:
+├─ impl-1 → Task #1 (full context + patterns)
+├─ impl-2 → Task #4 (full context + patterns)
+└─ impl-3 → Task #5 (full context + patterns)
+
+Waiting for completions...
+
+impl-1 completed → Validating Task #1...
+├─ Reading src/contexts/auth.tsx ✓
+├─ Checking patterns match ✓
+├─ Checking TypeScript types ✓
+└─ ✅ Validated → status.md: #1 → done
+
+impl-2 completed → Validating Task #4...
+├─ Reading src/types/api.ts ✓
+└─ ✅ Validated → status.md: #4 → done
+
+impl-3 completed → Validating Task #5...
+├─ Reading src/lib/utils.ts
+├─ ⚠️ Missing export for formatDate
+├─ Fixing myself (Edit tool)...
+└─ ✅ Fixed + validated → status.md: #5 → done
+
+Finding available tasks...
+Task #2: LoginForm (deps: 1 ✓, has screenshot)
+Task #3: RegisterForm (deps: 1 ✓, has screenshot)
+
+Parallel check: #2, #3 share NO files ✓ → parallel
+
+Spawning 2 agents:
+├─ impl-1 → Task #2 (context + screenshot path + patterns)
+└─ impl-2 → Task #3 (context + screenshot path + patterns)
+
+impl-1 completed → Validating Task #2...
+├─ Reading src/components/login-form.tsx
+├─ Reading screenshot: login-form.png
+├─ Comparing layout... ✓
+├─ Comparing components... ✓
+├─ ❌ Missing "Forgot password" link (visible in screenshot)
+├─ Fixing myself (adding link)...
+└─ ✅ Fixed + validated → status.md: #2 → done
+
+impl-2 completed → Validating Task #3...
+├─ Reading src/components/register-form.tsx
+├─ Reading screenshot: register-form.png
+├─ All components match ✓
+└─ ✅ Validated → status.md: #3 → done
 
 [continues with remaining tasks...]
 
@@ -302,12 +430,18 @@ All tasks complete!
 
 Final verification:
 ├─ Running format-and-check...
-└─ All checks pass ✓
+├─ Found 1 lint warning → fixing...
+└─ Re-running → ✅ All clear
+
+Shutting down team...
+├─ shutdown_request → impl-1 ✓
+├─ shutdown_request → impl-2 ✓
+└─ TeamDelete ✓
 
 Summary:
 - Completed: 8/8
 - Blocked: 0/8
-- Parallel groups used: 3 (saved ~40% time)
+- Validation fixes: 2 (minor, fixed in-place)
 ```
 
 ## Quick Reference: Task Metadata
@@ -317,4 +451,7 @@ Summary:
 | Header | `## Task N: Title` | `## Task 3: Create button` |
 | Files | `- Files: path1, path2` | `- Files: src/btn.tsx, src/types.ts` |
 | Deps | `- Deps: N, M` or `none` | `- Deps: 1, 2` |
+| Screenshots | `- Screenshots: path` | `- Screenshots: screenshots/btn.png` |
+| Figma | `- Figma: path` | `- Figma: screenshots/btn.json` |
 | Context | After `### Context` | Free-form until `---` |
+| Design Specs | After `### Design Specs` | Optional, until `---` |

@@ -1,6 +1,6 @@
 ---
 name: tasks-plan
-description: Plan tasks for execution by team agents from files in .project-meta/tasks/plan/. Reads task files (md/xlsx), analyzes screenshots and Figma JSON, creates tasks.md with full context and status.md for tracking.
+description: Plan tasks for execution by team agents from files in .project-meta/tasks/plan/. Reads task files (md/xlsx/docx), delegates screenshot/Figma analysis to planner agents, creates lightweight tasks.md index + individual context files + status.md.
 ---
 
 # Task Planning
@@ -10,144 +10,241 @@ $ARGUMENTS
 
 **How to use arguments:**
 - `/tasks-plan` — run with default behavior
-- `/tasks-plan focus on mobile layout first` — additional context that influences task ordering/priorities
-- `/tasks-plan skip auth tasks, only UI` — filter or scope instructions
-- `/tasks-plan use existing Button component from shadcn` — technical hints for context generation
-
-Arguments are free-form text. Use them for any additional context: priorities, constraints, technical preferences, scope limitations, or special instructions that should influence how tasks are analyzed and structured.
+- `/tasks-plan focus on mobile layout first` — additional context for task ordering
+- `/tasks-plan skip auth tasks, only UI` — scope limitations
+- `/tasks-plan use existing Button component from shadcn` — technical hints
 
 ## Purpose
-Read task description files from `.project-meta/tasks/plan/`, analyze them along with associated screenshots and Figma design specs, and create a structured task management system using Markdown format for better readability and token efficiency.
+Read task descriptions from `.project-meta/tasks/plan/`, create a structured task system:
+- **Lightweight index** (`tasks.md`) — metadata only, NO full context
+- **Individual context files** (`context/task-N.md`) — one per task
+- **Status tracking** (`status.md`)
 
-**IMPORTANT:** Tasks created here will be executed by team agents during `/tasks-run`. Context sections must be SELF-CONTAINED — include everything an agent needs to implement the task without additional research.
+**KEY PRINCIPLE:** The orchestrator NEVER reads screenshots or Figma JSON. Visual analysis is delegated to a Planner Agent with its own context window. NO codebase research during planning — agents research during execution.
 
 ## Input
 
 ### Task files (root of plan/)
-Files or folders with files in `.project-meta/tasks/plan/` directory (usually .md files with free-form task descriptions)
+Files in `.project-meta/tasks/plan/` directory (.md files with task descriptions)
 
 ### Screenshots and Figma JSON (screenshots/ subfolder)
-`.project-meta/tasks/plan/screenshots/` directory containing:
-- **Image files** (.png, .jpg, .jpeg, .webp) — screenshots or design mockups related to tasks
-- **Figma JSON files** (.json) — exported Figma node snapshots for pixel-perfect design specs (exact dimensions, colors, spacing, typography)
+`.project-meta/tasks/plan/screenshots/` containing:
+- **Image files** (.png, .jpg, .jpeg, .webp)
+- **Figma JSON** (.json) — exported Figma node snapshots
 
 **Matching rules (screenshots → tasks):**
-- If task is "user-profile", look for:
-  - `screenshots/user-profile/` folder (read ALL files inside — images AND .json)
-  - `screenshots/user-profile.png` file
-  - `screenshots/user-profile-*.png` files (e.g., `user-profile-mobile.png`)
-  - `screenshots/user-profile.json` file (Figma JSON)
-  - `screenshots/user-profile-*.json` files
+- Task "user-profile" matches:
+  - `screenshots/user-profile/` folder (all files inside)
+  - `screenshots/user-profile.png`
+  - `screenshots/user-profile-*.png` (e.g., `-mobile.png`)
+  - `screenshots/user-profile.json`
+  - `screenshots/user-profile-*.json`
 - Folder contents override file name matching
-- One screenshot/json can relate to multiple tasks if naming overlaps
-- If no matching screenshot/json found — proceed without visual reference
+- One file can relate to multiple tasks
 
 ## Output
-- `.project-meta/tasks/tasks.md` — Markdown file with full task context (READ ONLY after creation)
-- `.project-meta/tasks/status.md` — human-readable status table (will be updated during execution)
+
+```
+.project-meta/tasks/
+├── tasks.md          # INDEX: metadata only (NO context!)
+├── status.md         # Status tracking table
+└── context/          # Individual task briefs
+    ├── task-1.md     # Context for task 1
+    ├── task-2.md     # Context for task 2
+    └── ...
+```
+
+---
 
 ## Execution Steps
 
-### Step 1: Read Init Files (YOU do this)
-Read all files from `.project-meta/tasks/plan/` root yourself using Read tool.
+### Step 1: Read Task Files (YOU do this)
+Read all files from `.project-meta/tasks/plan/` root using Read tool.
+These are text descriptions — small enough for your context.
 
-### Step 2: Scan Screenshots and Figma JSON (YOU do this)
+### Step 2: List Screenshots (YOU do this — Glob ONLY, DON'T read images!)
 
-**Read screenshots and Figma specs for visual/design context:**
 ```
-1. Use Glob to find all files in .project-meta/tasks/plan/screenshots/
-   - Image files: *.png, *.jpg, *.jpeg, *.webp
-   - Figma JSON: *.json
-2. Group files by task (folder name or file prefix matches task name/ID)
-3. Read each screenshot relevant to tasks (visual context)
-4. Read each .json file relevant to tasks (exact design specs)
-5. Note from screenshots: UI complexity, components needed, layout structure
-6. Note from Figma JSON: exact dimensions, colors, spacing, typography, border radius
+1. Glob: .project-meta/tasks/plan/screenshots/**/*
+2. Note file names and paths — DO NOT open/read image files!
+3. Group by task name (folder name or file prefix)
 ```
 
-**Figma JSON processing:**
-- Figma JSON contains node tree with exact design properties
-- Extract: width, height, padding, gap, border-radius, colors, font sizes, line-height, letter-spacing
-- Use these values for EXACT Tailwind classes in task Context sections
-- Follow figma-to-code rules: create dimension tables, no approximations
+**If no screenshots/ folder — skip, all tasks are code-only.**
 
-**If no screenshots/ folder or no matching files — skip this step and proceed.**
+### Step 3: API Verification Check (MANDATORY)
 
-### Step 3: Analyze Content (YOU do this)
-Extract individual tasks from free-form descriptions:
+If user provided ONLY screenshots/designs WITHOUT API documentation:
+1. **ASK:** "Is there a backend API for this feature? What are the endpoints?"
+2. If API exists → ask for endpoint details, field names, response shapes
+3. If no API → mark API tasks as BLOCKED, create UI-only tasks with mock data
+4. **NEVER invent** endpoint URLs, field names, or response structures
+
+### Step 4: Determine Tasks (YOU do this)
+
+Extract from descriptions:
 - Unique ID (sequential number)
 - Short title
-- Files that will be created/modified
+- Files to create/modify
 - Dependencies on other tasks
-- Associated screenshots (list matched image files)
-- Associated Figma JSON (list matched .json files with key design specs extracted)
+- Matched screenshot/Figma paths
+- Classification: **visual** (has screenshots/figma) or **code** (no visual refs)
 
-### Step 4: Research Codebase (DELEGATE to Explore agent)
+**Task ordering:** no-dep tasks first, then by dependency chain.
 
-**Delegate research to built-in `Explore` agent:**
+### Step 5: Create Directory Structure
+
+```bash
+mkdir -p .project-meta/tasks/context
+```
+
+### Step 6: Write Context Files
+
+#### For CODE tasks — write yourself:
+Context for code tasks is lightweight text — write directly with Write tool.
+
+#### For VISUAL tasks — delegate to Planner Agent:
+
+Spawn ONE Planner Agent for ALL visual tasks. It reads screenshots + Figma JSON in its OWN context window.
+
 ```
 Task tool:
-  subagent_type: "Explore"
-  description: "Research codebase patterns for tasks"
+  subagent_type: "general-purpose"
+  description: "Create visual task context files"
+  mode: "bypassPermissions"
   prompt: |
-    ## PROJECT MEMORY (READ FIRST)
-    If exists: .project-meta/memory/ - read for project context.
+    You are a Planner Agent. Read screenshots and Figma JSON,
+    write context files for visual tasks.
 
-    ## RESEARCH TASK
-    Find patterns and code examples for these tasks:
-    [LIST TASKS HERE]
+    ## PROJECT MEMORY
+    If exists: {CWD}/.project-meta/memory/ — read for project context.
 
-    ## THINK DEEPLY ABOUT:
-    - What exact files and patterns are relevant to these tasks?
-    - What is the minimum set of information needed to implement correctly?
-    - Are there edge cases or non-obvious dependencies?
+    ## KNOWN MISTAKES
+    Read {CWD}/.claude/rules/common-mistakes.md — avoid listed mistakes in your analysis.
 
-    ## WHAT TO RETURN
-    1. FULL CODE of similar components (not summaries)
-    2. Exact import paths used in this project
-    3. Type/interface definitions
-    4. Code style patterns (indentation, quotes, semicolons, component definition style)
-    5. Actual file paths
-    6. Project conventions (how components export, naming, folder structure)
+    ## TASKS TO PROCESS
+
+    [For EACH visual task, include:]
+    ---
+    Task N: {title}
+    Output: {CWD}/.project-meta/tasks/context/task-{N}.md
+    Screenshots: {absolute paths — READ these}
+    Figma JSON: {absolute paths — READ these}
+    Description: {from plan files}
+    Files to create/modify: {list}
+    ---
+
+    ## CONTEXT FILE FORMAT
+
+    Write each file following this EXACT structure:
+
+    # Task N: Title
+
+    ## Action
+    CREATE / MODIFY — which files and why
+
+    ## Requirements
+    [From task description]
+
+    ## Page Structure (MANDATORY — from screenshot ONLY)
+    ⚠️ Look at the SCREENSHOT. Ignore any assumptions from task text.
+    - Single continuous page or divided into tabs?
+    - Visible tab controls? (If NO → "Single continuous page, NO tabs")
+    - Modals, drawers, overlays?
+
+    ## Component Tree
+    [Parent-child hierarchy using tree notation]
+    ```
+    Page
+    ├── Header (flex, justify-between)
+    │   ├── Title
+    │   └── Action Button
+    └── Content
+        └── Table
+    ```
+
+    ## Design Specs (from Figma JSON)
+    ### Dimensions
+    | Element | Figma px | Tailwind | Notes |
+    |---------|----------|----------|-------|
+
+    ### Colors
+    | Token | Hex | Usage |
+    |-------|-----|-------|
+
+    ### Typography
+    | Element | Size | Weight | Line-height | Letter-spacing |
+    |---------|------|--------|-------------|----------------|
+
+    ### Borders & Shadows
+    [ALL borders from `bd` property, ALL shadows from `sh` property]
+
+    ## Interactive Elements
+    [What should be clickable, what action it performs]
+    - Emails → mailto links
+    - Phones → tel links
+    - Filters → functional dropdowns
+    - Buttons → specific actions
+
+    ## Element Count
+    | Element type | Count | Details |
+    |-------------|-------|---------|
+    | Buttons | N | [list each with label and location] |
+
+    ## Page Integration
+    - Page title: [exact text]
+    - Sidebar: [should it appear? under which section?]
+    - Breadcrumbs/back nav: [what should exist]
+
+    ## Acceptance Criteria
+    - [ ] criterion 1
+    - [ ] criterion 2
+
+    ## References
+    - Similar existing page: [path] (for code patterns only, NOT structure)
+
+    ## RULES
+    - Read screenshots with FRESH EYES — ignore task text assumptions
+    - Extract EXACT values from Figma JSON (NO approximations)
+    - Check EVERY element for borders (bd) and shadows (sh)
+    - Count ALL buttons, icons, interactive elements
+    - Do a quick Glob/Grep to find similar pages — include paths as references
+    - Do NOT read full code of reference pages — just note paths
+    - Do NOT include code examples — agents research those during execution
+    - Write in English
 ```
 
-**Use `"very thorough"` thoroughness** for comprehensive codebase analysis.
+**If NO visual tasks exist → skip this step entirely. Write all context files yourself.**
 
-### Step 5: Create Files (YOU do this)
+### Step 7: Write tasks.md INDEX (YOU do this)
 
-**Create files directly using Write tool:**
+Write lightweight index with Write tool. **NO context sections — just metadata.**
 
-1. Create `.project-meta/tasks/tasks.md` following the format below
-2. Create `.project-meta/tasks/status.md` following the format below
+### Step 8: Write status.md (YOU do this)
 
-**CRITICAL for Context sections:**
-Include actual code patterns from Explore agent research. Agent implementers will use these patterns as reference. The Context must contain EVERYTHING an agent needs — treat it as a self-contained brief.
+Write status tracking table with Write tool.
 
-### Step 6: Verify (YOU do this)
+### Step 9: Verify (YOU do this)
 
-**After creating files, re-read them to verify:**
-1. **READ tasks.md** using Read tool
-   - Is the format correct? (headers, separators, metadata fields)
-   - Are ALL tasks from plan files included?
-   - Does EACH task have full Context section?
-   - Do Context sections include actual code patterns from research?
+Check that files were created:
+1. `tasks.md` exists with correct format (read it)
+2. `status.md` exists with all tasks (read it)
+3. `context/task-N.md` exists for EACH task (Glob check)
 
-2. **READ status.md** using Read tool
-   - Are all tasks listed in the table?
-   - Are all statuses set to `pending`?
-   - Is the format correct?
+**DO NOT re-read full context files.** Just verify existence.
 
-3. **If ANY issues found:** Fix them directly with Edit tool.
+### Step 10: Show Summary
 
-### Step 7: Show Summary
-Report to user what was created.
+Report what was created.
 
-## tasks.md Format
+---
+
+## tasks.md Format (LIGHTWEIGHT INDEX)
 
 ```markdown
 # Tasks Plan
 
-Goal: Overall goal from analyzed files
+Goal: Overall goal
 Sources: file1.md, file2.md
 Created: YYYY-MM-DD
 
@@ -156,87 +253,69 @@ Created: YYYY-MM-DD
 ## Task 1: Short title
 - Files: path/to/file.tsx, path/to/other.tsx
 - Deps: none
-- Screenshots: screenshots/task-name.png, screenshots/task-name-mobile.png
-- Figma: screenshots/task-name.json
-
-### Context
-
-FULL context including:
-- What to do and why
-- Technical details
-- Code patterns to follow (actual code examples from codebase)
-- Files to reference
-- Step-by-step instructions
-- Import paths to use
-- Type definitions needed
-
-NOTE: This context will be given to an implementer agent as a self-contained task brief.
-The agent will have access to project memory and codebase, but this context should
-contain everything needed to implement correctly without additional research.
-
-### Design Specs (from Figma JSON / screenshots)
-
-DIMENSION SPECIFICATIONS (if Figma JSON available):
-Container width: [X]px
-
-| Element | Figma px | Tailwind Class | % Calculation |
-|---------|----------|----------------|---------------|
-| [name] | [X]px | w-[Xpx] or w-[Y%] | X/container*100 |
-
-COLORS (from Figma / screenshots):
-| Token | Hex | Usage |
-|-------|-----|-------|
-| bg | #XXXXXX | Background |
-
-(If no screenshots/Figma — omit this section entirely)
-
-Example code from codebase:
-```tsx
-// actual code here without escaping
-function Component({ prop }: Props) {
-  return <div>{prop}</div>;
-}
-```
-
-CODE STYLE:
-- Use 'function' keyword for components
-- Use spaces, semicolons, single quotes
-- Use Tailwind CSS
-
-WHAT NOT TO DO:
-- Don't add unnecessary comments
-- Don't create test files
+- Type: code
+- Context: context/task-1.md
 
 ---
 
-## Task 2: Another task title
-- Files: path/to/new.tsx
+## Task 2: Page title
+- Files: path/to/page.tsx, path/to/components.tsx
 - Deps: 1
-
-### Context
-
-Full context for this task...
+- Type: visual
+- Screenshots: screenshots/page.png
+- Figma: screenshots/page.json
+- Context: context/task-2.md
 
 ---
 ```
+
+**NO `### Context` sections in tasks.md!** Context lives in `context/task-N.md` files.
 
 ## Field Descriptions
 
-- **Task N: Title** — unique ID and short title for display
-- **Files** — comma-separated list of files to create/modify
-- **Deps** — comma-separated task IDs that must complete first, or "none"
-- **Screenshots** — comma-separated paths to related screenshots (relative to plan/), or omit if none
-- **Figma** — comma-separated paths to Figma JSON files (relative to plan/), or omit if none
-- **Context** — FULL self-contained context needed for an agent to execute the task
-- **Design Specs** — extracted dimensions, colors, typography from Figma JSON (omit if no design specs available)
+| Field | Description |
+|-------|-------------|
+| **Task N: Title** | Unique ID and short title |
+| **Files** | Comma-separated files to create/modify |
+| **Deps** | Task IDs that must complete first, or "none" |
+| **Type** | `code` or `visual` |
+| **Screenshots** | Paths relative to plan/ (visual tasks only) |
+| **Figma** | Paths to Figma JSON (visual tasks only) |
+| **Context** | Path to individual context file |
 
 ## Parsing Rules (for tasks-run)
 
 1. Split file by `---` separators
-2. Find task blocks starting with `## Task N:`
-3. Extract metadata from `- Files:`, `- Deps:`, `- Screenshots:`, `- Figma:` lines
-4. Everything after `### Context` until next `### Design Specs` or `---` is the context
-5. Everything after `### Design Specs` until next `---` is the design specifications (optional section)
+2. Find task blocks: `## Task N: Title`
+3. Extract metadata: `- Files:`, `- Deps:`, `- Type:`, `- Screenshots:`, `- Figma:`, `- Context:`
+4. Type determines chain flow: `code` → 3 agents, `visual` → 4 agents
+
+## context/task-N.md Format
+
+### For CODE tasks (written by orchestrator):
+
+```markdown
+# Task N: Title
+
+## Action
+CREATE / MODIFY — which files
+
+## Requirements
+What to build, constraints, acceptance criteria.
+
+## Acceptance Criteria
+- [ ] criterion 1
+- [ ] criterion 2
+
+## References
+- Similar existing file: [path]
+- Types/interfaces: [paths]
+- Components to use: [list]
+```
+
+### For VISUAL tasks (written by Planner Agent):
+
+Full format as described in Step 6 planner agent template.
 
 ## status.md Format
 
@@ -246,143 +325,53 @@ Updated: YYYY-MM-DD HH:mm
 
 ## Progress: 0/N (0%)
 
-| # | Task | Status | Blocker |
-|---|------|--------|---------|
-| 1 | Task title | pending | |
-| 2 | Task title | pending | |
+| # | Task | Type | Status | Blocker |
+|---|------|------|--------|---------|
+| 1 | Task title | code | pending | |
+| 2 | Task title | visual | pending | |
 ```
 
-**Status values:**
-- `pending` — not started
-- `running` — in progress
-- `done` — completed
-- `blocked` — cannot proceed (blocker field explains why)
+**Status values:** `pending` → `running` → `done` / `blocked`
 
-## Context Section Guidelines
-
-The Context section is CRITICAL — it must be a SELF-CONTAINED BRIEF for an implementer agent. Include:
-
-1. **ACTION**: What operation (CREATE NEW FILE / MODIFY FILE / DELETE)
-2. **PURPOSE**: Why this task is needed
-3. **CURRENT CODE**: If modifying, show relevant existing code
-4. **EXPECTED RESULT**: What the final code should do/look like
-5. **CODE PATTERNS**: Real examples from the codebase (copy-paste actual code)
-6. **IMPORT PATHS**: Exact import statements the agent should use
-7. **TYPE DEFINITIONS**: Interfaces/types the agent needs
-8. **CODE STYLE**: Specific rules for this project
-9. **WHAT NOT TO DO**: Explicit prohibitions
-
-**Agent-readiness test:** Could an agent implement this task using ONLY this Context section + project memory, without any additional research? If no — add more detail.
-
-## Design Specs Section Guidelines
-
-The Design Specs section is OPTIONAL — include ONLY when screenshots or Figma JSON exist for the task.
-
-When Figma JSON is available, extract and include:
-1. **DIMENSION TABLE**: Every element with exact px values and Tailwind conversions
-2. **COLOR TABLE**: All unique colors with hex values and usage context
-3. **TYPOGRAPHY**: Font sizes, line-heights, letter-spacing, font weights
-4. **SPACING**: Padding, margin, gap values for all containers
-5. **BORDER**: Border radius, border width, border colors
-
-When only screenshots are available (no Figma JSON):
-1. **VISUAL REFERENCE**: Note which screenshot files to reference (include paths)
-2. **OBSERVED LAYOUT**: Describe layout structure visible in screenshots
-3. **COMPONENT LIST**: List UI components visible in the design
-
-**Follow figma-to-code rules:** No approximations, exact values only, create dimension tables.
-
-Example Context structure:
-```
-CREATE NEW FILE: src/components/user-card.tsx
-
-PURPOSE: Create reusable card component for displaying user info in admin dashboard.
-
-EXISTING PATTERN (from src/components/product-card.tsx):
-```tsx
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-
-interface ProductCardProps {
-  product: Product;
-}
-
-function ProductCard({ product }: ProductCardProps) {
-  return (
-    <Card className="w-full">
-      <CardHeader>{product.name}</CardHeader>
-      <CardContent>{product.description}</CardContent>
-    </Card>
-  );
-}
-
-export { ProductCard };
-```
-
-CREATE THIS COMPONENT:
-- Similar structure to ProductCard
-- Props: user: User, onClick?: () => void
-- Display: avatar, name, email, role badge
-- Use existing Avatar and Badge components
-
-IMPORTS TO USE:
-- Card from '@/components/ui/card'
-- Avatar from '@/components/ui/avatar'
-- Badge from '@/components/ui/badge'
-- User type from '@/types/user'
-
-CODE STYLE:
-- Use 'function' keyword
-- Use Tailwind for styling
-- Wrap onClick in useCallback if provided
-
-WHAT NOT TO DO:
-- Don't create new types, use existing User
-- Don't add hover effects unless specified
-- Don't add edit/delete buttons
-```
+---
 
 ## Important Rules
 
-1. **DO NOT delete files from plan/** — user manages them manually
-2. **Include FULL self-contained context** — agents must be able to implement from Context alone
-3. **DELEGATE research to Explore agent** — include actual code examples, not descriptions
-4. **CREATE files yourself** — use Write tool directly
-5. **VERIFY created files yourself** — read and check format/content
-6. **Use exact file paths** — absolute or relative from project root
-7. **One task per logical unit** — don't combine unrelated changes
-8. **Order by dependencies** — tasks with no deps should come first
-9. **Include code patterns** — agents need real examples to follow project conventions
+1. **DO NOT read screenshots yourself** — delegate to Planner Agent
+2. **DO NOT do codebase research** — agents research during execution (/tasks-run)
+3. **DO NOT delete files from plan/** — user manages them
+4. **tasks.md is INDEX ONLY** — no full context, just metadata + paths
+5. **Each task gets its own context file** in `context/`
+6. **Verify API exists** before planning API tasks (Step 3)
+7. **Page structure comes from SCREENSHOT only** — never copy structure from reference pages
+8. **Order tasks by dependencies** — no-dep first
+9. **One task per logical unit** — don't combine unrelated changes
+
+---
 
 ## Example Output Summary
 
 ```
-Planned 8 tasks from 2 source files:
+Planned 6 tasks from 1 source file:
 
 Source files:
-- auth-feature.md
-- dashboard.md
+- sourcing-requests.md
 
 Design references:
-- screenshots/login-form.png → Task 2 (LoginForm)
-- screenshots/login-form.json → Task 2 (Figma specs extracted)
-- screenshots/register-form.png → Task 3 (RegisterForm)
-- screenshots/dashboard/ → Tasks 6, 7, 8 (3 images, 1 Figma JSON)
-- No design reference: Tasks 1, 4, 5
+- screenshots/list.png + list.json → Task 3 (visual)
+- screenshots/details.png + details.json → Task 4 (visual)
+- No visual reference: Tasks 1, 2, 5, 6
 
 Tasks created:
-1. AuthContext (no deps)
-2. LoginForm (depends on: 1) [has screenshot + Figma JSON]
-3. RegisterForm (depends on: 1) [has screenshot]
-4. API /auth/login (no deps)
-5. API /auth/register (no deps)
-6. Dashboard header (no deps) [has screenshot + Figma JSON]
-7. Dashboard stats (depends on: 6) [has screenshot]
-8. Dashboard charts (depends on: 6) [has screenshot]
-
-Execution order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
-Tasks will be executed by team agents via /tasks-run
+1. API Types (code, no deps) → context/task-1.md
+2. API Service + Hooks (code, deps: 1) → context/task-2.md
+3. List Page (visual, deps: 1,2) → context/task-3.md [planner agent]
+4. Detail Page (visual, deps: 1,2) → context/task-4.md [planner agent]
+5. Sidebar Navigation (code, no deps) → context/task-5.md
+6. Page Titles (code, deps: 3,4) → context/task-6.md
 
 Files created:
-- .project-meta/tasks/tasks.md
+- .project-meta/tasks/tasks.md (index, ~30 lines)
 - .project-meta/tasks/status.md
+- .project-meta/tasks/context/task-1.md through task-6.md
 ```

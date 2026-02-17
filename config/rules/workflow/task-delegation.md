@@ -25,13 +25,14 @@ If the user provides only screenshots/designs WITHOUT explicit API documentation
 
 **Why this matters:** Hallucinating API structures leads to cascading failures — wrong types → wrong service → wrong hooks → empty/broken UI. This was the #1 critical mistake in the Sourcing Requests feature.
 
-### tasks.md Context Quality Check
+### Context File Quality Check
 
-When writing Context sections in tasks.md:
+When writing context files (`context/task-N.md`):
 
-- **DO include:** Clear requirements, acceptance criteria, existing code PATTERNS from codebase (actual examples)
-- **DO NOT include:** Full implementation code written from scratch by the planner
-- **Why:** If the planner writes the full code, errors in the plan become errors in implementation. Agents should implement based on requirements + researched patterns, not copy-paste from plan.
+- **DO include:** Clear requirements, acceptance criteria, reference file paths
+- **DO NOT include:** Full code examples or implementation code — agents research patterns during execution
+- **DO NOT include:** Codebase research results — the Researcher agent handles this fresh during `/tasks-run`
+- **Why:** Context files should describe WHAT to build, not HOW. Agents research code patterns at execution time for accuracy.
 
 ### Page Structure Verification (MANDATORY for visual tasks)
 
@@ -266,16 +267,18 @@ If Validator escalates after 3 failed correction rounds:
 
 ### For tasks:run (Multiple Tasks)
 
-Each task gets its OWN team with its own set of agents:
-- `task-1-team`: researcher-1, impl-1, validator-1 (+ analyzer-1 if visual)
-- `task-2-team`: researcher-2, impl-2, validator-2 (+ analyzer-2 if visual)
+ONE team `tasks-execution` for all tasks. Agents numbered per task:
+- `researcher-1`, `implementer-1`, `validator-1` (+ `analyzer-1` if visual)
+- `researcher-2`, `implementer-2`, `validator-2` (+ `analyzer-2` if visual)
 
-Independent tasks can have their teams running in PARALLEL.
-Dependent tasks run sequentially (wait for dependency team to complete).
+**Each agent reads its own context file** (`context/task-N.md`) — orchestrator does NOT paste context into prompts.
 
-After each task's Validator reports success → inform user about that specific task.
-Clean up completed Researchers/Analyzers. Keep Implementers/Validators alive.
-After ALL tasks done and user confirms → clean up all teams.
+Independent tasks run in PARALLEL (batch of chains).
+Dependent tasks run sequentially (wait for dependency batch to complete).
+
+After each Validator reports → update status.md.
+After ALL tasks done → run format-and-check → shutdown team.
+After user confirms → TeamDelete.
 
 ---
 

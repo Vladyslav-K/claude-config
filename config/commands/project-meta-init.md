@@ -13,7 +13,7 @@ Create the complete project folder structure used by `/tasks-plan`, `/tasks-run`
 ```
 .project-meta/
 ├── tasks/
-│   └── init/
+│   └── plan/
 │       └── screenshots/     # Input for /tasks:plan (task descriptions + screenshots/Figma JSON)
 ├── estimation/
 │   └── screenshots/         # Input for /estimate (task files + screenshots for estimation)
@@ -27,23 +27,12 @@ Create the complete project folder structure used by `/tasks-plan`, `/tasks-run`
 Create all required folders:
 
 ```bash
-mkdir -p .project-meta/tasks/init/screenshots
+mkdir -p .project-meta/tasks/plan/screenshots
 mkdir -p .project-meta/estimation/screenshots
 mkdir -p .project-meta/memory
 ```
 
-### Step 2: Create COMMON_MISTAKES.md (if not exists)
-
-If `.project-meta/COMMON_MISTAKES.md` does not exist, create it with this template:
-
-```markdown
-# Common Implementation Mistakes (Project-Specific)
-
-New entries from this project. Copy to `.claude/rules/common-mistakes.md` when curated.
-
-```
-
-### Step 3: Confirm Creation
+### Step 2: Confirm Creation
 
 After creating folders and files, list them to confirm:
 
@@ -51,7 +40,7 @@ After creating folders and files, list them to confirm:
 find .project-meta -type d
 ```
 
-### Step 4: Report to User
+### Step 3: Report to User
 
 Report what was created with usage instructions:
 
@@ -59,19 +48,18 @@ Report what was created with usage instructions:
 ## Project Structure Created
 
 Created folders:
-- .project-meta/tasks/init/
-- .project-meta/tasks/init/screenshots/
+- .project-meta/tasks/plan/
+- .project-meta/tasks/plan/screenshots/
 - .project-meta/estimation/
 - .project-meta/estimation/screenshots/
 - .project-meta/memory/
-- .project-meta/COMMON_MISTAKES.md
 
 ## How to Use
 
 ### /tasks-plan — Plan tasks for execution
-1. Add task description files (.md) to `.project-meta/tasks/init/`
-2. (Optional) Add screenshots (.png, .jpg) to `.project-meta/tasks/init/screenshots/`
-3. (Optional) Add Figma JSON exports (.json) to `.project-meta/tasks/init/screenshots/`
+1. Add task description files (.md) to `.project-meta/tasks/plan/`
+2. (Optional) Add screenshots (.png, .jpg) to `.project-meta/tasks/plan/screenshots/`
+3. (Optional) Add Figma JSON exports (.json) to `.project-meta/tasks/plan/screenshots/`
 4. Run `/tasks-plan` to create tasks.md and status.md
 5. Pass extra context: `/tasks-plan focus on mobile first`
 

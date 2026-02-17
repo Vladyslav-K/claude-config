@@ -1,6 +1,6 @@
 ---
 name: tasks-plan
-description: Plan tasks for execution by team agents from files in .project-meta/tasks/init/. Reads task files (md/xlsx), analyzes screenshots and Figma JSON, creates tasks.md with full context and status.md for tracking.
+description: Plan tasks for execution by team agents from files in .project-meta/tasks/plan/. Reads task files (md/xlsx), analyzes screenshots and Figma JSON, creates tasks.md with full context and status.md for tracking.
 ---
 
 # Task Planning
@@ -17,17 +17,17 @@ $ARGUMENTS
 Arguments are free-form text. Use them for any additional context: priorities, constraints, technical preferences, scope limitations, or special instructions that should influence how tasks are analyzed and structured.
 
 ## Purpose
-Read task description files from `.project-meta/tasks/init/`, analyze them along with associated screenshots and Figma design specs, and create a structured task management system using Markdown format for better readability and token efficiency.
+Read task description files from `.project-meta/tasks/plan/`, analyze them along with associated screenshots and Figma design specs, and create a structured task management system using Markdown format for better readability and token efficiency.
 
 **IMPORTANT:** Tasks created here will be executed by team agents during `/tasks-run`. Context sections must be SELF-CONTAINED — include everything an agent needs to implement the task without additional research.
 
 ## Input
 
-### Task files (root of init/)
-Files or folders with files in `.project-meta/tasks/init/` directory (usually .md files with free-form task descriptions)
+### Task files (root of plan/)
+Files or folders with files in `.project-meta/tasks/plan/` directory (usually .md files with free-form task descriptions)
 
 ### Screenshots and Figma JSON (screenshots/ subfolder)
-`.project-meta/tasks/init/screenshots/` directory containing:
+`.project-meta/tasks/plan/screenshots/` directory containing:
 - **Image files** (.png, .jpg, .jpeg, .webp) — screenshots or design mockups related to tasks
 - **Figma JSON files** (.json) — exported Figma node snapshots for pixel-perfect design specs (exact dimensions, colors, spacing, typography)
 
@@ -49,13 +49,13 @@ Files or folders with files in `.project-meta/tasks/init/` directory (usually .m
 ## Execution Steps
 
 ### Step 1: Read Init Files (YOU do this)
-Read all files from `.project-meta/tasks/init/` root yourself using Read tool.
+Read all files from `.project-meta/tasks/plan/` root yourself using Read tool.
 
 ### Step 2: Scan Screenshots and Figma JSON (YOU do this)
 
 **Read screenshots and Figma specs for visual/design context:**
 ```
-1. Use Glob to find all files in .project-meta/tasks/init/screenshots/
+1. Use Glob to find all files in .project-meta/tasks/plan/screenshots/
    - Image files: *.png, *.jpg, *.jpeg, *.webp
    - Figma JSON: *.json
 2. Group files by task (folder name or file prefix matches task name/ID)
@@ -119,13 +119,6 @@ Task tool:
 
 1. Create `.project-meta/tasks/tasks.md` following the format below
 2. Create `.project-meta/tasks/status.md` following the format below
-3. Create `.project-meta/COMMON_MISTAKES.md` if it doesn't exist yet (empty template):
-```markdown
-# Common Implementation Mistakes (Project-Specific)
-
-New entries from this project. Copy to `.claude/rules/common-mistakes.md` when curated.
-
-```
 
 **CRITICAL for Context sections:**
 Include actual code patterns from Explore agent research. Agent implementers will use these patterns as reference. The Context must contain EVERYTHING an agent needs — treat it as a self-contained brief.
@@ -135,7 +128,7 @@ Include actual code patterns from Explore agent research. Agent implementers wil
 **After creating files, re-read them to verify:**
 1. **READ tasks.md** using Read tool
    - Is the format correct? (headers, separators, metadata fields)
-   - Are ALL tasks from init files included?
+   - Are ALL tasks from plan files included?
    - Does EACH task have full Context section?
    - Do Context sections include actual code patterns from research?
 
@@ -232,8 +225,8 @@ Full context for this task...
 - **Task N: Title** — unique ID and short title for display
 - **Files** — comma-separated list of files to create/modify
 - **Deps** — comma-separated task IDs that must complete first, or "none"
-- **Screenshots** — comma-separated paths to related screenshots (relative to init/), or omit if none
-- **Figma** — comma-separated paths to Figma JSON files (relative to init/), or omit if none
+- **Screenshots** — comma-separated paths to related screenshots (relative to plan/), or omit if none
+- **Figma** — comma-separated paths to Figma JSON files (relative to plan/), or omit if none
 - **Context** — FULL self-contained context needed for an agent to execute the task
 - **Design Specs** — extracted dimensions, colors, typography from Figma JSON (omit if no design specs available)
 
@@ -350,7 +343,7 @@ WHAT NOT TO DO:
 
 ## Important Rules
 
-1. **DO NOT delete files from init/** — user manages them manually
+1. **DO NOT delete files from plan/** — user manages them manually
 2. **Include FULL self-contained context** — agents must be able to implement from Context alone
 3. **DELEGATE research to Explore agent** — include actual code examples, not descriptions
 4. **CREATE files yourself** — use Write tool directly

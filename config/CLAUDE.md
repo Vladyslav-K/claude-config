@@ -53,6 +53,30 @@ Ask yourself: "Will this touch 2+ files OR require reading 5+ files for research
 
 ---
 
+## CRITICAL: API Verification Before Planning
+
+**When user provides screenshots/designs for a feature:**
+
+1. **BEFORE creating API types/services/hooks** → ASK: "Is there a backend API for this? What are the endpoints?"
+2. **If user doesn't provide API docs** → Do NOT create API tasks. Mark them as BLOCKED or ask.
+3. **NEVER invent** endpoint URLs, field names, or response structures from screenshots alone.
+4. **Why:** Hallucinating API structures causes cascading failures — wrong types → wrong hooks → empty/broken UI.
+
+---
+
+## CRITICAL: Visual Task Mandatory Agents
+
+**For ANY task with screenshots/Figma specs, you MUST spawn ALL 3 agents:**
+
+1. **Analyzer** — reads screenshot + Figma JSON → produces element-by-element specs
+2. **Implementer** — builds using analyzer's output + codebase patterns
+3. **Validator** — fresh-eyes comparison of result vs design → reports every discrepancy
+
+**Skipping ANY of these agents is FORBIDDEN.** If you "validate" without a validator agent,
+the validation is fake and critical issues WILL be missed.
+
+---
+
 ## CRITICAL: Figma-to-Code Rules
 
 **When working with Figma JSON, screenshots, or design specs:**

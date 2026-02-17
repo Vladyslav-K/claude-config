@@ -186,10 +186,9 @@ Task tool:
     ## CODEBASE PATTERNS (from research)
     {Paste relevant code patterns found by Explore agent}
 
-    ## KNOWN MISTAKES (read these files if they exist)
-    - .claude/rules/common-mistakes.md (global known mistakes)
-    - {CWD}/.project-meta/COMMON_MISTAKES.md (project-specific mistakes)
-    Read them and avoid ALL listed mistakes.
+    ## KNOWN MISTAKES (read this file if it exists)
+    - .claude/rules/common-mistakes.md (known mistakes from past implementations)
+    Read it and avoid ALL listed mistakes.
 
     ## RULES
     - Read project memory files FIRST for project architecture and patterns

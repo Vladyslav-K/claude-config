@@ -13,7 +13,7 @@ Model assignment per agent role. Orchestrator reads this before spawning agents.
 |------|---------|-------|
 | researcher | sonnet  | Codebase search, pattern finding |
 | analyzer | inherit | Vision + design analysis |
-| implementer | inherit  | Code implementation |
+| implementer | inherit | Code implementation |
 | validator | inherit | Code + design validation |
 | planner | inherit | Screenshot + Figma analysis for planning |
 | estimator | inherit | Task estimation |

@@ -216,3 +216,39 @@ If the design shows email in a different color or with underline, it's a link.
 
 ### Phone numbers must be tel links
 Similar to emails, phone numbers should be `<a href="tel:+1234567890">` links.
+
+## Component Reuse
+
+### Never recreate UI components that already exist in the project
+Before implementing any UI element, check if the project already has a component for it.
+Using raw `<button>`, `<input>`, `<select>` when project components exist is always wrong.
+The Researcher's "UI Component Catalog" section lists what exists — use it.
+- Example: Custom filter dropdowns were built from scratch with raw HTML while the project had
+  `src/components/ui/custom-select.tsx`, `src/components/ui/input.tsx`, and existing admin filter
+  patterns in `src/components/admin/users/user-filters.tsx`
+- Example: A new Button component was created inline when `src/components/ui/button/button.tsx`
+  already existed with all needed variants (primary, outline, ghost, gradient)
+
+### Validator must grep for raw HTML primitives in new code
+When validating, search all new/modified files for raw `<button`, `<input`, `<select` tags.
+Each occurrence must be justified — either no component exists, or it's inside a component definition.
+If a UI component for it exists in the project → CRITICAL ISSUE.
+
+## Responsive Design
+
+### Every visual page MUST have mobile/responsive layout
+Any page or component created from a visual task (screenshot/Figma) MUST implement
+responsive design. Absence of Tailwind responsive classes (`sm:`, `md:`, `lg:`) in new
+page files is always a critical bug — not an oversight to ignore.
+- Example: Full Sourcing Requests list page was implemented with desktop-only layout.
+  Zero responsive classes existed — mobile users would see completely broken layout.
+- Example: Filter bar with 4 dropdowns rendered as a single horizontal row on mobile
+  with no wrapping or stacking behavior.
+
+### Mobile-first implementation approach
+Write default (unprefixed) Tailwind classes for mobile layout first, then override with
+`md:` and `lg:` for larger screens. Key patterns:
+- Tables: wrap in `overflow-x-auto` for mobile horizontal scroll
+- Multi-column filter rows: `flex flex-wrap` or `grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4`
+- Sidebar/header: already handled by layout — focus on page content area
+- Cards/grids: `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`

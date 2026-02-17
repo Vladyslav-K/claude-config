@@ -23,18 +23,27 @@ For the task you receive, find and return:
    - Hooks
    - Types/interfaces
    - Utils/helpers
-3. **Type/interface definitions** that the implementer will need
-4. **Code style patterns**:
+3. **UI Component Catalog — MANDATORY for visual tasks**:
+   - Read `src/components/ui/` directory — list EVERY available component
+   - Read `src/components/admin/` (or feature folders) — list feature-specific components
+   - For EACH component the task will likely need (Button, Input, Select, Badge, Table, filters, etc.):
+     - Does it already exist? → Provide exact import path and available props/variants
+     - Does it NOT exist? → Explicitly note "NOT FOUND — implementer must create"
+   - **Purpose:** Implementer MUST use existing components. Never create a custom Button
+     if `src/components/ui/button/button.tsx` exists. Never create a custom Input if
+     `src/components/ui/input.tsx` exists. This catalog enforces that.
+4. **Type/interface definitions** that the implementer will need
+5. **Code style patterns**:
    - Function keyword vs arrow functions for components
    - Indentation (tabs/spaces), quotes, semicolons
    - How components export (named vs default)
    - How hooks are structured
-5. **Layout integration** (CRITICAL for new pages):
+6. **Layout integration** (CRITICAL for new pages):
    - How page titles are set (find the title mapping system)
    - How sidebar navigation works (find where menu items are defined)
    - How routing/breadcrumbs/back buttons work
-6. **Package manager** — check lockfile (package-lock.json, pnpm-lock.yaml, bun.lockb)
-7. **Available scripts** — read package.json scripts section (format, lint, typecheck)
+7. **Package manager** — check lockfile (package-lock.json, pnpm-lock.yaml, bun.lockb)
+8. **Available scripts** — read package.json scripts section (format, lint, typecheck)
 
 ---
 
@@ -64,6 +73,19 @@ Send your findings to the **Implementer agent** via `SendMessage` with this EXAC
 
 ### Import Paths
 [List of exact imports the implementer should use]
+
+### UI Component Catalog (MANDATORY)
+For each UI element this task needs — confirm existence and provide import:
+- Button: [import path + variants available] / NOT FOUND
+- Input: [import path] / NOT FOUND
+- Select/Dropdown: [import path] / NOT FOUND
+- Table: [import path] / NOT FOUND
+- Badge: [import path + variants] / NOT FOUND
+- Filters/Search: [import path of existing filter components] / NOT FOUND
+- [Any other component the task needs]: [import path] / NOT FOUND
+
+RULE FOR IMPLEMENTER: Use ONLY components listed as found above.
+Do NOT create custom implementations of existing components.
 
 ### Type Definitions
 [Relevant interfaces and types with file paths]

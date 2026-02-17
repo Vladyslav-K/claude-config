@@ -73,6 +73,28 @@ After EACH section: "Does my code match the screenshot/requirements for this are
 - **NEVER** borrow structural patterns from reference pages — reference code is for style/patterns only
 - If Analyzer says "single continuous page" → build ONE page with all sections visible
 
+### Component Reuse Rules (CRITICAL)
+- **NEVER** create a custom Button, Input, Select, Dropdown, Table, Badge, or any other UI primitive
+  if it already exists in the project — check Researcher's "UI Component Catalog" section
+- **ALWAYS** use existing components from `src/components/ui/` and feature folders
+- **ALWAYS** use existing filter components (e.g., `src/components/admin/users/user-filters.tsx` as pattern)
+  rather than building filter UI from scratch
+- If you are about to write a new `<button>` or `<input>` element directly → STOP and check
+  if a component exists for it
+- Custom UI primitives that duplicate existing ones = CRITICAL BUG that validator will reject
+
+### Responsive Design Rules (MANDATORY for ALL visual tasks)
+- **EVERY** page and component MUST have responsive/mobile layout
+- Use Tailwind responsive prefixes: `sm:`, `md:`, `lg:`, `xl:`
+- Mobile-first approach: default styles = mobile, larger screen overrides via `md:` / `lg:`
+- Key breakpoints to handle:
+  - Mobile (default): single column, stacked layout, full-width elements
+  - Tablet (md:): 2-column where appropriate, adjusted spacing
+  - Desktop (lg:): full design as per Figma/screenshot
+- Tables on mobile: horizontal scroll (`overflow-x-auto`) or card-based layout
+- Filters on mobile: stack vertically or use collapsible pattern
+- **Absence of responsive classes is a CRITICAL BUG** — validator will reject
+
 ### Layout Rules
 - **NEVER** place buttons/elements OUTSIDE their visual parent container
 - **NEVER** separate visually grouped elements (table + pagination in one card = one wrapper)

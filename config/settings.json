@@ -73,6 +73,16 @@
     ]
   },
   "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '\\a'"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "matcher": "startup",
@@ -114,8 +124,9 @@
   "outputStyle": "Explanatory",
   "language": "Ukrainian",
   "alwaysThinkingEnabled": true,
+  "autoMemoryEnabled": true,
   "feedbackSurveyState": {
     "lastShownTime": 1754036467609
   },
-  "autoMemoryEnabled": true
+  "model": "sonnet"
 }

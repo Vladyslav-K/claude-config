@@ -9,7 +9,7 @@ description: Execute tasks from .project-meta/tasks/tasks.md using a team of age
 $ARGUMENTS
 
 ## Purpose
-Execute tasks from the initialized task system using a team of implementer agents. Independent tasks run in parallel via separate agents (inherits current chat model). After each task completion, the team lead (YOU) validates the result against requirements and screenshots before marking as done.
+Execute tasks from the initialized task system using a team of agents. Independent tasks run in parallel via separate agents (inherits current chat model). After each task completion, the team lead (YOU) validates the result against requirements and screenshots before marking as done.
 
 ## Input
 - `.project-meta/tasks/tasks.md` — task definitions with full context in Markdown (READ ONLY)
@@ -112,12 +112,15 @@ TeamCreate:
   description: "Executing tasks from tasks.md"
 ```
 
-### 4. Find Available Tasks and Group (YOU do this)
+### 4. Find Available Tasks, Classify, and Group (YOU do this)
 
 ```
 1. Find all tasks with status "pending"
 2. Filter out tasks with unmet dependencies (deps not "done")
-3. From available tasks, identify PARALLEL GROUPS
+3. CLASSIFY each available task:
+   - HAS "Screenshots:" or "Figma:" field → VISUAL TASK (requires 3-agent flow)
+   - NO screenshots/figma → CODE TASK (standard implementer flow)
+4. From available tasks, identify PARALLEL GROUPS
 ```
 
 ### CRITICAL: Parallel Task Grouping
@@ -150,11 +153,264 @@ Can they run in parallel?
 
 **When in doubt → run sequentially.** Better slow than broken.
 
-### 5. Spawn Implementer Agents (YOU do this)
+---
+
+## 🚨 CRITICAL: Visual Task Flow (3-Agent Mandatory)
+
+**This section OVERRIDES any simplified validation approach below.**
+
+**If a task has `Screenshots:` or `Figma:` metadata → it is a VISUAL TASK.**
+
+**For EVERY visual task, you MUST spawn ALL 3 agents in sequence:**
+
+1. **Analyzer agent** → reads screenshot + Figma JSON → produces element-by-element specs
+2. **Implementer agent** → builds using analyzer's output + codebase patterns
+3. **Validator agent** → fresh-eyes comparison of result vs design → reports every discrepancy
+
+**You CANNOT skip any of these agents. The orchestrator (YOU) is FORBIDDEN from:**
+- ❌ Reading screenshots and writing analysis yourself — this is the ANALYZER's job
+- ❌ Comparing code to design and saying "looks correct" — this is the VALIDATOR's job
+- ❌ Claiming validation without a validator agent_id — this is FAKE validation
+- ❌ Rationalizing "the analysis is already in tasks.md so analyzer is unnecessary" — NO, spawn it anyway
+
+**Even if tasks.md already contains design specs, the analyzer agent MUST still be spawned.**
+Why: The analyzer reads the ACTUAL screenshot with fresh eyes and catches details that
+the planning phase may have missed. Skipping it has caused critical errors 3 times.
+
+### GATE System (HARD STOPS)
+
+```
+═══════════════════════════════════════════════════════
+GATE 1: BEFORE spawning implementer for a visual task
+═══════════════════════════════════════════════════════
+REQUIRED PROOF: Analyzer agent was spawned AND returned analysis.
+- Analyzer agent name: [must exist]
+- Analyzer output received: [YES — paste first 3 lines as proof]
+
+WITHOUT THIS PROOF → you CANNOT spawn the implementer.
+If you find yourself writing "I'll analyze the screenshot..." → STOP.
+That is the analyzer agent's job. Spawn it.
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+GATE 2: BEFORE marking a visual task as done
+═══════════════════════════════════════════════════════
+REQUIRED PROOF: Validator agent was spawned AND returned a report.
+- Validator agent name: [must exist]
+- Validator issues found: [number from validator's report]
+- All issues fixed: [YES/NO — if NO, list remaining]
+
+WITHOUT THIS PROOF → task is NOT done.
+If you find yourself writing "I compared the code to the screenshot..." → STOP.
+That is the validator agent's job. Spawn it.
+═══════════════════════════════════════════════════════
+```
+
+### Visual Task Step-by-Step
+
+For each visual task in a parallel group:
+
+**Step A: Spawn Analyzer**
+```
+Task tool:
+  subagent_type: "general-purpose"
+  team_name: "tasks-execution"
+  name: "analyzer-{N}"
+  mode: "bypassPermissions"
+  prompt: |
+    You are a design analyzer agent. DO NOT write any implementation code.
+
+    ## YOUR TASK
+    Analyze the screenshot(s) and/or Figma JSON and produce a DETAILED structural analysis.
+
+    ## SCREENSHOTS TO ANALYZE
+    [Absolute paths to screenshot files — READ them]
+
+    ## FIGMA JSON (if available)
+    [Path to Figma JSON file — READ it]
+
+    ## WHAT TO PRODUCE
+
+    ### 1. Component Tree (parent-child hierarchy)
+    For EVERY visible element, describe what it is and where it sits.
+    Use tree notation to show NESTING explicitly.
+    PAY SPECIAL ATTENTION to what is INSIDE what.
+
+    ### 2. Visual Properties for EACH element
+    - Colors: background, text, border (exact hex from Figma JSON, or best visual estimate)
+    - Font: size, weight, style
+    - Spacing: padding, margin, gap
+    - Borders: color, width, radius
+    - Shadows if any
+    - Dimensions: width, height if determinable
+
+    ### 3. Interactive Elements Detection
+    For EVERY element, determine if it should be interactive:
+    - Links (mailto:, href, etc.)
+    - Buttons (what should they DO?)
+    - Dropdowns, filters, search inputs
+    - List what action each interactive element should perform.
+
+    ### 4. Element Count
+    Count how many times each type of element appears.
+    List each button with exact label and location.
+    Are there elements that DON'T belong on this page/role?
+
+    ### 5. Page Integration Points
+    - What should the page TITLE be?
+    - Should this page appear in sidebar navigation?
+    - What breadcrumbs or back-navigation should exist?
+
+    Send your complete analysis to the team lead when done.
+```
+
+**GATE 1 CHECK** — Verify analyzer output received before proceeding.
+
+**Step B: Spawn Implementer (with analyzer output)**
+```
+Task tool:
+  subagent_type: "general-purpose"
+  team_name: "tasks-execution"
+  name: "impl-{N}"
+  mode: "bypassPermissions"
+  prompt: |
+    You are implementer agent "impl-{N}".
+
+    ## YOUR TASK
+    {FULL CONTEXT from tasks.md}
+
+    ## DESIGN SPECS
+    {Design Specs section from tasks.md if present}
+
+    ## SCREENSHOTS
+    {Screenshot paths — READ these files}
+
+    ## DESIGN ANALYSIS (from analyzer agent)
+    {Paste the FULL analysis from the analyzer agent here — THIS IS CRITICAL}
+
+    ## PROJECT CONTEXT
+    Working directory: {CWD}
+    Memory: {CWD}/.project-meta/memory/ (read these first!)
+
+    ## CODEBASE PATTERNS (from research)
+    {Paste relevant code patterns found by Explore agent}
+
+    ## KNOWN MISTAKES (read this file if it exists)
+    - .claude/rules/common-mistakes.md
+    Read it and avoid ALL listed mistakes.
+
+    ## RULES
+    - Read project memory files FIRST
+    - Read common mistakes file if it exists
+    - Follow existing code patterns EXACTLY
+    - Don't create tests unless specified
+    - Don't add unnecessary comments
+    - Use English for all code and comments
+    - If screenshots exist, READ them to understand the visual design
+
+    ## WHEN DONE
+    1. Re-read your created/modified files to verify correctness
+    2. Run format-and-check (or format, lint, typecheck), fix any issues
+    3. Report: list all files created/modified and what was done
+```
+
+**Step C: Spawn Validator (after implementer completes)**
+```
+Task tool:
+  subagent_type: "general-purpose"
+  team_name: "tasks-execution"
+  name: "validator-{N}"
+  mode: "bypassPermissions"
+  prompt: |
+    You are a validation agent. Your ONLY job is to find EVERY discrepancy
+    between the design and the implementation. Be extremely thorough and critical.
+
+    ## SCREENSHOT(S) TO COMPARE AGAINST
+    [Absolute paths to screenshot files — READ them]
+
+    ## DESIGN ANALYSIS (from analyzer agent)
+    [Paste the analysis]
+
+    ## IMPLEMENTED CODE TO VALIDATE
+    [List of file paths created/modified by the implementer — READ them all]
+
+    ## KNOWN MISTAKES (read this file if it exists)
+    - .claude/rules/common-mistakes.md
+    Pay special attention — these are REAL mistakes from previous work.
+
+    ## YOUR TASK
+    Go through EVERY element visible on the screenshot and verify
+    it exists correctly in the code.
+
+    ### For EACH element check:
+    1. EXISTS? — Is this element present in the code?
+    2. CORRECT PARENT? — Is it nested inside the right container?
+    3. CORRECT STYLES? — Color, font, spacing, border match?
+    4. CORRECT TEXT? — Does text content match exactly?
+    5. NO EXTRAS? — Is there anything in the code NOT on the screenshot?
+
+    ### Critical Checks:
+    - Count EVERY button. Code count must match screenshot count.
+    - Email text → must be mailto: link (not plain text)
+    - Filter dropdowns → must actually open and filter data
+    - Interactive elements → must be functional, not just visual
+    - Page title → correct in layout header? (not default "Page")
+    - Product images → have border if shown in design?
+
+    ## OUTPUT FORMAT
+
+    ### ✅ Correct Elements
+    - [Element]: [brief confirmation]
+
+    ### ❌ Issues Found
+    For EACH issue:
+    - **Element:** [what element]
+    - **File:** [file path:line number]
+    - **Problem:** [specific description]
+    - **Expected:** [what it should be]
+    - **Actual:** [what it currently is]
+    - **Fix:** [how to fix it]
+
+    ### 📊 Summary
+    - Total elements checked: N
+    - Correct: N
+    - Issues found: N
+
+    Send your complete report to the team lead.
+```
+
+**GATE 2 CHECK** — Verify validator report received. Fix all issues.
+Then mark task as done.
+
+### Parallelizing Visual Tasks
+
+Multiple visual tasks CAN run in parallel IF they don't share files:
+
+```
+Visual Task 3 + Visual Task 4 (no shared files):
+
+1. Spawn analyzer-3 AND analyzer-4 in PARALLEL (single message)
+2. Wait for both analyzers
+3. GATE 1 check for both
+4. Spawn impl-3 AND impl-4 in PARALLEL (with respective analyzer outputs)
+5. Wait for both implementers
+6. Spawn validator-3 AND validator-4 in PARALLEL
+7. Wait for both validators
+8. GATE 2 check for both
+9. Fix issues, mark done
+```
+
+**Analyzers for different tasks CAN run in parallel.**
+**Validators for different tasks CAN run in parallel.**
+**But analyzer → implementer → validator for the SAME task MUST be sequential.**
+
+---
+
+### 5. Spawn Agents for Code Tasks (non-visual)
 
 **CRITICAL: NEVER specify `model` param. Omit it → agent inherits current chat model.**
 
-For each task in a parallel group, spawn an agent:
+For code-only tasks (NO screenshots/figma), spawn implementer directly:
 
 ```
 Task tool:
@@ -176,9 +432,6 @@ Task tool:
     ## DESIGN SPECS
     {Design Specs section from tasks.md if present}
 
-    ## SCREENSHOTS
-    {Screenshot paths if present — agent should READ these files}
-
     ## PROJECT CONTEXT
     Working directory: {CWD}
     Memory: {CWD}/.project-meta/memory/ (read these first!)
@@ -198,7 +451,6 @@ Task tool:
     - Don't add unnecessary comments (no task descriptions, no change notes)
     - Use English for all code and comments
     - Follow the project's code style
-    - If screenshots exist, READ them to understand the visual design
 
     ## WHEN DONE
     1. Re-read your created/modified files to verify correctness
@@ -208,34 +460,39 @@ Task tool:
 
 **For parallel groups:** Spawn ALL agents for the group in a SINGLE message (multiple Task tool calls in parallel).
 
-### 6. Validate Each Task (YOU do this — CRITICAL)
+### 6. Validate Completed Tasks
 
-**After each agent completes, YOU MUST validate:**
+**After each agent completes, validation depends on task type:**
+
+#### Code Tasks (no screenshots) — YOU validate directly:
 
 1. **Read output files** the agent created/modified
-2. **If task has screenshots:**
-   - Read the screenshot file(s) using Read tool
-   - Compare with agent's implementation:
-     - All visible components present?
-     - Layout direction correct?
-     - Spacing reasonable?
-     - Colors match?
-     - Typography correct?
-     - Interactive elements present?
-3. **If task has design specs:**
-   - Verify dimensions match Figma specs
-   - Verify colors match
-   - Verify typography matches
-4. **Check code quality:**
+2. **Check code quality:**
    - Follows project patterns (from research)
    - Proper TypeScript types
    - No console.log or commented code
    - Imports from correct locations
    - No extra features beyond requirements
-5. **Decision:**
+3. **Decision:**
    - ✅ Good → Update status.md: task → `done`
    - ⚠️ Minor issues → Fix yourself with Edit tool, then mark `done`
    - ❌ Major issues → Send correction to agent OR fix yourself
+
+#### Visual Tasks (has screenshots) — VALIDATOR agent validates:
+
+**YOU DO NOT validate visual tasks yourself. The validator agent does it.**
+
+1. After implementer completes → spawn validator agent (Step C above)
+2. Wait for validator report
+3. **GATE 2 CHECK** — verify you have validator agent name + issues count
+4. Review validator's report:
+   - 0 issues → mark done
+   - 1-3 minor issues → fix yourself, mark done
+   - 4+ issues → send corrections to implementer, optionally re-validate
+5. Update status.md
+
+**YOU reading the screenshot and saying "looks good" is NOT validation.**
+**Only a validator agent report counts.**
 
 ### 7. Update Status and Continue
 
@@ -243,9 +500,10 @@ After validating current group:
 1. Update status.md: completed tasks → `done`, blocked tasks → `blocked`
 2. Update progress percentage and timestamp
 3. Find newly available tasks (dependencies now met)
-4. Analyze parallel groups again
-5. Spawn new agents for next batch
-6. Repeat steps 5-7 until all tasks done or blocked
+4. Classify new tasks (visual vs code)
+5. Analyze parallel groups again
+6. Spawn new agents for next batch
+7. Repeat until all tasks done or blocked
 
 ### 8. Final Verification (YOU do this)
 
@@ -283,7 +541,7 @@ When updating status.md:
 
 ## Verification Checklist
 
-After each task:
+After each CODE task:
 ```
 - [ ] All requirements from Context section are implemented
 - [ ] Code compiles without errors (TypeScript)
@@ -292,27 +550,15 @@ After each task:
 - [ ] Types are properly defined
 - [ ] Follows patterns specified in Context
 - [ ] No extra features added beyond what Context specifies
-- [ ] Design specs match (if applicable)
-- [ ] Screenshot comparison passes (if applicable)
 ```
 
-## Screenshot Validation
-
-When task has screenshots:
+After each VISUAL task:
 ```
-1. Read the screenshot file (Read tool handles images)
-2. Read the created/modified code file(s)
-3. Compare:
-   - [ ] All visible components are present in code
-   - [ ] Layout structure matches (row/column, alignment)
-   - [ ] Spacing is reasonable (padding, gaps)
-   - [ ] Colors match visible design
-   - [ ] Typography looks correct (size, weight)
-   - [ ] Interactive elements present (buttons, inputs, links)
-   - [ ] Nothing extra added that's not in the design
-4. If mismatches found:
-   - Minor (missing class, wrong spacing) → fix yourself
-   - Major (missing component, wrong layout) → send to agent or fix
+- [ ] GATE 1 passed: analyzer agent name = _________, output received
+- [ ] Implementer received analyzer output in prompt
+- [ ] GATE 2 passed: validator agent name = _________, issues found = ___
+- [ ] All validator issues fixed
+- [ ] format-and-check passes
 ```
 
 ## blocked-report.md Format
@@ -352,15 +598,17 @@ These tasks cannot proceed because they depend on blocked tasks:
 1. **NEVER modify tasks.md** — it's read-only after initialization
 2. **Use TEAM workflow** — always TeamCreate, then spawn agents with team_name
 3. **NEVER specify model param** — omit it, agent inherits current chat model
-4. **VALIDATE every completed task** — read files, compare with requirements/screenshots
-5. **Update status.md after EACH validated task** — not in large batches
-6. **Parallelize independent tasks** — spawn agents in parallel when safe
-7. **When in doubt → sequential** — better slow than broken
-8. **Fix minor issues yourself** — faster than round-tripping to agent
-9. **Continue past blocked tasks** — do what you can
-10. **Run format-and-check after ALL tasks** — final cleanup
-11. **Generate blocked-report.md ONLY at the end** — not during execution
-12. **Shutdown team and clean up** — after all work is complete
+4. **VISUAL TASKS REQUIRE 3 AGENTS** — analyzer → implementer → validator (NO EXCEPTIONS)
+5. **ORCHESTRATOR NEVER reads screenshots to analyze or validate** — agents do this
+6. **GATE system is mandatory** — must have agent names and output before proceeding
+7. **Update status.md after EACH validated task** — not in large batches
+8. **Parallelize independent tasks** — spawn agents in parallel when safe
+9. **When in doubt → sequential** — better slow than broken
+10. **Fix minor issues yourself** — faster than round-tripping to agent
+11. **Continue past blocked tasks** — do what you can
+12. **Run format-and-check after ALL tasks** — final cleanup
+13. **Generate blocked-report.md ONLY at the end** — not during execution
+14. **Shutdown team and clean up** — after all work is complete
 
 ## Example Execution Flow
 
@@ -369,84 +617,84 @@ Reading task state... (read tasks.md + status.md in parallel)
 Parsing tasks.md...
 Found 8 tasks: 0 done, 0 running, 8 pending
 
-Researching codebase patterns (Explore agent, very thorough)...
+Classifying tasks:
+├─ Task #1: CODE (no screenshots) — types
+├─ Task #2: CODE — navigation
+├─ Task #3: VISUAL (has screenshots + figma) — list page
+├─ Task #4: VISUAL (has screenshots + figma) — detail page
+├─ Tasks #5-8: CODE — services, hooks, etc.
+
+Researching codebase patterns (Explore agent)...
 Found: component patterns, import paths, code style
 
 Creating team "tasks-execution"...
 
-Finding available tasks...
-Task #1: AuthContext (no deps, files: src/contexts/auth.tsx)
-Task #4: API types (no deps, files: src/types/api.ts)
-Task #5: Utils (no deps, files: src/lib/utils.ts)
+═══ Batch 1: Tasks #1, #2 (CODE, no deps, no shared files) ═══
 
-Parallel check: #1, #4, #5 share NO files ✓ → parallel
+Spawning 2 implementers in ONE message:
+├─ impl-1 → Task #1
+└─ impl-2 → Task #2
 
-Spawning 3 agents (no model param, inherits chat model) in ONE message:
-├─ impl-1 → Task #1 (full context + patterns)
-├─ impl-2 → Task #4 (full context + patterns)
-└─ impl-3 → Task #5 (full context + patterns)
-
-Waiting for completions...
-
-impl-1 completed → Validating Task #1...
-├─ Reading src/contexts/auth.tsx ✓
-├─ Checking patterns match ✓
-├─ Checking TypeScript types ✓
+impl-1 completed → Validating (code task: read output files)...
 └─ ✅ Validated → status.md: #1 → done
 
-impl-2 completed → Validating Task #4...
-├─ Reading src/types/api.ts ✓
-└─ ✅ Validated → status.md: #4 → done
+impl-2 completed → Validating (code task: read output files)...
+└─ ✅ Validated → status.md: #2 → done
 
-impl-3 completed → Validating Task #5...
-├─ Reading src/lib/utils.ts
-├─ ⚠️ Missing export for formatDate
-├─ Fixing myself (Edit tool)...
-└─ ✅ Fixed + validated → status.md: #5 → done
+═══ Batch 2: Tasks #3, #4 (VISUAL, deps met, no shared files) ═══
 
-Finding available tasks...
-Task #2: LoginForm (deps: 1 ✓, has screenshot)
-Task #3: RegisterForm (deps: 1 ✓, has screenshot)
+Step A: Spawning 2 analyzers in PARALLEL:
+├─ analyzer-3 → reads screenshot list.png + list.json
+└─ analyzer-4 → reads screenshot details.png + details.json
 
-Parallel check: #2, #3 share NO files ✓ → parallel
+analyzer-3 done → component tree + colors + elements
+analyzer-4 done → component tree + colors + elements
 
-Spawning 2 agents:
-├─ impl-1 → Task #2 (context + screenshot path + patterns)
-└─ impl-2 → Task #3 (context + screenshot path + patterns)
+GATE 1 CHECK:
+├─ analyzer-3: ✅ output received
+└─ analyzer-4: ✅ output received
 
-impl-1 completed → Validating Task #2...
-├─ Reading src/components/login-form.tsx
-├─ Reading screenshot: login-form.png
-├─ Comparing layout... ✓
-├─ Comparing components... ✓
-├─ ❌ Missing "Forgot password" link (visible in screenshot)
-├─ Fixing myself (adding link)...
-└─ ✅ Fixed + validated → status.md: #2 → done
+Step B: Spawning 2 implementers in PARALLEL (with analyzer outputs):
+├─ impl-3 → Task #3 + analyzer-3 analysis
+└─ impl-4 → Task #4 + analyzer-4 analysis
 
-impl-2 completed → Validating Task #3...
-├─ Reading src/components/register-form.tsx
-├─ Reading screenshot: register-form.png
-├─ All components match ✓
-└─ ✅ Validated → status.md: #3 → done
+impl-3 completed.
+impl-4 completed.
 
-[continues with remaining tasks...]
+Step C: Spawning 2 validators in PARALLEL:
+├─ validator-3 → reads screenshot + impl-3 output files
+└─ validator-4 → reads screenshot + impl-4 output files
+
+validator-3 report: 15 elements checked, 2 issues found
+validator-4 report: 12 elements checked, 1 issue found
+
+GATE 2 CHECK:
+├─ validator-3: ✅ report received, 2 issues
+└─ validator-4: ✅ report received, 1 issue
+
+Fixing issues:
+├─ Task #3: 2 minor (missing border, wrong font-weight) → fix myself
+└─ Task #4: 1 minor (button color) → fix myself
+
+status.md: #3, #4 → done
+
+═══ Batch 3: remaining tasks ═══
+[continues...]
 
 All tasks complete!
 
 Final verification:
 ├─ Running format-and-check...
-├─ Found 1 lint warning → fixing...
-└─ Re-running → ✅ All clear
+└─ ✅ All clear
 
 Shutting down team...
-├─ shutdown_request → impl-1 ✓
-├─ shutdown_request → impl-2 ✓
+├─ shutdown_request → all agents
 └─ TeamDelete ✓
 
 Summary:
 - Completed: 8/8
 - Blocked: 0/8
-- Validation fixes: 2 (minor, fixed in-place)
+- Visual tasks validated by: validator-3, validator-4
 ```
 
 ## Quick Reference: Task Metadata
@@ -460,3 +708,12 @@ Summary:
 | Figma | `- Figma: path` | `- Figma: screenshots/btn.json` |
 | Context | After `### Context` | Free-form until `---` |
 | Design Specs | After `### Design Specs` | Optional, until `---` |
+
+## Quick Reference: Task Classification
+
+| Has Screenshots? | Has Figma? | Type | Flow |
+|---|---|---|---|
+| No | No | CODE | implementer → orchestrator validates |
+| Yes | No | VISUAL | analyzer → implementer → validator |
+| No | Yes | VISUAL | analyzer → implementer → validator |
+| Yes | Yes | VISUAL | analyzer → implementer → validator |

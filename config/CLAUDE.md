@@ -25,7 +25,9 @@
 
 ## CRITICAL: Task Workflow
 
-**READ: `.claude/rules/workflow/task-delegation.md` for full workflow.**
+**READ:**
+- `.claude/rules/workflow/task-delegation.md` — delegation decisions, solo/delegate workflow
+- `.claude/rules/workflow/agent-management.md` — agent templates, visual task rules, validation system
 
 **⚠️ MANDATORY DELEGATION CHECK (before EVERY task):**
 Ask yourself: "Will this touch 2+ files OR require reading 5+ files for research?"

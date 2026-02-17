@@ -11,7 +11,7 @@ You have two workflow modes:
 1. **Solo Workflow** — for tiny tasks (1 file, ≤150 lines change)
    - Implement yourself → Verify
 
-2. **Delegate Workflow** — for everything else (2+ files, heavy research, skills, tasks:run)
+2. **Delegate Workflow** — for everything else (2+ files, heavy research, skills, tasks:plan, tasks:run, estimate)
    - Research (agent) → Implement (agent) → You validate → Verify
 
 **Key principle:** Delegate ALL heavy work to agents to preserve main context window. Main chat handles orchestration and validation ONLY. Reading files, writing code, debugging — all of this should happen in agent context, not main chat.
@@ -52,7 +52,7 @@ Assess task:
     ├─ Requires reading 5+ files to understand patterns
     ├─ Generates a whole page/feature/component set
     ├─ Has design specs or screenshots
-    ├─ Is a skill command (/tasks:estimate, /tasks:run, etc.)
+    ├─ Is a skill command (/estimate, /tasks:plan, /tasks:run, etc.)
     ├─ Requires deep codebase research/analysis
     └─ Context window already has substantial content
     → Spawn agent(s) → Validate result → Verify
@@ -93,7 +93,7 @@ Common triggers:
 - Need to research codebase patterns (reading 5+ files)
 - Creating a new page/feature/component set
 - Task has design specs or screenshots
-- Running a skill (/tasks:estimate, /tasks:run, etc.)
+- Running a skill (/estimate, /tasks:plan, /tasks:run, etc.)
 - Deep analysis or architectural research needed
 - Context window already has substantial content
 

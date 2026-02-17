@@ -1,18 +1,18 @@
 ---
-name: tasks-init
-description: Initialize task management system from files in .project-meta/tasks/init/. Reads task files (md/xlsx), analyzes screenshots and Figma JSON, creates tasks.md with full context and status.md for tracking.
+name: tasks-plan
+description: Plan tasks for execution by team agents from files in .project-meta/tasks/init/. Reads task files (md/xlsx), analyzes screenshots and Figma JSON, creates tasks.md with full context and status.md for tracking.
 ---
 
-# Task Initialization
+# Task Planning
 
 ## Additional context from user before start task
 $ARGUMENTS
 
 **How to use arguments:**
-- `/tasks-init` — run with default behavior
-- `/tasks-init focus on mobile layout first` — additional context that influences task ordering/priorities
-- `/tasks-init skip auth tasks, only UI` — filter or scope instructions
-- `/tasks-init use existing Button component from shadcn` — technical hints for context generation
+- `/tasks-plan` — run with default behavior
+- `/tasks-plan focus on mobile layout first` — additional context that influences task ordering/priorities
+- `/tasks-plan skip auth tasks, only UI` — filter or scope instructions
+- `/tasks-plan use existing Button component from shadcn` — technical hints for context generation
 
 Arguments are free-form text. Use them for any additional context: priorities, constraints, technical preferences, scope limitations, or special instructions that should influence how tasks are analyzed and structured.
 
@@ -363,7 +363,7 @@ WHAT NOT TO DO:
 ## Example Output Summary
 
 ```
-Initialized 8 tasks from 2 source files:
+Planned 8 tasks from 2 source files:
 
 Source files:
 - auth-feature.md

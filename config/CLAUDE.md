@@ -34,7 +34,7 @@ Ask yourself: "Will this touch 2+ files OR require reading 5+ files for research
 
 **Summary:**
 1. **Solo** (1 file, ≤150 lines change) → Implement yourself → Verify
-2. **Delegate** (2+ files / heavy research / skills / tasks:run) → Agent does research + implementation → You validate → Verify
+2. **Delegate** (2+ files / heavy research / skills / tasks:plan / tasks:run / estimate) → Agent does research + implementation → You validate → Verify
 
 **Available agents:**
 - `Explore` — built-in (Haiku model), ONLY for file search and simple lookups

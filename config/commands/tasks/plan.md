@@ -117,7 +117,7 @@ Spawn planner agent(s) to read screenshots + Figma JSON and write context files.
 
 **Each planner writes its own context files directly — no assembler needed.**
 
-**CRITICAL: NEVER specify `model` param. Omit it → agents inherit current chat model.**
+**Model selection:** Use model from `.claude/rules/workflow/agent-models.md` per agent role. `inherit` → omit `model` param. Other values → pass as `model` param.
 
 **Planner-{N}:**
 ```

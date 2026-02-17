@@ -67,7 +67,7 @@ TeamCreate:
 
 ### 4. Spawn ALL Agents in ONE Message
 
-**CRITICAL: NEVER specify `model` param. Omit it → agents inherit current chat model.**
+**Model selection:** Use model from `.claude/rules/workflow/agent-models.md` per agent role. `inherit` → omit `model` param. Other values → pass as `model` param.
 
 Spawn all estimators (and assembler if needed) in a SINGLE message with parallel Task calls.
 
@@ -276,7 +276,7 @@ TeamDelete
 1. **NEVER read task file contents** — estimator agents read their own
 2. **NEVER read screenshots** — estimator agents handle visual analysis
 3. **NEVER do codebase research** — estimators research independently
-4. **NEVER specify `model` param** — agents inherit current chat model
+4. **Use agent model config** (`.claude/rules/workflow/agent-models.md`) per role
 5. **Glob ONLY for scanning** — just file names, not contents
 6. **Spawn ALL agents in ONE message** — parallel Task calls
 7. **For .xlsx use openpyxl** — as per project rules

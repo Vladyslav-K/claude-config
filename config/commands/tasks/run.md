@@ -83,7 +83,7 @@ TeamCreate:
 
 **Spawn ALL agents for ALL tasks in the batch in a SINGLE message (parallel Task calls).**
 
-**CRITICAL: NEVER specify `model` param. Omit it → agents inherit current chat model.**
+**Model selection:** Use model from `.claude/rules/workflow/agent-models.md` per agent role. `inherit` → omit `model` param. Other values → pass as `model` param.
 
 #### Chain by Task Type
 
@@ -363,7 +363,7 @@ Generated: YYYY-MM-DD HH:mm
 3. **NEVER do codebase research** — researcher agents handle this
 4. **NEVER validate code yourself** — validator agents handle this
 5. **NEVER modify tasks.md** — read-only after planning
-6. **NEVER specify model param** — agents inherit current chat model
+6. **Use agent model config** (`.claude/rules/workflow/agent-models.md`) per role
 7. **ALL tasks go through full chain** — researcher → [analyzer] → implementer ↔ validator
 8. **Spawn ALL batch agents in ONE message** — parallel Task calls
 9. **Update status.md after EACH completed task** — not in large batches

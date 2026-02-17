@@ -87,7 +87,7 @@ The orchestrator's ONLY jobs:
 
 **All agents invoke their skills as the FIRST action.**
 **All agents communicate DIRECTLY with each other via SendMessage.**
-**NEVER specify `model` param — agents inherit current chat model.**
+**Model selection:** Use model from `.claude/rules/workflow/agent-models.md` per agent role. `inherit` → omit `model` param. Other values → pass as `model` param.
 
 ### Spawning Agents
 

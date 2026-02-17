@@ -71,7 +71,7 @@ You have two workflow modes:
 - `Explore` — read-only, Haiku model. ONLY for file search, grep, simple lookups.
 - `general-purpose` — inherits current chat model. For research, implementation, analysis, validation.
 
-**CRITICAL: NEVER specify `model` param when spawning agents. Omit it → agent inherits current chat model.**
+**Agent models:** Use model from `.claude/rules/workflow/agent-models.md` per agent role. `inherit` → omit `model` param. Other values → pass as `model` param.
 
 ---
 
@@ -211,7 +211,7 @@ Each agent's prompt includes:
 
 See agent templates in `agent-management.md` for exact prompts.
 
-**CRITICAL: NEVER specify `model` param. Omit it → agents inherit current chat model.**
+**Agent models:** Use model from `.claude/rules/workflow/agent-models.md` per agent role. `inherit` → omit `model` param. Other values → pass as `model` param.
 
 #### Step 4: Send Task
 
@@ -441,8 +441,8 @@ Any bug requiring research or touching 2+ files → create a chain:
 - ✅ ALWAYS create team first, then spawn agents with `team_name`
 - ❌ Not telling agents who they communicate with (agent names)
 - ✅ Each agent prompt must include names of agents it sends to / receives from
-- ❌ Hardcoding `model` param in agent spawn
-- ✅ Omitting `model` param → agents inherit current chat model
+- ❌ Spawning agents without checking agent model config
+- ✅ Reading model from `.claude/rules/workflow/agent-models.md` per role
 - ❌ Spawning agents one-by-one as chain progresses
 - ✅ Spawn ALL agents in a SINGLE message — they wait for their inputs
 

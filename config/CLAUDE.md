@@ -49,7 +49,7 @@ Ask yourself: "Will this change more than 1 file, or more than 50 lines, or need
 - After completion: clean up Researcher/Analyzer, keep Implementer/Validator alive
 - Only clean up entire team when USER confirms everything is OK
 
-**CRITICAL: NEVER specify `model` param when spawning agents. Omit it → agent inherits current chat model.**
+**Agent models:** Read `.claude/rules/workflow/agent-models.md` for model per role. `inherit` → omit `model` param (uses chat model). Other values (`sonnet`, `opus`, `haiku`) → pass as `model` param.
 
 ---
 

@@ -23,35 +23,33 @@
 
 ---
 
-## CRITICAL: Task Workflow
+## CRITICAL: Task Workflow (Chain Model)
 
 **READ:**
-- `.claude/rules/workflow/task-delegation.md` — delegation decisions, solo/delegate workflow
-- `.claude/rules/workflow/agent-management.md` — agent templates, visual task rules, validation system
+- `.claude/rules/workflow/task-delegation.md` — delegation decisions, chain execution model
+- `.claude/rules/workflow/agent-management.md` — agent templates, chain communication, validation
 
-**⚠️ MANDATORY DELEGATION CHECK (before EVERY task):**
-Ask yourself: "Will this touch 2+ files OR require reading 5+ files for research?"
-→ YES = **delegate to agent** (NEVER do heavy work in main context)
-→ NO (1 file, ≤150 lines) = do it yourself
+**⚠️ YOU ARE A PURE MANAGER. You do NOT write code (unless trivial), do NOT read implementation files, do NOT validate code quality.**
+
+**MANDATORY DELEGATION CHECK (before EVERY task):**
+Ask yourself: "Will this change more than 1 file, or more than 50 lines, or need research?"
+→ YES = **delegate to agent chain** (NEVER do any work in main context)
+→ NO (1 file, ≤50 lines, pattern known) = do it yourself
 
 **Summary:**
-1. **Solo** (1 file, ≤150 lines change) → Implement yourself → Verify
-2. **Delegate** (2+ files / heavy research / skills / tasks:plan / tasks:run / estimate) → Agent does research + implementation → You validate → Verify
+1. **Solo** (1 file, ≤50 lines, no research) → Implement yourself → Verify
+2. **Delegate** (everything else) → Create agent chain → agents execute autonomously → you receive final report from Validator → report to user
 
-**Available agents:**
-- `Explore` — built-in (Haiku model), ONLY for file search and simple lookups
-- `general-purpose` (deep research) — for understanding flows, architecture, expert analysis
-- `general-purpose` (implementation) — for writing code, creating features
+**Chain flow:** You → [Researcher + Analyzer] → Implementer ↔ Validator (max 3 loops) → You → User
 
-**CRITICAL: NEVER specify `model` param when spawning agents. Omit it → agent inherits current chat model automatically. This ensures agents always use the same model as main chat, no matter what model is active.**
+**Key rules:**
+- Agents communicate DIRECTLY with each other (peer-to-peer via SendMessage)
+- You do NOT relay messages between agents
+- You do NOT read code or validate — Validator handles this
+- After completion: clean up Researcher/Analyzer, keep Implementer/Validator alive
+- Only clean up entire team when USER confirms everything is OK
 
-**CRITICAL: Validation** — After ANY delegated work, YOU personally validate the result:
-- Read output files created by agent
-- Compare with screenshots/design specs if available
-- Check code patterns and types match project conventions
-- Fix issues yourself or send corrections to agent
-
-**Context Window Strategy** — Delegate heavy work to team agents to keep main context clean. Main chat handles orchestration + validation only.
+**CRITICAL: NEVER specify `model` param when spawning agents. Omit it → agent inherits current chat model.**
 
 ---
 

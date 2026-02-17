@@ -49,36 +49,43 @@ When writing task context for pages with screenshots:
 
 ## Overview
 
+**You are a PURE MANAGER / ORCHESTRATOR.** You do NOT write code, do NOT read implementation files, do NOT validate code quality. Your only jobs are:
+- Receive tasks from the user
+- Create agent teams and assign tasks
+- Receive final reports from validators
+- Report results to the user
+- Handle user feedback by routing to the right agent
+
 You have two workflow modes:
 
-1. **Solo Workflow** — for tiny tasks (1 file, ≤150 lines change)
+1. **Solo Workflow** — for trivial tasks (1 file, ≤50 lines change, you already know the pattern)
    - Implement yourself → Verify
 
-2. **Delegate Workflow** — for everything else (2+ files, heavy research, skills, tasks:plan, tasks:run, estimate)
-   - Research (agent) → Implement (agent) → You validate → Verify
+2. **Delegate Workflow** — for everything else
+   - Create chain of agents → agents execute autonomously → you receive final report
 
-**Key principle:** Delegate ALL heavy work to agents to preserve main context window. Main chat handles orchestration and validation ONLY. Reading files, writing code, debugging — all of this should happen in agent context, not main chat.
+**Key principle:** You are OUT of the execution chain. Agents research, implement, and validate amongst themselves via direct peer-to-peer messaging. You only see the final result.
 
 **Available agent types:**
 - `Explore` — read-only, Haiku model. ONLY for file search, grep, simple lookups.
-- `general-purpose` — inherits current chat model. For deep research, analysis, AND implementation.
+- `general-purpose` — inherits current chat model. For research, implementation, analysis, validation.
 
-**CRITICAL: NEVER specify `model` param when spawning `general-purpose` agents. Omit it → agent automatically inherits current chat model. This future-proofs against model changes.**
+**CRITICAL: NEVER specify `model` param when spawning agents. Omit it → agent inherits current chat model.**
 
 ---
 
 ## ⚠️ MANDATORY Delegation Check
 
-**Before EVERY task, ask yourself this question:**
+**Before EVERY task, ask yourself:**
 
-> "Will this touch 2+ files OR require reading 5+ files for research?"
+> "Will this change more than 1 file, or more than 50 lines, or need research?"
 
 ```
 YES → Delegate Workflow (ALWAYS)
-NO  → Solo Workflow (1 file, ≤150 lines)
+NO  → Solo Workflow (1 file, ≤50 lines, no research)
 ```
 
-**There is NO "medium" category. Either it's tiny enough to do yourself, or you delegate.**
+**There is NO "medium" category. If in doubt → delegate.**
 
 ### Decision Tree
 
@@ -86,164 +93,215 @@ NO  → Solo Workflow (1 file, ≤150 lines)
 Assess task:
 ├─ Solo (ALL conditions must be true):
 │   ├─ Changes only 1 file
-│   ├─ ≤150 lines of changes
-│   └─ No deep research needed (you already know the patterns)
+│   ├─ ≤50 lines of changes
+│   ├─ No deep research needed (you already know the patterns)
+│   └─ You can complete without reading any new files
 │   → Implement yourself → Verify
 │
 └─ Delegate (ANY condition is true):
     ├─ Changes 2+ files
-    ├─ Requires reading 5+ files to understand patterns
-    ├─ Generates a whole page/feature/component set
+    ├─ Changes >50 lines even in 1 file
+    ├─ Requires reading ANY files for research
+    ├─ Generates a page/feature/component
     ├─ Has design specs or screenshots
     ├─ Is a skill command (/estimate, /tasks:plan, /tasks:run, etc.)
-    ├─ Requires deep codebase research/analysis
-    └─ Context window already has substantial content
-    → Spawn agent(s) → Validate result → Verify
+    └─ You don't already know the exact code patterns
+    → Create agent chain → wait for report
 ```
 
 ### Why This Threshold Is So Low
 
-Reading files eats context fast. Example:
-- Read 5 components (Input, Select, Table, Button, Form) → ~30-40% context gone
-- Make changes + re-read to verify → another ~20%
-- After 1-2 tasks → context exhausted, session quality drops
-
-**Agents have their own context windows.** Delegating saves YOUR context for orchestration and validation — which are cheap operations.
+You are a manager. Every file you read wastes YOUR context window on work that agents should handle. Agents have their own context windows. Your context should be reserved ONLY for orchestration and communication with the user.
 
 ---
 
-## Solo Workflow (Tiny Tasks Only)
+## Solo Workflow (Trivial Tasks Only)
 
-**Use ONLY when: 1 file, ≤150 lines, no research needed.**
+**Use ONLY when: 1 file, ≤50 lines, no research needed, you already know the pattern.**
 
 ### Steps
 
 1. **Implement** — Edit the file directly
 2. **Verify** — Run format-and-check, fix issues
 
-**That's it.** No research phase needed for tiny tasks — you should already know the patterns from context or memory.
+**That's it.** If you need to read files to understand patterns → delegate instead.
 
 ---
 
-## Delegate Workflow (Default for Most Tasks)
+## Delegate Workflow (Default — Chain Execution Model)
 
-### When to Use
+### Core Principle: You Are OUT of the Execution Chain
 
-**ANY task that doesn't fit Solo criteria (1 file, ≤150 lines, no research).**
+Agents communicate DIRECTLY with each other via `SendMessage`. You only:
+1. **Start** the chain (create team, spawn agents, give task)
+2. **Receive** the final report (from Validator)
+3. **Route** user feedback (to Implementer)
+4. **Clean up** the team (when user confirms)
 
-Common triggers:
-- Task touches 2+ files
-- Need to research codebase patterns (reading 5+ files)
-- Creating a new page/feature/component set
-- Task has design specs or screenshots
-- Running a skill (/estimate, /tasks:plan, /tasks:run, etc.)
-- Deep analysis or architectural research needed
-- Context window already has substantial content
+You do NOT read code, do NOT validate, do NOT relay between agents.
 
-### Agent Mechanism: ALWAYS Use Teams (TeamCreate)
+### Chain Flows
 
-**All delegation MUST use the team mechanism (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS):**
+**Standard task (no screenshots):**
+```
+You → Researcher ─────────────────→ Implementer ↔ Validator (max 3 loops) → You → User
+```
 
-1. **TeamCreate** → creates team context
-2. **Task with `team_name`** → spawns agents in the team
-3. **SendMessage** → communicate with team agents
-4. **TeamDelete** → cleanup when done
+**Visual task (with screenshots/Figma):**
+```
+You → Researcher ──┐
+                    ├──→ Implementer ↔ Validator (max 3 loops) → You → User
+You → Analyzer ────┘
+     (parallel)
+```
 
-**NEVER spawn agents without `team_name`.** Even for a single agent — create a team first. This ensures proper communication via SendMessage and clean shutdown.
+**User feedback flow (user found issues):**
+```
+You → Implementer → Validator → You → User
+```
+
+### Agent Roles in the Chain
+
+| Agent | Role | Receives from | Sends to |
+|-------|------|---------------|----------|
+| **Researcher** | Explores codebase, finds patterns, code examples | You (orchestrator) | Implementer |
+| **Analyzer** | Reads screenshots + Figma JSON, produces design specs | You (orchestrator) | Implementer |
+| **Implementer** | Writes code, handles corrections | Researcher + Analyzer → Validator (corrections) | Validator |
+| **Validator** | Validates implementation against task + design | Implementer | You (final report) OR Implementer (corrections) |
+
+### Step-by-Step Execution
+
+#### Step 1: Create Team
 
 ```
 TeamCreate:
-  team_name: "{descriptive-name}" (e.g., "page-implementation", "feature-auth")
-  description: "Working on [description]"
+  team_name: "{descriptive-name}"
+  description: "Working on {brief task summary}"
 ```
 
-**CRITICAL: NEVER specify `model` param when spawning agents. Omit it → agent inherits current chat model.**
+#### Step 2: Formulate the Task
 
-### Two Workflow Variants
+Write a clear task description that includes:
+- What to build/change (requirements from user)
+- File paths if known
+- Screenshots/Figma paths if visual task
+- Any constraints or preferences from user
 
-| Task type | Agents needed | Flow |
-|-----------|--------------|------|
-| **Code tasks** (no design) | research + implementer | Research → Team → Implementer → Validate → Shutdown |
-| **Visual tasks** (screenshots/Figma) | research + analyzer + implementer + validator | Research → Team → Analyzer → Implementer → Validator → Fix → Shutdown |
+**This task description will be passed UNCHANGED through the chain.** Write it clearly.
 
-**For detailed agent templates, visual task rules, and validation system → see `agent-management.md`**
+#### Step 3: Spawn ALL Agents in ONE Message
 
-### Delegate Steps (High-Level)
+Spawn all agents simultaneously in a single message with multiple Task tool calls:
 
-**Code tasks:**
-1. Research (Explore or general-purpose agent) — see agent templates in `agent-management.md`
-2. Spawn implementer agent — see code implementer template in `agent-management.md`
-3. Validate result (read output files, compare with requirements)
-4. Fix issues (minor → yourself, major → send to agent)
-5. Run format-and-check
-6. Shutdown team
+**Standard task:** 3 agents — Researcher, Implementer, Validator
+**Visual task:** 4 agents — Researcher, Analyzer, Implementer, Validator
 
-**Visual tasks:**
-1. Research (Explore or general-purpose agent)
-2. Spawn analyzer agent → get design analysis — **GATE 1 must pass** (see `agent-management.md`)
-3. Spawn implementer agent (with analyzer output)
-4. Spawn validator agent → get discrepancy report — **GATE 2 must pass** (see `agent-management.md`)
-5. Fix issues based on validator report
-6. Run format-and-check
-7. Shutdown team
+Each agent's prompt includes:
+- Its role in the chain
+- Names of agents it communicates with
+- The task (for Researcher/Analyzer) or instructions to wait (for Implementer/Validator)
 
-### Fix Issues (after agent completion)
+See agent templates in `agent-management.md` for exact prompts.
 
-Based on validator's report (visual) or code review (code), the orchestrator decides:
-- ⚠️ Minor issues (1-3 simple style fixes) → Fix yourself in main context
-- 🔄 Moderate issues (4+ fixes or layout changes) → Send corrections to implementer via SendMessage
-- After fixes, optionally re-run validator for a second pass if many issues were found
+**CRITICAL: NEVER specify `model` param. Omit it → agents inherit current chat model.**
 
-### Monitor and Iterate (for multi-task workflows)
+#### Step 4: Send Task
 
-After current batch completes:
-1. Find newly available tasks (dependencies now met)
-2. Spawn new agents for next batch
-3. Repeat until all done or blocked
+After agents are spawned:
+- **Standard:** Send the task to Researcher via `SendMessage`
+- **Visual:** Send the task to Researcher AND Analyzer in parallel (two `SendMessage` calls)
 
-### Final Verification
+#### Step 5: Wait (DO NOTHING)
 
-1. Run `format-and-check` for entire project
-2. Fix any remaining issues
+The chain runs autonomously:
+1. Researcher researches → sends findings + original task to Implementer
+2. Analyzer (if visual) analyzes → sends analysis + original task to Implementer
+3. Implementer waits for all inputs → implements → sends report to Validator
+4. Validator checks:
+   - Issues found → sends corrections to Implementer (up to 3 rounds)
+   - All correct → sends final report to YOU
+5. If 3 rounds fail → Validator escalates to YOU
 
-### Shutdown Team
+**You do NOT intervene. You do NOT check on progress. You WAIT.**
 
-```
-SendMessage type: "shutdown_request" to each agent
-Then: TeamDelete
-```
+#### Step 6: Receive Report and Inform User
+
+When Validator sends you the final report:
+- Report to user that task is done
+- Include Validator's summary (what was done, files changed)
+- **DO NOT** read the code files yourself
+- **DO NOT** run additional verification beyond what Validator reported
+- Run `format-and-check` only if Validator didn't already (ask in report)
+
+#### Step 7: Handle User Feedback (if needed)
+
+If user identifies issues after reviewing the result:
+1. Send fix instructions DIRECTLY to **Implementer** via `SendMessage`
+   - Include what user reported
+   - Include screenshot paths if user provided new screenshots
+2. Implementer fixes → sends updated report to Validator
+3. Validator checks → sends report back to you
+4. You report to user
+5. Repeat until user is satisfied
+
+#### Step 8: Cleanup
+
+**After Validator reports success (Step 6):**
+- You MAY shut down Researcher and Analyzer (their job is done)
+- **Implementer and Validator MUST stay alive** — user may request changes
+
+**After user explicitly confirms everything is OK:**
+- Shut down Implementer and Validator
+- Delete team via `TeamDelete`
+
+### Escalation Handling
+
+If Validator escalates after 3 failed correction rounds:
+1. Read the escalation report (what's still wrong after 3 attempts)
+2. Report the situation to user with Validator's findings
+3. Decide with user:
+   - User provides additional guidance → send to Implementer
+   - User decides to accept as-is
+   - User takes over manually
+
+### For tasks:run (Multiple Tasks)
+
+Each task gets its OWN team with its own set of agents:
+- `task-1-team`: researcher-1, impl-1, validator-1 (+ analyzer-1 if visual)
+- `task-2-team`: researcher-2, impl-2, validator-2 (+ analyzer-2 if visual)
+
+Independent tasks can have their teams running in PARALLEL.
+Dependent tasks run sequentially (wait for dependency team to complete).
+
+After each task's Validator reports success → inform user about that specific task.
+Clean up completed Researchers/Analyzers. Keep Implementers/Validators alive.
+After ALL tasks done and user confirms → clean up all teams.
 
 ---
 
 ## Context Window Optimization
 
-### Why Delegation Saves Context
+### You Are a Manager — Act Like One
 
-| Activity | Solo (main context) | Team (agent context) |
-|----------|--------------------|--------------------|
-| Reading codebase files | ✅ Heavy | Agent handles |
-| Writing/editing code | ✅ Heavy | Agent handles |
-| Debug/fix cycles | ✅ Very heavy | Agent handles |
-| Validation (read output) | ✅ Light | — |
-| Orchestration | ✅ Light | — |
+Your context should contain ONLY:
+- User's requests and feedback
+- Task descriptions you formulated
+- Final reports from Validators
+- Team/agent management operations
 
-**Result:** Main context only handles orchestration + validation = light operations.
+Your context should NOT contain:
+- Code file contents
+- Research findings (agents handle this)
+- Implementation details (agents handle this)
+- Validation results beyond the final summary (agents handle this)
 
 ### Strategies
 
-1. **Don't read implementation code in main context** when agents handle it
-2. **Provide FULL context in agent prompt** — patterns, specs, conventions
-3. **Validate by reading ONLY output files** — not entire codebase
-4. **Fix minor issues yourself** — avoids expensive round-trip to agent
-5. **Use `run_in_background: true`** for agent tasks — don't block main context
-6. **Research once, share results** — do Explore research, paste findings into agent prompts
-
-### When to Compact Despite Teams
-
-If main context is still getting large:
-- Many tasks validated in one session
-- Solo work done before switching to team
-- Consider: "Can remaining work be a fresh agent delegation?"
+1. **NEVER read implementation code** — agents research, implement, and validate
+2. **NEVER read files to validate** — Validator agent does this
+3. **Formulate tasks clearly upfront** — reduces back-and-forth
+4. **Use `run_in_background: true`** for agent spawning — don't block main context
+5. **Keep agent prompts self-contained** — include everything the chain needs to operate independently
 
 ---
 
@@ -316,109 +374,81 @@ Read these files FIRST to understand project context before proceeding.
 
 ---
 
-## Quality Checklist
+## Quality Checklist (for Validator agents — NOT for orchestrator)
 
-Use this checklist when verifying work (yours or agent's):
+**This checklist is embedded in Validator agent prompts.** The orchestrator does NOT run this checklist.
 
 ```
 ## Code Quality
-- [ ] All requirements from user's request are implemented
+- [ ] All requirements from the task are implemented
 - [ ] Code compiles without errors (TypeScript)
 - [ ] No console.log, debugger, or commented-out code
 - [ ] Types are properly defined (no `any` unless justified)
 - [ ] Follows existing project patterns
 
-## UI/Styling (if applicable)
-- [ ] Matches design specs (±2px tolerance)
-- [ ] Responsive behavior works
-- [ ] Dark mode supported (if project uses it)
-- [ ] Accessibility basics (semantic HTML, ARIA where needed)
+## UI/Styling (if visual task)
+- [ ] Matches design specs / screenshot
+- [ ] No structural additions not in design (tabs, modals, etc.)
+- [ ] Layout width matches design (full-width elements are full-width)
 
 ## Integration
 - [ ] Imports are correct and from right locations
 - [ ] No circular dependencies introduced
-- [ ] Works with existing state/data flow
 
 ## Final
 - [ ] format-and-check passes
 - [ ] No new warnings introduced
-- [ ] Validated against original requirements/screenshots
 ```
 
 ---
 
 ## Debugging Workflow
 
-### Small Bugs
-Typos, missing imports, wrong props, CSS tweaks → Fix directly, no research needed.
+### Trivial Bugs (Solo)
+Single typo, missing import, 1-line CSS fix → Fix directly if ≤50 lines in 1 file.
 
-### Larger Bugs
-Architecture issues, wrong data flow, multiple bugs → Delegate research to general-purpose agent first, then fix.
-
-### Team Agent Bugs
-If an agent produced buggy code:
-- Minor → Fix yourself
-- Major → Send correction via SendMessage with specific instructions and correct code examples
+### Everything Else (Delegate)
+Any bug requiring research or touching 2+ files → create a chain:
+- Send bug description + context to Implementer (in existing team if alive, or new team)
+- Implementer investigates and fixes → Validator verifies → report to you
 
 ---
 
 ## Common Mistakes to Avoid
 
-### Research Phase
-- ❌ "Find card components and tell me how they work"
-- ✅ "Find card components - return FULL CODE of 2 best examples"
+### Orchestrator Overreach (MOST CRITICAL)
+- ❌ Reading implementation code to "validate" it yourself
+- ✅ Validator agent handles ALL validation — you just receive the report
+- ❌ Relaying messages between agents (reading analyzer output, passing to implementer)
+- ✅ Agents communicate DIRECTLY with each other via SendMessage
+- ❌ "Quickly fixing" something yourself that touches 2+ files or >50 lines
+- ✅ Send fix instructions to Implementer — let the chain handle it
+- ❌ Reading screenshots to analyze or validate yourself
+- ✅ Analyzer and Validator agents handle all visual work
 
-### Delegate Workflow
-- ❌ Spawning agents WITHOUT `team_name` (not using TeamCreate)
+### Chain Communication
+- ❌ Spawning agents WITHOUT `team_name`
 - ✅ ALWAYS create team first, then spawn agents with `team_name`
-- ❌ Spawning agents without full task context in prompt
-- ✅ Including ALL requirements, patterns, and design specs in agent prompt
-- ❌ Hardcoding `model: "opus"` or any model in agent spawn
-- ✅ Omitting `model` param → agent inherits current chat model automatically
-- ❌ Skipping analyzer agent for visual/screenshot tasks
-- ✅ Always spawning analyzer → implementer → validator for visual tasks
-- ❌ Orchestrator "comparing" screenshot to code (superficial, unreliable)
-- ✅ Spawning a dedicated validator agent for visual comparison
-- ❌ Doing tasks that touch 2+ files yourself in main context
-- ✅ Delegating ANY task that touches 2+ files to agents
-- ❌ Reading all implementation code in main context
-- ✅ Only reading output files during validation
-
-### Verification Phase
-- ❌ Skipping validation after delegation
-- ✅ Reading output files and comparing with requirements/screenshots
-- ❌ Only running lint/typecheck without reviewing
-- ✅ Running format-and-check AND reading the output
-
-### Orchestrator Overreach
-- ❌ Orchestrator reading screenshot and writing analysis instead of spawning analyzer
-- ✅ ALWAYS spawn analyzer agent — orchestrator NEVER does visual analysis
-- ❌ Orchestrator comparing code to screenshot and saying "looks correct"
-- ✅ ALWAYS spawn validator agent — orchestrator NEVER does visual validation
-- ❌ Orchestrator claiming "validated ✅" without having a validator agent_id
-- ✅ Gate system: must reference actual agent name + report before marking done
+- ❌ Not telling agents who they communicate with (agent names)
+- ✅ Each agent prompt must include names of agents it sends to / receives from
+- ❌ Hardcoding `model` param in agent spawn
+- ✅ Omitting `model` param → agents inherit current chat model
+- ❌ Spawning agents one-by-one as chain progresses
+- ✅ Spawn ALL agents in a SINGLE message — they wait for their inputs
 
 ### Structural Assumptions (Planning & Implementation)
 - ❌ Copying tab/modal structure from reference page without checking the target design screenshot
 - ✅ Reference pages are for code style and component usage — page structure comes from the SCREENSHOT only
 - ❌ Writing "TABS" or "Modal" in task context when screenshot shows a continuous page
-- ✅ Verify every structural element (tabs, modals, drawers, sections) is VISIBLE on the screenshot before including it in the plan
-- ❌ Validator only checking "is every code element in the design?" (one-directional)
-- ✅ Validator MUST also check: "does code ADD structural elements (tabs, modals) NOT present in the design?" (bidirectional)
+- ✅ Verify every structural element is VISIBLE on the screenshot before including it
 - ❌ Assuming layout elements (tabs, headers) render full-width by default
-- ✅ Verify component width props match the design (check fullWidth, w-full, grow, stretch)
+- ✅ Verify component width props match the design
 
-### Page Integration
-- ❌ Creating new page without adding it to page title mapping
-- ✅ Research how page titles work, add new page to the mapping
-- ❌ Creating filters as static buttons with no functionality
-- ✅ Filters must work with mock data OR have explicit TODO comments
-- ❌ Rendering email as plain text when design shows it as a link
-- ✅ Emails must be mailto: links, phone numbers must be tel: links
-- ❌ Adding duplicate action buttons (same button in header AND content)
-- ✅ Count buttons on design, ensure code matches exactly
-- ❌ Adding role-inappropriate UI elements (notifications for admin)
-- ✅ Only add UI elements that are explicitly shown in the design for that role
+### Visual Tasks
+- ❌ Skipping Analyzer agent for tasks with screenshots
+- ✅ Visual tasks ALWAYS need 4 agents: Researcher + Analyzer + Implementer + Validator
+- ❌ Validator only checking "is every code element in the design?" (one-directional)
+- ✅ Validator MUST also check: "does code ADD structural elements NOT present in the design?" (bidirectional)
 
 ---
 
@@ -432,76 +462,83 @@ User: "Fix the typo in Button label"
 3. VERIFY: Run format-and-check
 ```
 
-## Example: Delegate (Code Task)
+## Example: Delegate (Code Task — Chain)
 
 ```
 User: "Add a new button variant and update all usages"
 
 1. ASSESS: Multiple files → Delegate
 2. TeamCreate "button-variant"
-3. RESEARCH (Explore): Find button component, all usages
-4. SPAWN implementer (NO model param, team_name: "button-variant"):
-   - Research results in prompt
-   - Task description
-5. WAIT → implementer sends completion message
-6. VALIDATE: Read output files, check patterns
-7. RUN format-and-check
-8. SHUTDOWN TEAM → TeamDelete
+3. SPAWN 3 agents in ONE message:
+   - researcher (prompt: explore button component, find all usages)
+   - implementer (prompt: wait for researcher, then implement)
+   - validator (prompt: wait for implementer, then validate)
+4. Send task to researcher via SendMessage
+5. WAIT — chain runs autonomously:
+   researcher → implementer → validator (with correction loops if needed)
+6. Validator sends final report to me
+7. Report to user: "Task done — new button variant added, N files updated"
+8. User confirms → shutdown team
 ```
 
-## Example: Delegate (Visual Task — Full Flow)
+## Example: Delegate (Visual Task — Chain)
 
 ```
 User: "Create this page" + screenshot
 
-1. ASSESS: Screenshot → Delegate (visual task flow)
+1. ASSESS: Screenshot → Delegate (visual task, 4 agents)
 2. TeamCreate "page-implementation"
-3. RESEARCH (Explore): Find similar pages, components, imports
-4. SPAWN analyzer (team_name: "page-implementation"):
-   - Screenshot path
-   - Figma JSON path (if available)
-   → Analyzer sends back detailed component tree + styles analysis
-5. SPAWN implementer (team_name: "page-implementation"):
-   - Screenshot path
-   - Analyzer's FULL analysis pasted into prompt
-   - Research results (code patterns, imports)
-   → Implementer builds section-by-section, self-reviews, sends done
-6. SPAWN validator (team_name: "page-implementation"):
-   - Screenshot path
-   - List of files implementer created
-   - Analyzer's analysis
-   → Validator sends back report: 12 elements checked, 2 issues found
-7. FIX: 2 minor issues → fix myself (button color, font-weight)
-8. RUN format-and-check
-9. SHUTDOWN all agents → TeamDelete
-10. Report to user
+3. SPAWN 4 agents in ONE message:
+   - researcher (prompt: find similar pages, component patterns)
+   - analyzer (prompt: analyze screenshot + Figma JSON)
+   - implementer (prompt: wait for BOTH researcher and analyzer)
+   - validator (prompt: wait for implementer, validate against screenshot)
+4. Send task to researcher AND analyzer in parallel (two SendMessages)
+5. WAIT — chain runs autonomously:
+   [researcher + analyzer] → implementer → validator (max 3 loops)
+6. Validator sends final report to me
+7. Report to user: "Page created — validator confirmed all elements match"
+8. User reviews:
+   ├─ "Looks good" → shutdown all, delete team
+   └─ "Fix X and Y" → send fixes to implementer → chain runs again → report
 ```
 
-## Example: Delegate (tasks:run)
+## Example: Delegate (tasks:run — Multiple Tasks)
 
 ```
-User: "/tasks-run" (8 tasks)
+User: "/tasks-run" (6 tasks)
 
 1. READ tasks.md + status.md
-2. TeamCreate "tasks-execution"
-3. FIND available: Tasks #1, #4, #5 (no deps)
-4. PARALLEL CHECK: no shared files ✓
-5. SPAWN 3 implementers (NO model param) in ONE message
-6. WAIT for completions
+2. FIND available: Tasks #1, #2, #3 (no deps, no shared files)
+3. For EACH task, create separate team:
+   - TeamCreate "task-1" → spawn researcher-1, impl-1, validator-1
+   - TeamCreate "task-2" → spawn researcher-2, impl-2, validator-2
+   - TeamCreate "task-3" → spawn researcher-3, analyzer-3, impl-3, validator-3 (visual)
+4. Send tasks to each team's researcher (+ analyzer for visual)
+5. WAIT for all validators to report
 
-   impl-1 done Task #1 → validate → ✅ done
-   impl-2 done Task #4 → validate → ⚠️ minor fix → done
-   impl-3 done Task #5 → validate → ✅ done
+   validator-1 reports → update status.md: #1 done
+   validator-3 reports → update status.md: #3 done
+   validator-2 reports → update status.md: #2 done
 
-   For visual tasks: also spawn validator for each
+6. FIND newly available: Tasks #4, #5 (deps met)
+7. Create new teams, repeat
+8. CONTINUE until all complete or blocked
+9. Report summary to user
+10. User confirms → clean up all teams
+```
 
-7. UPDATE status.md: #1, #4, #5 → done
-8. FIND available: Tasks #2, #3 (deps: 1 ✓)
-9. SPAWN 2 agents for #2, #3
-10. VALIDATE each → fix issues → done
-11. CONTINUE until all complete
+## Example: User Feedback Flow
 
-12. FINAL format-and-check
-13. SHUTDOWN all agents → TeamDelete
-14. Summary: 8/8 completed, 0 blocked
+```
+User reviews completed page: "The button should be red, not blue"
+
+1. Send fix to Implementer (in existing team):
+   SendMessage to "implementer": "User feedback: button should be red not blue.
+   Find the button and change its color."
+2. Implementer fixes → sends report to Validator
+3. Validator checks → sends report to me
+4. Report to user: "Fixed — button is now red"
+5. User: "Perfect, all done"
+6. Shutdown team → TeamDelete
 ```

@@ -199,6 +199,27 @@ Task tool:
 
     ## WHAT TO PRODUCE
 
+    ### 0. Page Structure Assessment (MUST DO FIRST — before anything else)
+    BEFORE analyzing individual elements, determine the page's TOP-LEVEL structure
+    by looking ONLY at the screenshot (ignore any task descriptions or assumptions):
+
+    Answer these questions explicitly:
+    1. Is this a SINGLE continuous/scrollable page, or is it divided into tabs/sections?
+    2. Are there any visible tab controls (tab bar, underlined labels, tab switches)?
+    3. Are there any modals, drawers, or overlay elements?
+    4. Is ALL content visible at once, or is some content hidden behind tabs/accordions?
+
+    If you see NO tab controls → explicitly state:
+    "⚠️ STRUCTURAL NOTE: This is a SINGLE CONTINUOUS PAGE with NO tabs.
+    All content sections are visible simultaneously on one scrollable page."
+
+    If you see tab controls → describe their exact appearance, labels, position,
+    and whether they span the full content width.
+
+    ⚠️ NEVER assume tabs exist because a similar/reference page uses tabs.
+    ⚠️ NEVER inherit structural assumptions from task descriptions or context.
+    Your structural assessment must come SOLELY from what you SEE in the screenshot.
+
     ### 1. Component Tree (parent-child hierarchy)
     For EVERY visible element, describe what it is and where it sits.
     Use tree notation to show NESTING explicitly:
@@ -306,15 +327,21 @@ Task tool:
     1. Read project memory files for patterns and conventions
     2. Read common mistakes files (listed above) if they exist
     3. Find the MOST SIMILAR existing page/component in the project
-       and use it as a TEMPLATE for structure, imports, and patterns
+       and use it as a TEMPLATE for code style, imports, and component usage
+       ⚠️ BUT: use reference page for CODE PATTERNS only, NOT for page structure
+       (the reference page may have tabs while this page doesn't — check the screenshot!)
     4. List ALL existing project components you will reuse
        (buttons, inputs, tables, cards from the component library)
     5. Read the screenshot and describe IN YOUR OWN WORDS what you see:
        - Every element on the page
        - Where each element is located (inside which parent)
        - Colors, fonts, sizes you observe
+       - ⚠️ STRUCTURAL CHECK: Is this ONE continuous page or divided into tabs?
+         Are there visible tab controls? If NO tabs visible → do NOT use Tabs component
+         even if the task context or reference page mentions tabs
     6. Compare your description with the analyzer's analysis — resolve
-       any differences BEFORE coding
+       any differences BEFORE coding. PAY SPECIAL ATTENTION to structural
+       disagreements (tabs vs no tabs, modals vs inline content)
 
     ### Phase 2: Section-by-Section Implementation
     Build the page SECTION BY SECTION, not all at once:
@@ -336,6 +363,10 @@ Task tool:
     6. Only THEN proceed to reporting
 
     ## COMMON MISTAKES — VERIFY AGAINST EVERY SINGLE ONE:
+    - NEVER add structural UI elements (tabs, modals, drawers) that aren't
+      visible on the screenshot. If the screenshot shows a single continuous
+      page, do NOT split it into tabs — even if the task context suggests tabs.
+      The screenshot is the ultimate source of truth for page structure.
     - NEVER place action buttons OUTSIDE their parent container
       (if a button appears inside a header on the screenshot,
        it MUST be a child of the header element in JSX)
@@ -521,6 +552,25 @@ Task tool:
     - Are alignments correct (items-center, justify-between, etc.)?
     - Does nesting hierarchy match the visual hierarchy?
 
+    ### ⚠️ Structural Additions Check (CRITICAL — most commonly missed):
+    Look for STRUCTURAL elements in the CODE that DON'T EXIST in the DESIGN:
+    - Does the code use Tabs/TabPanel/TabsList? → Are tab controls VISIBLE on the screenshot?
+      If code has tabs but screenshot shows a single continuous page → CRITICAL ISSUE.
+    - Does the code use Modal/Dialog? → Is there a modal trigger visible on the screenshot?
+    - Does the code split content into separate switchable views? → Does the screenshot
+      show this split, or is all content visible simultaneously?
+    - Does the code HIDE content behind tabs/accordions? → Is that content visible
+      on the screenshot at the same time as other content?
+    Report any structural element in code NOT warranted by the design as a CRITICAL issue.
+
+    ### Layout Width/Stretch Check:
+    For layout-spanning elements (tab bars, dividers, headers, navigation bars):
+    - Does the element span the full content width in the design?
+    - Does the code achieve the same full-width rendering?
+      (check for fullWidth props, w-full, flex-grow, etc.)
+    - Are there parent containers constraining width that shouldn't be?
+    If width doesn't match design → REPORT as issue.
+
     ## OUTPUT FORMAT (follow exactly)
 
     ### ✅ Correct Elements
@@ -620,6 +670,8 @@ The validator prompt MUST include instructions to verify:
 - **Functional filters** — filter dropdowns MUST open and filter, not just be static buttons
 - **Page title** — does the page show correct title in layout header? (not default "Page")
 - **Navigation integration** — is the page reachable from sidebar/menu?
+- **Page structure correctness** — does the code use tabs/modals/sections that DON'T exist in the design? (e.g., code has TabPanel but screenshot shows single continuous page — CRITICAL)
+- **Layout width** — do tab bars, headers, dividers span the full content width as shown in design? (check fullWidth props, w-full)
 
 ### Validation Decision Tree
 

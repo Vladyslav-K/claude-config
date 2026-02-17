@@ -33,6 +33,18 @@ When writing Context sections in tasks.md:
 - **DO NOT include:** Full implementation code written from scratch by the planner
 - **Why:** If the planner writes the full code, errors in the plan become errors in implementation. Agents should implement based on requirements + researched patterns, not copy-paste from plan.
 
+### Page Structure Verification (MANDATORY for visual tasks)
+
+When writing task context for pages with screenshots:
+
+1. **BEFORE specifying any structural elements** (tabs, modals, accordions, drawers, multi-step flows), verify the screenshot ACTUALLY shows these elements as visible UI controls
+2. Look for VISIBLE tab controls (underlined labels, tab bar), modal overlays, accordion toggles on the screenshot
+3. **If the screenshot shows a single continuous page** → do NOT write tabs/modals into the task context, even if the reference page uses them
+4. **NEVER copy structural patterns from reference pages** without confirming they match the target design — reference pages are for code style and component usage, NOT for page structure decisions
+5. If uncertain whether the design has tabs vs continuous sections → describe the content layout without assuming structural division, and let the analyzer determine the structure
+
+**Why:** Planner-inserted structural elements that don't exist in the design propagate through the entire pipeline — analyzer confirms them (context contamination bias), implementer builds them faithfully, and validator misses them because it checks individual elements, not page structure. This results in entire page sections being hidden behind non-existent tabs, fundamentally breaking the user experience.
+
 ---
 
 ## Overview
@@ -385,6 +397,16 @@ If an agent produced buggy code:
 - ✅ ALWAYS spawn validator agent — orchestrator NEVER does visual validation
 - ❌ Orchestrator claiming "validated ✅" without having a validator agent_id
 - ✅ Gate system: must reference actual agent name + report before marking done
+
+### Structural Assumptions (Planning & Implementation)
+- ❌ Copying tab/modal structure from reference page without checking the target design screenshot
+- ✅ Reference pages are for code style and component usage — page structure comes from the SCREENSHOT only
+- ❌ Writing "TABS" or "Modal" in task context when screenshot shows a continuous page
+- ✅ Verify every structural element (tabs, modals, drawers, sections) is VISIBLE on the screenshot before including it in the plan
+- ❌ Validator only checking "is every code element in the design?" (one-directional)
+- ✅ Validator MUST also check: "does code ADD structural elements (tabs, modals) NOT present in the design?" (bidirectional)
+- ❌ Assuming layout elements (tabs, headers) render full-width by default
+- ✅ Verify component width props match the design (check fullWidth, w-full, grow, stretch)
 
 ### Page Integration
 - ❌ Creating new page without adding it to page title mapping

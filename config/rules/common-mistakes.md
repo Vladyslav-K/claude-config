@@ -3,6 +3,31 @@
 Curated rules derived from real mistakes across projects.
 Agents read this file before implementation to avoid repeating known issues.
 
+## Page Structure
+
+### Never add structural UI elements not present in the design
+Before implementing tabs, modals, drawers, accordions, multi-step wizards, or any
+structural page division — verify the design ACTUALLY shows these elements. Never
+"borrow" structural patterns from similar/reference pages when the target design
+shows a different structure (e.g., single continuous page vs tabbed layout).
+The screenshot is the source of truth for page structure, not the reference code.
+- Example: Detail page implemented with two tabs ("Request Details" + "Quotes") but design showed a single continuous page with both sections stacked vertically — no tab UI visible anywhere
+- Example: Planner assumed tabs because reference page (users detail) used AnimatedTabs, but actual design screenshot had no tab controls at all
+
+### Planner must verify every structural element against the screenshot
+When writing task context during planning (tasks:plan), every major structural element
+mentioned (tabs, modals, sections, accordions, multi-step flows) must be visually
+confirmed in the screenshot. If the screenshot doesn't show tab controls, DON'T
+write "TABS" in the task context — even if the reference page uses tabs.
+- Example: Task context specified "TABS — Request Details | Quotes (0)" with full code, but screenshot showed continuous page — planner copied tab pattern from reference page without checking the design
+
+### Full-width layout elements must be explicitly configured
+When the design shows tabs, dividers, or navigation spanning the full content width,
+the implementation must use the correct component props/CSS to achieve full-width
+rendering. Don't assume components render full-width by default — check the component
+API for fullWidth/stretch/grow props and verify the rendered result matches the design.
+- Example: Tab bar should span full page width per design but rendered centered/auto-width because component wasn't configured for full-width mode
+
 ## Layout & Nesting
 
 ### Elements visually inside a container must be DOM children

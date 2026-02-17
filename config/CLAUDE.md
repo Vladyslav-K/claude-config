@@ -27,15 +27,21 @@
 
 **READ: `.claude/rules/workflow/task-delegation.md` for full workflow.**
 
+**⚠️ MANDATORY DELEGATION CHECK (before EVERY task):**
+Ask yourself: "Will this touch 2+ files OR require reading 5+ files for research?"
+→ YES = **delegate to agent** (NEVER do heavy work in main context)
+→ NO (1 file, ≤150 lines) = do it yourself
+
 **Summary:**
-1. **Assess** → Determine task size (small / medium / large)
-2. **Small/Medium** → Research (Explore) → Implement yourself → Verify
-3. **Large / tasks:run** → Create team → Delegate to agents (opus model) → Validate results → Shutdown team
-4. **Verify** → Run format-and-check, fix any issues
+1. **Solo** (1 file, ≤150 lines change) → Implement yourself → Verify
+2. **Delegate** (2+ files / heavy research / skills / tasks:run) → Agent does research + implementation → You validate → Verify
 
 **Available agents:**
-- `Explore` — built-in, research only
-- `general-purpose` with `model: "opus"` — for team implementers (same model as main chat)
+- `Explore` — built-in (Haiku model), ONLY for file search and simple lookups
+- `general-purpose` (deep research) — for understanding flows, architecture, expert analysis
+- `general-purpose` (implementation) — for writing code, creating features
+
+**CRITICAL: NEVER specify `model` param when spawning agents. Omit it → agent inherits current chat model automatically. This ensures agents always use the same model as main chat, no matter what model is active.**
 
 **CRITICAL: Validation** — After ANY delegated work, YOU personally validate the result:
 - Read output files created by agent

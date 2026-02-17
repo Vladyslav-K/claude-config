@@ -116,5 +116,6 @@
   "alwaysThinkingEnabled": true,
   "feedbackSurveyState": {
     "lastShownTime": 1754036467609
-  }
+  },
+  "autoMemoryEnabled": true
 }

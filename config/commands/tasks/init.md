@@ -19,7 +19,7 @@ Arguments are free-form text. Use them for any additional context: priorities, c
 ## Purpose
 Read task description files from `.project-meta/tasks/init/`, analyze them along with associated screenshots and Figma design specs, and create a structured task management system using Markdown format for better readability and token efficiency.
 
-**IMPORTANT:** Tasks created here will be executed by team agents (opus model) during `/tasks-run`. Context sections must be SELF-CONTAINED — include everything an agent needs to implement the task without additional research.
+**IMPORTANT:** Tasks created here will be executed by team agents during `/tasks-run`. Context sections must be SELF-CONTAINED — include everything an agent needs to implement the task without additional research.
 
 ## Input
 
@@ -115,10 +115,17 @@ Task tool:
 
 ### Step 5: Create Files (YOU do this)
 
-**Create both files directly using Write tool:**
+**Create files directly using Write tool:**
 
 1. Create `.project-meta/tasks/tasks.md` following the format below
 2. Create `.project-meta/tasks/status.md` following the format below
+3. Create `.project-meta/COMMON_MISTAKES.md` if it doesn't exist yet (empty template):
+```markdown
+# Common Implementation Mistakes (Project-Specific)
+
+New entries from this project. Copy to `.claude/rules/common-mistakes.md` when curated.
+
+```
 
 **CRITICAL for Context sections:**
 Include actual code patterns from Explore agent research. Agent implementers will use these patterns as reference. The Context must contain EVERYTHING an agent needs — treat it as a self-contained brief.
@@ -380,7 +387,7 @@ Tasks created:
 8. Dashboard charts (depends on: 6) [has screenshot]
 
 Execution order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
-Tasks will be executed by team agents (opus model) via /tasks-run
+Tasks will be executed by team agents via /tasks-run
 
 Files created:
 - .project-meta/tasks/tasks.md

@@ -9,7 +9,7 @@ description: Execute tasks from .project-meta/tasks/tasks.md using a team of age
 $ARGUMENTS
 
 ## Purpose
-Execute tasks from the initialized task system using a team of implementer agents. Independent tasks run in parallel via separate agents (opus model). After each task completion, the team lead (YOU) validates the result against requirements and screenshots before marking as done.
+Execute tasks from the initialized task system using a team of implementer agents. Independent tasks run in parallel via separate agents (inherits current chat model). After each task completion, the team lead (YOU) validates the result against requirements and screenshots before marking as done.
 
 ## Input
 - `.project-meta/tasks/tasks.md` — task definitions with full context in Markdown (READ ONLY)
@@ -152,14 +152,14 @@ Can they run in parallel?
 
 ### 5. Spawn Implementer Agents (YOU do this)
 
-**CRITICAL: Use `model: "opus"` — same model as main chat.**
+**CRITICAL: NEVER specify `model` param. Omit it → agent inherits current chat model.**
 
 For each task in a parallel group, spawn an agent:
 
 ```
 Task tool:
   subagent_type: "general-purpose"
-  model: "opus"
+  # model is NOT specified — inherits current chat model
   team_name: "tasks-execution"
   name: "impl-{N}"
   mode: "bypassPermissions"
@@ -186,8 +186,14 @@ Task tool:
     ## CODEBASE PATTERNS (from research)
     {Paste relevant code patterns found by Explore agent}
 
+    ## KNOWN MISTAKES (read these files if they exist)
+    - .claude/rules/common-mistakes.md (global known mistakes)
+    - {CWD}/.project-meta/COMMON_MISTAKES.md (project-specific mistakes)
+    Read them and avoid ALL listed mistakes.
+
     ## RULES
     - Read project memory files FIRST for project architecture and patterns
+    - Read common mistakes files (listed above) if they exist
     - Follow existing code patterns EXACTLY
     - Don't create tests unless specified
     - Don't add unnecessary comments (no task descriptions, no change notes)
@@ -345,8 +351,8 @@ These tasks cannot proceed because they depend on blocked tasks:
 ## Important Rules
 
 1. **NEVER modify tasks.md** — it's read-only after initialization
-2. **Use TEAM workflow** — spawn agents (opus model) for implementation
-3. **ALWAYS use `model: "opus"`** — same model as main chat for implementers
+2. **Use TEAM workflow** — always TeamCreate, then spawn agents with team_name
+3. **NEVER specify model param** — omit it, agent inherits current chat model
 4. **VALIDATE every completed task** — read files, compare with requirements/screenshots
 5. **Update status.md after EACH validated task** — not in large batches
 6. **Parallelize independent tasks** — spawn agents in parallel when safe
@@ -376,7 +382,7 @@ Task #5: Utils (no deps, files: src/lib/utils.ts)
 
 Parallel check: #1, #4, #5 share NO files ✓ → parallel
 
-Spawning 3 agents (model: opus) in ONE message:
+Spawning 3 agents (no model param, inherits chat model) in ONE message:
 ├─ impl-1 → Task #1 (full context + patterns)
 ├─ impl-2 → Task #4 (full context + patterns)
 └─ impl-3 → Task #5 (full context + patterns)

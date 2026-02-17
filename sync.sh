@@ -49,6 +49,7 @@ SYNC_ITEMS=(
     "agents"
     "commands"
     "scripts"
+    "skills"
 )
 
 # Files to exclude from sync

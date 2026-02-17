@@ -1,6 +1,6 @@
 ---
 name: estimate
-description: Estimate frontend tasks from .project-meta/estimation/. Reads task files (md/xlsx/docx), analyzes screenshots, researches codebase via agents, and provides optimistic/average/pessimistic estimates. Delegates task reading to agents to save main context.
+description: Estimate frontend tasks from .project-meta/estimation/. Spawns estimator agents that read task files, screenshots, and codebase independently. Assembler merges results into estimation.md. Orchestrator reads ZERO task content.
 ---
 
 # Task Estimation
@@ -9,459 +9,319 @@ description: Estimate frontend tasks from .project-meta/estimation/. Reads task 
 $ARGUMENTS
 
 ## Purpose
-Analyze frontend tasks from estimation folder, review associated screenshots and designs, research existing codebase, and provide time estimates in optimistic/average/pessimistic format. Task file reading is delegated to agents to preserve main context window.
+Estimate frontend tasks by delegating ALL reading (task files, screenshots, codebase research) to estimator agents. Orchestrator acts as pure manager — scans file names, spawns agents, receives summary.
+
+**KEY PRINCIPLE:** You are a PURE MANAGER. You scan file NAMES only. Agents read file contents, screenshots, and research the codebase. You NEVER read task files or screenshots.
 
 ## IMPORTANT: Scope Limitation
-**You ONLY estimate FRONTEND tasks.** Skip any tasks related to:
-- Backend API development
-- Database migrations/schemas
-- DevOps/infrastructure
-- Mobile native development
-- Any non-frontend work
+**ONLY FRONTEND tasks are estimated.** Backend, DevOps, mobile native, database tasks are skipped by estimator agents automatically.
 
-If a task has both frontend and backend parts, estimate ONLY the frontend portion.
-
-## Input Location
+## Input
 `.project-meta/estimation/` directory containing:
-- **Root files:** Task lists in any format (`.md`, `.xlsx`, `.docx`)
-- **screenshots/ folder:** Images or folders with images related to tasks
+- **Root files:** Task lists (.md, .xlsx, .docx)
+- **screenshots/ folder:** Images related to tasks
 
 ## Output
-`.project-meta/estimation/estimation.md` — unified estimation report with:
-- Summary table of all tasks with estimates
-- Detailed reasoning for each estimate
-- Totals, assumptions, and risks
+`.project-meta/estimation/estimation.md` — unified estimation report
+
+---
 
 ## Execution Steps
 
-### Step 1: Scan Input Folder (YOU do this — lightweight)
-
-**Only scan file names and structure. DO NOT read file contents — agents will do this.**
+### 1. Scan Input Folder (YOU do this — Glob ONLY, DON'T read files!)
 
 ```
-1. Use Glob to find all files in .project-meta/estimation/ root (not recursive)
-2. Use Glob to find all files in .project-meta/estimation/screenshots/
-   (recursive — check for subfolders named by task)
-3. Group screenshots by task:
-   - If task is "user-profile", look for:
+1. Glob: .project-meta/estimation/*.{md,xlsx,docx} (root only)
+2. Glob: .project-meta/estimation/screenshots/**/*
+3. Group screenshots by task name:
+   - Task "user-profile" matches:
      - screenshots/user-profile/ folder (all files inside)
-     - screenshots/user-profile.png file
-     - screenshots/user-profile-*.png files
+     - screenshots/user-profile.png
+     - screenshots/user-profile-*.png
    - Folder contents override file name matching
-4. Count files, note file types (.md, .xlsx, .docx)
-5. Build a map: { taskFile → [matched screenshots] }
+4. Build map: { taskFile → [matched screenshot paths] }
+5. Count files, note file types
 ```
 
-**If no task files found:** Inform user that no files found in `.project-meta/estimation/`, ask them to add task files, and stop.
+**If no task files found:** Inform user, ask to add files, stop.
 
-### Step 2: Research Codebase (DELEGATE to Explore agent)
+### 2. Determine Distribution (YOU do this)
 
-**Delegate lightweight codebase research:**
+| Task files | Estimators | Assembler | Notes |
+|------------|-----------|-----------|-------|
+| 1 file | 1 | NO | Estimator writes estimation.md directly |
+| 2-3 files | 1 per file | YES | Each writes partial, assembler merges |
+| 4+ files | Group into 2-3 agents | YES | Balance load evenly |
 
-```
-Task tool:
-  subagent_type: "Explore"
-  description: "Research codebase for estimation"
-  prompt: |
-    ## PROJECT MEMORY (READ FIRST)
-    If exists: .project-meta/memory/ - read for project context.
+**Single large xlsx:** 1 estimator (reads all sheets itself).
+**Solo estimator:** writes `.project-meta/estimation/estimation.md` directly.
+**Multiple estimators:** each writes `.project-meta/estimation/partial/estimator-N.md`, assembler merges.
 
-    ## RESEARCH FOR ESTIMATION
-    I need to estimate frontend tasks. Research the codebase to find:
-    1. Existing components and their complexity
-    2. Code patterns used in the project
-    3. Technology stack details
-    4. Reusable components that could reduce effort
-    5. Similar existing features and their scope
+### 3. Create Team (YOU do this)
 
-    ## THINK DEEPLY ABOUT:
-    - What exact files and patterns are relevant?
-    - What is the real complexity based on existing codebase?
-    - Are there reusable components that reduce effort?
-
-    ## RETURN FORMAT
-    - List of reusable components with paths
-    - Technology patterns observed
-    - Complexity indicators for different feature types
-    - Any custom implementations vs library usage
-```
-
-### Step 3: Create Team and Spawn Estimator Agents (YOU do this)
-
-**Create estimation team:**
 ```
 TeamCreate:
   team_name: "estimation"
-  description: "Estimating tasks from .project-meta/estimation/"
+  description: "Estimating frontend tasks"
 ```
 
-**Distribution strategy:**
-- 1-2 task files → 1 estimator agent handles all
-- 3-5 task files → 2 agents, split evenly
-- 6+ task files → 3+ agents, split evenly
-- If any single file is very large (xlsx with many sheets/rows) → give it its own agent
+### 4. Spawn ALL Agents in ONE Message
 
-**CRITICAL: NEVER specify `model` param. Omit it — agent inherits current chat model.**
+**CRITICAL: NEVER specify `model` param. Omit it → agents inherit current chat model.**
 
-**Estimator agent prompt template:**
+Spawn all estimators (and assembler if needed) in a SINGLE message with parallel Task calls.
+
+**Estimator-{N}:**
 ```
 Task tool:
   subagent_type: "general-purpose"
   team_name: "estimation"
   name: "estimator-{N}"
   mode: "bypassPermissions"
-  run_in_background: true
   prompt: |
-    You are an estimation agent. Your job is to READ task files, analyze them,
-    and provide time estimates for each frontend task.
+    You are ESTIMATOR agent "estimator-{N}" in team "estimation".
 
-    ## IMPORTANT: Scope Limitation
-    You ONLY estimate FRONTEND tasks. Skip any tasks related to:
-    - Backend API development
-    - Database migrations/schemas
-    - DevOps/infrastructure
-    - Mobile native development
-    If a task has both frontend and backend, estimate ONLY the frontend portion.
+    ## FIRST ACTION (MANDATORY — before anything else)
+    Invoke skills: 1. "agent:common" 2. "agent:estimator"
+    Then follow loaded instructions.
 
-    ## FILES TO READ
-    [List of absolute file paths for this agent to read]
+    ## YOUR CHAIN
+    - Receive from: orchestrator (start signal with file assignments)
+    - Send to: assembler (completion signal) / orchestrator (if solo)
 
-    ## SCREENSHOTS TO ANALYZE
-    [List of absolute screenshot paths matched to tasks]
+    ## OUTPUT FILE
+    Write results to: {output path — see distribution rules}
+```
 
-    ## CODEBASE CONTEXT (from research)
-    [Paste research results from Explore agent]
+**Assembler (only if 2+ estimators):**
+```
+Task tool:
+  subagent_type: "general-purpose"
+  team_name: "estimation"
+  name: "assembler"
+  mode: "bypassPermissions"
+  prompt: |
+    You are ASSEMBLER agent "assembler" in team "estimation".
 
-    ## PROJECT CONTEXT
-    Working directory: {CWD}
-    Memory: {CWD}/.project-meta/memory/ (read if exists)
+    ## YOUR ROLE
+    Wait for ALL estimator agents to complete, then merge their
+    partial results into a unified estimation report.
 
-    ## HOW TO READ FILES
-    - .md files: Read directly with Read tool
-    - .xlsx files: Use Bash with Python + openpyxl to read contents
-    - .docx files: Use Bash with Python + python-docx to read contents
-    - Screenshots: Read with Read tool (it handles images)
+    ## YOUR CHAIN
+    - Receive from: estimator-1, estimator-2, ... (completion signals)
+    - Expected inputs: {N} estimators
+    - Send to: orchestrator (final summary)
 
-    ## ESTIMATION GUIDELINES
+    ## WHEN ALL ESTIMATORS REPORT
+    1. Read all partial files from: {CWD}/.project-meta/estimation/partial/
+    2. Merge into unified estimation report
+    3. Write to: {CWD}/.project-meta/estimation/estimation.md
+    4. If original files were .xlsx — write estimates back using openpyxl
+    5. Clean up: delete partial/ directory after successful merge
 
-    ### Base Time Units
-    | Task Type | Opt | Avg | Pess |
-    |-----------|-----|-----|------|
-    | Simple UI component (button, input) | 1h | 2h | 4h |
-    | Medium component (card, form field) | 2h | 4h | 6h |
-    | Complex component (data table, chart) | 4h | 8h | 16h |
-    | Simple page (static, few components) | 2h | 4h | 8h |
-    | Medium page (forms, interactions) | 4h | 8h | 16h |
-    | Complex page (dashboard, many features) | 8h | 16h | 32h |
-    | Simple feature (toggle, filter) | 1h | 2h | 4h |
-    | Medium feature (search, pagination) | 2h | 4h | 8h |
-    | Complex feature (real-time, complex state) | 4h | 8h | 16h |
+    ## ESTIMATION.MD FORMAT
 
-    ### Multipliers
-    | Factor | Multiplier |
-    |--------|------------|
-    | Existing similar code to reuse | 0.5x - 0.7x |
-    | New design system components needed | 1.3x - 1.5x |
-    | Complex animations/transitions | 1.2x - 1.5x |
-    | Accessibility requirements (WCAG) | 1.2x - 1.3x |
-    | Responsive design complexity | 1.1x - 1.3x |
-    | Integration with complex API | 1.2x - 1.4x |
-    | Real-time updates (WebSocket) | 1.3x - 1.5x |
-    | Internationalization (i18n) | 1.1x - 1.2x |
-    | Complex form validation | 1.2x - 1.3x |
-    | State management complexity | 1.2x - 1.4x |
-    | First-time patterns for project | 1.3x - 1.5x |
+    ```markdown
+    # Task Estimation
 
-    ### Formula
-    Base estimate x Multipliers = Final estimate
-    Round to: 0.5h, 1h, 2h, 4h, 6h, 8h, 12h, 16h, 24h, 32h
+    Generated: YYYY-MM-DD HH:MM
+    Source files: [list]
 
-    ## SCREENSHOT ANALYSIS
-    When screenshots exist for a task, note:
-    - Number of unique UI components visible
-    - Form fields and validation indicators
-    - Interactive elements (buttons, dropdowns, modals)
-    - Data tables or lists
-    - Charts or visualizations
-    - Navigation complexity
-    - State variations shown (loading, error, empty)
+    ## Summary
 
-    ## OUTPUT FORMAT (follow exactly)
-    Return a structured estimation for each task:
+    | # | Task | Type | Opt | Avg | Pess | Notes |
+    |---|------|------|-----|-----|------|-------|
+    | 1 | [name] | [type] | Xh | Xh | Xh | |
 
-    ### [Task Name/ID]
-    **Source:** [file name]
-    **Type:** [frontend / skipped (reason)]
-    **Description:** [brief description]
+    Frontend tasks: X
+    Skipped (non-frontend): Y
+
+    **Totals:**
+    - Optimistic: XXh
+    - Average: XXh
+    - Pessimistic: XXh
+
+    ---
+
+    ## Detailed Estimates
+
+    ### 1. [Task Name]
+    **Source:** [file]
+    **Description:** [brief]
     **Estimate:** Opt: Xh | Avg: Xh | Pess: Xh
     **Reasoning:**
-    - [base type and base hours]
-    - [multipliers applied and why]
-    - [reusable components that reduce effort]
-    - [risks that increase pessimistic]
+    - [from estimator]
     **Codebase context:**
-    - [relevant existing files/patterns]
+    - [from estimator]
 
-    ## ERROR HANDLING
-    - If task description is unclear: note "Needs clarification: [question]", use wider pessimistic
-    - If no screenshots for a task: note "No visual reference", base on description only
-    - If file format unreadable: report the error, skip that file
+    ---
+
+    [...repeat for all tasks...]
+
+    ## Assumptions
+    [merged from all estimators]
+
+    ## Risks
+    [merged from all estimators]
+
+    ## Clarifications Needed
+    [merged from all estimators]
+    ```
+
+    ## XLSX WRITE-BACK (if applicable)
+    If original files were .xlsx and have estimate columns:
+    - Use openpyxl via Bash + Python
+    - Find estimate columns (opt/min, avg/ave, pess/max)
+    - Write values back
+
+    ## FINAL REPORT TO ORCHESTRATOR
+    Send via SendMessage to team lead:
+    ```
+    ## ✅ ESTIMATION COMPLETE
+
+    ### Summary
+    - Total tasks: X
+    - Frontend: Y estimated, Z skipped
+    - Totals: Opt XXh | Avg XXh | Pess XXh
+
+    ### Files
+    - estimation.md written
+    - xlsx updated: [yes/no]
+
+    ### Clarifications Needed
+    - [list if any]
+    ```
+```
+
+### 5. Send Start Signals
+
+After spawning ALL agents, send task assignments to each estimator:
+
+```
+SendMessage:
+  type: "message"
+  recipient: "estimator-{N}"
+  content: |
+    Start estimation.
+
+    ## FILES TO READ
+    [Absolute paths to task files for this estimator]
+
+    ## SCREENSHOTS
+    [Absolute paths to matched screenshots, grouped by task name]
+
+    ## OUTPUT FILE
+    Write results to: {path}
 
     ## WHEN DONE
-    Send your complete estimation results to the team lead.
+    Signal assembler (or orchestrator if solo) with:
+    task count + total hours (opt/avg/pess).
+  summary: "Start estimation for {file names}"
 ```
 
-### Step 4: Collect Results and Create estimation.md (YOU do this)
+If assembler exists, also notify:
+```
+SendMessage:
+  type: "message"
+  recipient: "assembler"
+  content: |
+    Waiting for {N} estimators: estimator-1, estimator-2, ...
+    Partial files will be at: {CWD}/.project-meta/estimation/partial/
+    Source files: [list of original task files]
+  summary: "Assembler: wait for {N} estimators"
+```
 
-After all agents complete, collect their results and create the unified output file at `.project-meta/estimation/estimation.md`:
+### 6. Wait (DO NOTHING)
 
-```markdown
-# Task Estimation
+Estimator agents work autonomously:
+1. Invoke skills (agent:common, agent:estimator)
+2. Read assigned task files (md/xlsx/docx)
+3. Read matched screenshots
+4. Research codebase for similar patterns
+5. Read project memory
+6. Apply estimation methodology
+7. Write results to output file
+8. Signal assembler (or orchestrator)
 
-Generated: [YYYY-MM-DD HH:MM]
-Source files: [list of input files]
+Assembler (if exists):
+1. Waits for all estimator signals
+2. Reads all partial files
+3. Merges into estimation.md
+4. Handles xlsx write-back
+5. Cleans up partial/ directory
+6. Sends summary to orchestrator
 
-## Summary
+**You do NOT read task files. You do NOT read screenshots. You WAIT.**
 
-| # | Task | Type | Opt | Avg | Pess | Notes |
-|---|------|------|-----|-----|------|-------|
-| 1 | [name] | Component | Xh | Xh | Xh | |
-| ... | ... | ... | ... | ... | ... | ... |
+### 7. Process Final Report
 
-Frontend tasks: X
-Skipped (non-frontend): Y
+When assembler (or solo estimator) sends you the summary:
+1. Report to user:
+   - Total tasks estimated
+   - Total hours (opt/avg/pess)
+   - Clarifications needed
+   - Reference: full details in estimation.md
 
-**Totals:**
-- Optimistic: XX hours
-- Average: XX hours
-- Pessimistic: XX hours
+### 8. Shutdown
+
+```
+Send shutdown_request to ALL agents
+TeamDelete
+```
 
 ---
-
-## Detailed Estimates
-
-### 1. [Task Name]
-**Source:** [file]
-**Description:** [brief]
-**Estimate:** Opt: Xh | Avg: Xh | Pess: Xh
-**Reasoning:**
-- [from agent]
-**Codebase context:**
-- [from agent]
-
----
-
-[...repeat for all tasks...]
-
-## Assumptions
-1. [collected from agents]
-
-## Risks
-1. [collected from agents]
-```
-
-### Step 5: Update Source Files (if xlsx)
-
-If original files were `.xlsx` and had estimate columns to fill:
-- Use openpyxl (via Bash + Python) to write estimates back to the xlsx file
-- Identify estimate columns (may be: opt/avg/pess, min/ave/max, best/likely/worst)
-- Keep `estimation.md` as the primary output regardless
-
-### Step 6: Shutdown Team
-
-```
-SendMessage type: "shutdown_request" to each estimator agent
-Then: TeamDelete
-```
-
-### Step 7: Report Summary to User
-
-Provide brief summary:
-```
-## Estimation Complete
-
-Created: .project-meta/estimation/estimation.md
-
-### Summary
-
-| # | Task | Opt | Avg | Pess |
-|---|------|-----|-----|------|
-| ... | ... | ... | ... | ... |
-
-**Totals:** Opt: XXh | Avg: XXh | Pess: XXh
-
-Full details with reasoning in estimation.md
-```
-
-## Estimation Guidelines
-
-### Base Time Units
-
-| Task Type | Opt | Avg | Pess |
-|-----------|-----|-----|------|
-| Simple UI component (button, input) | 1h | 2h | 4h |
-| Medium component (card, form field) | 2h | 4h | 6h |
-| Complex component (data table, chart) | 4h | 8h | 16h |
-| Simple page (static, few components) | 2h | 4h | 8h |
-| Medium page (forms, interactions) | 4h | 8h | 16h |
-| Complex page (dashboard, many features) | 8h | 16h | 32h |
-| Simple feature (toggle, filter) | 1h | 2h | 4h |
-| Medium feature (search, pagination) | 2h | 4h | 8h |
-| Complex feature (real-time, complex state) | 4h | 8h | 16h |
-
-### Multipliers
-
-| Factor | Multiplier |
-|--------|------------|
-| Existing similar code to reuse | 0.5x - 0.7x |
-| New design system components needed | 1.3x - 1.5x |
-| Complex animations/transitions | 1.2x - 1.5x |
-| Accessibility requirements (WCAG) | 1.2x - 1.3x |
-| Responsive design complexity | 1.1x - 1.3x |
-| Integration with complex API | 1.2x - 1.4x |
-| Real-time updates (WebSocket) | 1.3x - 1.5x |
-| Internationalization (i18n) | 1.1x - 1.2x |
-| Complex form validation | 1.2x - 1.3x |
-| State management complexity | 1.2x - 1.4x |
-| First-time patterns for project | 1.3x - 1.5x |
-
-### Estimation Formula
-
-```
-Base estimate x Multipliers = Final estimate
-
-Example:
-- Complex component (8h avg)
-- New design patterns needed (1.4x)
-- Responsive complexity (1.2x)
-- Final: 8h x 1.4 x 1.2 = 13.4h -> round to 14h average
-
-Estimates:
-- Optimistic: 4h (heavy reuse, no issues)
-- Average: 14h (normal pace with multipliers)
-- Pessimistic: 24h (edge cases, revisions)
-```
-
-## Screenshot Analysis Checklist
-
-When reviewing screenshots (handled by estimator agents), note:
-
-```
-[ ] Number of unique UI components visible
-[ ] Form fields and validation indicators
-[ ] Interactive elements (buttons, dropdowns, modals)
-[ ] Data tables or lists
-[ ] Charts or visualizations
-[ ] Navigation complexity
-[ ] Responsive breakpoint hints
-[ ] Animation/transition indicators
-[ ] State variations shown (loading, error, empty)
-[ ] Accessibility requirements visible
-```
-
-## Handling Different File Formats
-
-### .xlsx Files
-```python
-# Agents use openpyxl to read
-from openpyxl import load_workbook
-
-wb = load_workbook('tasks.xlsx')
-ws = wb.active
-
-# Find estimate columns (may vary)
-# Look for: opt/min, avg/ave, pess/max, etc.
-```
-
-### .md Files
-Read directly with the Read tool.
-
-### .docx Files
-```python
-# Agents use python-docx to read
-from docx import Document
-
-doc = Document('tasks.docx')
-for para in doc.paragraphs:
-    print(para.text)
-
-# Also check tables
-for table in doc.tables:
-    for row in table.rows:
-        for cell in row.cells:
-            print(cell.text)
-```
 
 ## Important Rules
 
-1. **ONLY estimate frontend tasks** — skip backend, devops, mobile native
-2. **NEVER read task file contents yourself** — delegate to estimator agents
-3. **Use Explore agent for codebase research** — to understand what exists
-4. **NEVER specify `model` param for agents** — omit it, inherits current chat model
-5. **For .xlsx use openpyxl** — as specified in global rules
-6. **Round estimates** — to reasonable numbers (0.5h, 1h, 2h, 4h, 6h, 8h, 12h, 16h, 24h, 32h)
-7. **Document assumptions and risks** — collected from agent results
-8. **ALWAYS create estimation.md** — primary output at `.project-meta/estimation/estimation.md`
-9. **ALWAYS use TeamCreate** before spawning estimator agents
-10. **Shutdown team after completion** — send shutdown requests, then TeamDelete
+1. **NEVER read task file contents** — estimator agents read their own
+2. **NEVER read screenshots** — estimator agents handle visual analysis
+3. **NEVER do codebase research** — estimators research independently
+4. **NEVER specify `model` param** — agents inherit current chat model
+5. **Glob ONLY for scanning** — just file names, not contents
+6. **Spawn ALL agents in ONE message** — parallel Task calls
+7. **For .xlsx use openpyxl** — as per project rules
+8. **ALWAYS create estimation.md** — primary output
+9. **Shutdown team after completion** — shutdown requests + TeamDelete
+10. **Solo estimator writes estimation.md directly** — no assembler overhead
 
-## Error Handling
+---
 
-**If no task files found:**
-- Inform user that no files found in `.project-meta/estimation/`
-- Ask them to add task files (.md, .xlsx, or .docx)
-- Stop execution
+## Example Execution Flow
 
-**If task description is unclear:**
-- Agent notes: "Needs clarification: [specific question]"
-- Provide range with wider pessimistic estimate
-
-**If no screenshots for a task:**
-- Agent notes: "No visual reference provided"
-- Base estimate on description only
-- Add 1.2x uncertainty multiplier to pessimistic
-
-**If codebase research unavailable:**
-- Note: "No codebase context available"
-- Use standard estimates without reuse benefits
-
-**If file format is unreadable:**
-- Agent reports the error
-- Continue with other readable files
-
-## Example Task Estimation
-
-**Task:** Create user management table with search, filters, and bulk actions
-
-**Screenshots show:**
-- Data table with 8 columns
-- Search input
-- 3 filter dropdowns
-- Bulk selection checkbox
-- Pagination
-- Row actions dropdown
-
-**Codebase research:**
-- Similar product table exists at src/components/products-table
-- Uses Tanstack Table
-- Has existing filter components
-
-**Estimation:**
 ```
-Base: Complex component = 8h average
+Scanning input folder...
+├─ Task files: sourcing-requests.md, dashboard-redesign.xlsx
+├─ Screenshots: 8 images in 3 folders
+└─ Map: sourcing-requests.md → 3 screenshots, dashboard-redesign.xlsx → 5 screenshots
 
-Analysis:
-+ Similar table exists (can reuse pattern) -> 0.7x
-+ Existing filter components -> already factored
-- More columns than existing (8 vs 5) -> 1.1x
-- Bulk actions (new feature) -> 1.2x
-- Row actions dropdown (exists) -> 1.0x
+Distribution: 2 files → 2 estimators + 1 assembler
 
-Calculation:
-8h x 0.7 x 1.1 x 1.2 = 7.4h -> 8h average
+Creating team "estimation"...
 
-Estimates:
-- Optimistic: 4h (heavy reuse, no issues)
-- Average: 8h (normal pace)
-- Pessimistic: 14h (edge cases, revisions)
+Spawning 3 agents in ONE message:
+├─ estimator-1 → sourcing-requests.md + 3 screenshots
+├─ estimator-2 → dashboard-redesign.xlsx + 5 screenshots
+└─ assembler → waits for 2 estimators
+
+Sending start signals...
+├─ estimator-1: files + screenshots assigned
+├─ estimator-2: files + screenshots assigned
+└─ assembler: waiting for 2 estimators
+
+[agents work autonomously]
+
+estimator-1: done (6 tasks, Opt 24h | Avg 48h | Pess 80h)
+estimator-2: done (12 tasks, Opt 40h | Avg 72h | Pess 120h)
+
+assembler: merging partials...
+assembler: ✅ ESTIMATION COMPLETE
+├─ 18 frontend tasks estimated
+├─ Totals: Opt 64h | Avg 120h | Pess 200h
+└─ 2 tasks need clarification
+
+Shutting down team...
+├─ shutdown_request → all agents
+└─ TeamDelete ✓
+
+Summary: 18 tasks estimated, details in estimation.md
 ```

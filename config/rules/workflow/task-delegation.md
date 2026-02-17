@@ -92,6 +92,13 @@ NO  → Solo Workflow (1 file, ≤50 lines, no research)
 
 ```
 Assess task:
+├─ ALWAYS Solo (regardless of size):
+│   └─ Meta-configuration: changes to YOUR OWN config files
+│       (.claude/commands/, .claude/rules/, agent skills, workflow rules,
+│        memory system settings, CLAUDE.md)
+│       → These define how agents work — delegating is circular
+│       → Work directly with the user → Implement → Verify
+│
 ├─ Solo (ALL conditions must be true):
 │   ├─ Changes only 1 file
 │   ├─ ≤50 lines of changes

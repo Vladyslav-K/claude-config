@@ -103,118 +103,53 @@ mkdir -p .project-meta/tasks/context
 #### For CODE tasks — write yourself:
 Context for code tasks is lightweight text — write directly with Write tool.
 
-#### For VISUAL tasks — delegate to Planner Agent:
+#### For VISUAL tasks — delegate to Planner Agent(s):
 
-Spawn ONE Planner Agent for ALL visual tasks. It reads screenshots + Figma JSON in its OWN context window.
+Spawn planner agent(s) to read screenshots + Figma JSON and write context files.
 
+**Distribution strategy:**
+
+| Visual tasks | Planners | Notes |
+|-------------|----------|-------|
+| 1-3 | 1 planner | Handles all visual tasks |
+| 4-6 | 2 planners | Split evenly |
+| 7+ | 3 planners | ~2-3 tasks per planner |
+
+**Each planner writes its own context files directly — no assembler needed.**
+
+**CRITICAL: NEVER specify `model` param. Omit it → agents inherit current chat model.**
+
+**Planner-{N}:**
 ```
 Task tool:
   subagent_type: "general-purpose"
   description: "Create visual task context files"
   mode: "bypassPermissions"
   prompt: |
-    You are a Planner Agent. Read screenshots and Figma JSON,
-    write context files for visual tasks.
+    You are PLANNER agent "planner-{N}".
 
-    ## PROJECT MEMORY
-    If exists: {CWD}/.project-meta/memory/ — read for project context.
-
-    ## KNOWN MISTAKES
-    Read {CWD}/.claude/rules/common-mistakes.md — avoid listed mistakes in your analysis.
+    ## FIRST ACTION (MANDATORY — before anything else)
+    Invoke skills: 1. "agent:common" 2. "agent:planner"
+    Then follow loaded instructions.
 
     ## TASKS TO PROCESS
 
-    [For EACH visual task, include:]
+    [For EACH visual task assigned to this planner:]
     ---
-    Task N: {title}
-    Output: {CWD}/.project-meta/tasks/context/task-{N}.md
+    Task {ID}: {title}
+    Output: {CWD}/.project-meta/tasks/context/task-{ID}.md
     Screenshots: {absolute paths — READ these}
-    Figma JSON: {absolute paths — READ these}
+    Figma JSON: {absolute paths or "none" — READ these}
     Description: {from plan files}
     Files to create/modify: {list}
     ---
-
-    ## CONTEXT FILE FORMAT
-
-    Write each file following this EXACT structure:
-
-    # Task N: Title
-
-    ## Action
-    CREATE / MODIFY — which files and why
-
-    ## Requirements
-    [From task description]
-
-    ## Page Structure (MANDATORY — from screenshot ONLY)
-    ⚠️ Look at the SCREENSHOT. Ignore any assumptions from task text.
-    - Single continuous page or divided into tabs?
-    - Visible tab controls? (If NO → "Single continuous page, NO tabs")
-    - Modals, drawers, overlays?
-
-    ## Component Tree
-    [Parent-child hierarchy using tree notation]
-    ```
-    Page
-    ├── Header (flex, justify-between)
-    │   ├── Title
-    │   └── Action Button
-    └── Content
-        └── Table
-    ```
-
-    ## Design Specs (from Figma JSON)
-    ### Dimensions
-    | Element | Figma px | Tailwind | Notes |
-    |---------|----------|----------|-------|
-
-    ### Colors
-    | Token | Hex | Usage |
-    |-------|-----|-------|
-
-    ### Typography
-    | Element | Size | Weight | Line-height | Letter-spacing |
-    |---------|------|--------|-------------|----------------|
-
-    ### Borders & Shadows
-    [ALL borders from `bd` property, ALL shadows from `sh` property]
-
-    ## Interactive Elements
-    [What should be clickable, what action it performs]
-    - Emails → mailto links
-    - Phones → tel links
-    - Filters → functional dropdowns
-    - Buttons → specific actions
-
-    ## Element Count
-    | Element type | Count | Details |
-    |-------------|-------|---------|
-    | Buttons | N | [list each with label and location] |
-
-    ## Page Integration
-    - Page title: [exact text]
-    - Sidebar: [should it appear? under which section?]
-    - Breadcrumbs/back nav: [what should exist]
-
-    ## Acceptance Criteria
-    - [ ] criterion 1
-    - [ ] criterion 2
-
-    ## References
-    - Similar existing page: [path] (for code patterns only, NOT structure)
-
-    ## RULES
-    - Read screenshots with FRESH EYES — ignore task text assumptions
-    - Extract EXACT values from Figma JSON (NO approximations)
-    - Check EVERY element for borders (bd) and shadows (sh)
-    - Count ALL buttons, icons, interactive elements
-    - Do a quick Glob/Grep to find similar pages — include paths as references
-    - Do NOT read full code of reference pages — just note paths
-    - Do NOT include code examples — agents research those during execution
-    - Write in English
 ```
 
+**If multiple planners:** spawn ALL in a SINGLE message (parallel Task calls).
+
 **If NO visual tasks exist → skip this step entirely. Write all context files yourself.**
+
+Wait for ALL planner agents to complete before proceeding to Step 7.
 
 ### Step 7: Write tasks.md INDEX (YOU do this)
 
@@ -315,7 +250,7 @@ What to build, constraints, acceptance criteria.
 
 ### For VISUAL tasks (written by Planner Agent):
 
-Full format as described in Step 6 planner agent template.
+Full format defined in `agent:planner` skill (context file template, design specs, structural verification).
 
 ## status.md Format
 

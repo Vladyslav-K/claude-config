@@ -1,197 +1,241 @@
 # Agent Management
 
-**Agent orchestration, team setup, and chain communication model.**
-**For delegation decisions (when to delegate, solo vs delegate) → see `task-delegation.md`**
+**Agent orchestration, team setup, and 2-agent chain model.**
+**For delegation decisions (solo vs delegate) → see `task-delegation.md`**
 
-**Detailed agent instructions are in skills:** `/agent:common`, `/agent:researcher`, `/agent:analyzer`, `/agent:implementer`, `/agent:validator`
-
----
-
-## Agent Types & Selection
-
-### Two Levels of Research
-
-| Level | Agent | Model | Use when |
-|-------|-------|-------|----------|
-| **Simple lookup** | `Explore` | Haiku (fast, cheap) | Find files, grep patterns, check what exists |
-| **Deep analysis** | `general-purpose` | Inherits chat model | Understand flows, analyze architecture, expert decisions |
-
-### When to use Explore (Haiku)
-
-- Find where a component/function is located
-- Grep for a pattern across codebase
-- List files in a directory structure
-- Check what imports/exports exist
-- Simple "does X exist?" questions
-
-### When to use general-purpose (inherits model) for research
-
-- Understanding how a complex flow works
-- Analyzing architecture decisions
-- Expert opinion on implementation approach
-- When research quality directly affects implementation quality
-
-**Rule of thumb:** Research answer shapes implementation → `general-purpose`. Just finding files → `Explore`.
-
-### When to SEARCH yourself (main context)
-
-Handle directly ONLY when:
-- **Known location:** You already know the exact file path
-- **Single lookup:** One glob or one grep, takes 1 tool call
-- **Already in context:** Information is already in current conversation
+**Agent instructions are in skills:** `/agent:common`, `/agent:implementer`, `/agent:validator`
 
 ---
 
-## Visual Task Workflow
+## Agent Types
 
-### 4 Agents Required (NON-NEGOTIABLE)
+| Type | Model | Use for |
+|------|-------|---------|
+| `Explore` | Haiku (fast) | File search, grep, simple lookups |
+| `general-purpose` | Inherits chat model | Implementation, validation, deep analysis |
 
-For visual tasks (screenshots/Figma), ALL 4 agents are MANDATORY:
+**Rule:** Just finding files → `Explore`. Anything that requires judgment → `general-purpose`.
 
-1. **Researcher** — explores codebase, finds patterns
-2. **Analyzer** — reads screenshot + Figma JSON, produces design specs
-3. **Implementer** — builds using research + analysis
-4. **Validator** — fresh-eyes comparison, correction loop
+**Search yourself (main context) ONLY when:** you already know the exact path, or it's a single glob/grep.
 
-Chain: `[Researcher + Analyzer] (parallel) → Implementer ↔ Validator (max 3 loops)`
+---
 
-For code tasks (no screenshots): 3 agents — skip Analyzer.
+## 2-Agent Chain (Default Workflow)
 
-### 🚫 Orchestrator Prohibition (HARD RULE)
+Every delegated task uses exactly **2 agents**: Implementer + Validator.
+
+Both agents research the project INDEPENDENTLY. No broken telephone — each agent sees the original task and forms their own understanding.
+
+### Chain Flow
+
+```
+Orchestrator → Implementer (receives task)
+                    │
+                    ├─ Researches project independently
+                    ├─ Reads ALL screenshots/Figma JSON
+                    ├─ Implements
+                    ├─ Self-reviews
+                    └─ Reports file paths to → Orchestrator
+                                                    │
+                                    Orchestrator → Validator (receives original task + file paths)
+                                                    │
+                                                    ├─ Researches project independently
+                                                    ├─ Reads ALL screenshots/Figma JSON
+                                                    ├─ Reads implemented code
+                                                    ├─ Compares independently
+                                                    └─ Decision:
+                                                        ├─ Issues? → Corrections → Implementer → fix → Validator (max 3 loops)
+                                                        ├─ All OK? → ✅ Report → Orchestrator → User
+                                                        └─ 3 fails? → ⚠️ Escalation → Orchestrator → User
+```
+
+### Key Principle: Blind Validation
+
+The Validator NEVER sees the Implementer's self-assessment. Validator receives:
+- Original task (from orchestrator)
+- File paths (from orchestrator)
+- Screenshots/Figma paths (from orchestrator)
+
+Validator forms their OWN understanding of what the result should look like, THEN checks the code.
+
+---
+
+## 🚫 Orchestrator Prohibition
 
 The orchestrator is a PURE MANAGER. FORBIDDEN from:
 1. Reading code files — agents handle all code
-2. Reading screenshots for analysis — Analyzer does this
-3. Comparing code to design — Validator does this
-4. Relaying messages between agents — agents communicate DIRECTLY
-5. Validating work quality — Validator handles this autonomously
+2. Analyzing screenshots — agents do this independently
+3. Validating work quality — Validator handles this
+4. Relaying detailed messages between agents — keep agents independent
 
 The orchestrator's ONLY jobs:
 - Create team and spawn agents
-- Formulate and send the task
-- Wait for Validator's final report
-- Report to user
+- Send the task to Implementer
+- Receive file paths from Implementer → forward original task + paths to Validator
+- Receive final report from Validator → report to user
 - Route user feedback to Implementer
-
-### Chain Gates (enforced BY agents, not orchestrator)
-
-| Gate | Enforced by | Rule |
-|------|-------------|------|
-| GATE 1 | Implementer | Must receive ALL expected inputs before coding |
-| GATE 2 | Validator | Must find 0 issues before reporting success |
-| GATE 3 | Validator | Max 3 correction rounds, then escalate |
 
 ---
 
-## Agent Templates (Skill-Based)
+## Agent Templates
 
 **All agents invoke their skills as the FIRST action.**
-**All agents communicate DIRECTLY with each other via SendMessage.**
-**Model selection:** Use model from `.claude/rules/workflow/agent-models.md` per agent role. `inherit` → omit `model` param. Other values → pass as `model` param.
+**Spawn BOTH agents in a SINGLE message (parallel Task tool calls).**
 
-### Spawning Agents
-
-Spawn ALL agents in a SINGLE message (parallel Task tool calls).
-
-Each agent's prompt follows this structure:
+### Implementer Template
 
 ```
 Task tool:
   subagent_type: "general-purpose"
   team_name: "{team-name}"
-  name: "{role}"
+  name: "implementer"
   mode: "bypassPermissions"
   prompt: |
-    You are a {ROLE} agent in a chain workflow. Team: "{team-name}".
+    You are the Implementer. Team: "{team-name}".
 
-    ## FIRST ACTION (MANDATORY — DO THIS BEFORE ANYTHING ELSE)
+    ## FIRST ACTION (MANDATORY)
     Invoke these skills using the Skill tool:
     1. Skill: "agent:common"
-    2. Skill: "agent:{role}"
+    2. Skill: "agent:implementer"
     Then follow the loaded instructions.
 
     ## YOUR CHAIN
-    - You receive from: {sender agent name(s)}
-    - You send to: {recipient agent name(s)}
+    - You receive the task from: orchestrator (team lead)
+    - After completion, send file paths to: orchestrator (team lead)
+    - Corrections come from: validator
+    - Send correction updates to: validator
 
-    ## TASK CONTEXT
-    {Brief task description or "Will be sent via message"}
+    ## TASK
+    {Full task description}
 
     ## SCREENSHOTS (if visual task)
-    {Screenshot paths}
+    {Screenshot file paths — READ ALL of them}
 
     ## FIGMA JSON (if available)
-    {Figma JSON paths}
+    {Figma JSON file paths — READ THE ENTIRE file}
 ```
 
-### Agent Configuration Reference
+### Validator Template
 
-| Agent | name | Receives from | Sends to |
-|-------|------|---------------|----------|
-| Researcher | researcher | Orchestrator (message) | implementer |
-| Analyzer | analyzer | Orchestrator (message) | implementer |
-| Implementer | implementer | researcher [+ analyzer] | validator |
-| Validator | validator | implementer | Orchestrator (final) OR implementer (corrections) |
+```
+Task tool:
+  subagent_type: "general-purpose"
+  team_name: "{team-name}"
+  name: "validator"
+  mode: "bypassPermissions"
+  prompt: |
+    You are the Validator. Team: "{team-name}".
+
+    ## FIRST ACTION (MANDATORY)
+    Invoke these skills using the Skill tool:
+    1. Skill: "agent:common"
+    2. Skill: "agent:validator"
+    Then follow the loaded instructions.
+
+    ## YOUR CHAIN
+    - You receive the task + file paths from: orchestrator (team lead)
+    - Send corrections to: implementer
+    - Send final report to: orchestrator (team lead)
+
+    ## WAIT
+    Wait for the orchestrator to send you the task and file paths.
+    Do NOT start until you receive a message.
+```
 
 ---
 
-## Validation System (Autonomous)
+## Step-by-Step Execution
 
-The Validator agent operates autonomously:
-- Receives implementer's report directly
-- Validates against task + screenshot (if visual)
-- Sends corrections to implementer (up to 3 rounds)
-- Only reports to orchestrator when DONE or ESCALATING
-
-**The orchestrator does NOT validate. The orchestrator does NOT read code.**
-
-### Validation Chain Flow
-
+### Step 1: Create Team
 ```
-Implementer → Validator
-                 │
-                 ├─ Issues found? → Corrections → Implementer → fix → Validator (repeat, max 3)
-                 ├─ All correct? → ✅ Success report → Orchestrator
-                 └─ 3 rounds failed? → ⚠️ Escalation → Orchestrator
+TeamCreate:
+  team_name: "{descriptive-name}"
+  description: "Working on {brief task summary}"
 ```
 
-### Orchestrator's Role
+### Step 2: Formulate the Task
 
-1. Receive Validator's report (success or escalation)
-2. Report to user
-3. Route user feedback to Implementer (not Validator)
-4. Never read code — trust the chain
+Write a clear task description with:
+- What to build/change (requirements from user)
+- File paths if known
+- Screenshot paths if visual task
+- Figma JSON paths if available
+- Any user constraints or preferences
+
+### Step 3: Spawn BOTH Agents in ONE Message
+
+Two parallel Task tool calls: Implementer + Validator.
+Include the full task in Implementer's prompt. Validator waits for orchestrator message.
+
+### Step 4: Send Task to Implementer
+
+Send the task via `SendMessage` to "implementer". The implementer will:
+- Research the project independently
+- Read all task materials (screenshots, Figma JSON)
+- Implement the task
+- Self-review
+- Send file paths back to YOU
+
+### Step 5: Forward to Validator
+
+When Implementer reports back with file paths:
+- Send to "validator" via `SendMessage`: the ORIGINAL task + file paths + screenshot/Figma paths
+- Do NOT include implementer's self-assessment
+
+### Step 6: Wait for Validation
+
+Validator works autonomously:
+- Researches project independently
+- Reads all task materials
+- Reads implemented code
+- Compares and validates
+- If issues → sends corrections to Implementer directly (up to 3 rounds)
+- If all OK → sends final report to YOU
+
+### Step 7: Report to User
+
+Pass Validator's summary to user. Do NOT read code yourself.
+
+### Step 8: Handle User Feedback (if any)
+
+User found issues:
+1. Send fix instructions to **Implementer** via `SendMessage`
+2. Implementer fixes → sends updated files to **Validator**
+3. Validator re-checks → reports to you
+4. Repeat until user satisfied
+
+### Step 9: Cleanup
+
+After user confirms everything is OK:
+- Shut down Implementer and Validator
+- Delete team via `TeamDelete`
 
 ---
 
-## Common Mistakes System
+## Multiple Tasks (tasks:run)
 
-### File Location
+ONE team for all tasks. Agents numbered per task:
+- `implementer-1`, `validator-1`
+- `implementer-2`, `validator-2`
 
-| File | Path | Who edits |
-|------|------|-----------|
-| **Common Mistakes** | `.claude/rules/common-mistakes.md` | Orchestrator updates when user reports mistakes |
+Independent tasks run in PARALLEL.
+Dependent tasks run sequentially.
 
-### When to Update
+After each Validator reports → update status.md.
+After ALL tasks done → run format-and-check → report to user.
+After user confirms → TeamDelete.
 
-After user reports a mistake:
-1. Fix the issue
-2. Read the file to check if rule already exists
-3. Exists → add new example under existing rule
-4. New → write full rule entry
+---
 
-### Entry Format
+## Memory Integration
 
-```markdown
-## [Category]
+If `.project-meta/memory/` exists, agents discover it via `/agent:common` skill instructions. No need to paste memory content in prompts — agents read it themselves.
 
-### [General rule name]
-[1-2 sentences: WHEN this rule applies and WHAT to do]
-- Example: [specific incident]
-```
+---
 
-Categories: Page Structure, Layout & Nesting, Colors, Typography, Spacing, Components, Text Content, Page Integration, Element Duplication, Role-Inappropriate UI, Functional Completeness
+## Escalation
 
-### Agent Integration
-
-All agents read common-mistakes.md via the `/agent:common` skill at session start.
+If Validator escalates after 3 failed rounds:
+1. Read the escalation report
+2. Report to user with remaining issues
+3. User decides: more guidance → send to Implementer, or accept as-is, or take over

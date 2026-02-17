@@ -24,7 +24,6 @@ If a task has both frontend and backend parts, estimate ONLY the frontend portio
 ### Phase 1: Context Loading
 
 1. Read project memory files at `.project-meta/memory/` (if exists)
-2. Read common mistakes at `.claude/rules/common-mistakes.md` (if exists)
 
 ### Phase 2: Read Task Files
 

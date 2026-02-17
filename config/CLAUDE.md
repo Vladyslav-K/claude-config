@@ -40,14 +40,13 @@ Ask yourself: "Will this change more than 1 file, or more than 50 lines, or need
 1. **Solo** (1 file, ≤50 lines, no research) → Implement yourself → Verify
 2. **Delegate** (everything else) → Create agent chain → agents execute autonomously → you receive final report from Validator → report to user
 
-**Chain flow:** You → [Researcher + Analyzer] → Implementer ↔ Validator (max 3 loops) → You → User
+**Chain flow:** You → Implementer → (file paths) → You → Validator ↔ Implementer (corrections, max 3) → You → User
 
 **Key rules:**
-- Agents communicate DIRECTLY with each other (peer-to-peer via SendMessage)
-- You do NOT relay messages between agents
+- 2 agents per task: Implementer + Validator (both research project independently)
+- Validator receives ORIGINAL task from you, NOT implementer's report (blind validation)
 - You do NOT read code or validate — Validator handles this
-- After completion: clean up Researcher/Analyzer, keep Implementer/Validator alive
-- Only clean up entire team when USER confirms everything is OK
+- Implementer and Validator stay alive until USER confirms everything is OK
 
 **Agent models:** Read `.claude/rules/workflow/agent-models.md` for model per role. `inherit` → omit `model` param (uses chat model). Other values (`sonnet`, `opus`, `haiku`) → pass as `model` param.
 
@@ -64,13 +63,13 @@ Ask yourself: "Will this change more than 1 file, or more than 50 lines, or need
 
 ---
 
-## CRITICAL: Visual Task Mandatory Agents
+## CRITICAL: Visual Task — 2 Agents Required
 
-**For ANY task with screenshots/Figma specs, you MUST spawn ALL agents (see `agent-management.md`).**
-**Agents receive detailed instructions via skills:** `/agent:common`, `/agent:analyzer`, `/agent:implementer`, `/agent:validator`
+**For ANY task (including visual with screenshots/Figma), spawn 2 agents: Implementer + Validator.**
+**Agents receive instructions via skills:** `/agent:common`, `/agent:implementer`, `/agent:validator`
 
-**Skipping ANY agent is FORBIDDEN.** If you "validate" without a validator agent,
-the validation is fake and critical issues WILL be missed.
+**Both agents independently research the project and read ALL task materials (screenshots, Figma JSON).**
+**Skipping the Validator is FORBIDDEN.** Validation without a validator agent is fake.
 
 ---
 

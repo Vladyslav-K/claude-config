@@ -1,76 +1,61 @@
 ---
 name: agent:common
-description: Shared foundation rules for ALL team agents. Project memory, common mistakes, code conventions, chain communication protocol.
+description: Shared foundation for ALL team agents. Project research protocol, code standards, communication.
 ---
 
-# Agent Common Rules
+# Agent Foundation
 
-## FIRST: Read Project Context
+## FIRST: Understand the Project
 
-### Project Memory
-If the directory exists, read ALL files in `.project-meta/memory/`:
-- `project-overview.md` — project architecture and key concepts
-- `project-structure.md` — file tree with descriptions
-- `recent-session.md` — context from last session
-- `changelog.md` — history of changes
+Before doing ANY work, research the project:
 
-### Known Mistakes
-Read `.claude/rules/common-mistakes.md` if it exists.
-These are REAL mistakes from previous implementations. You MUST avoid ALL of them.
+1. **Read project memory** (if `.project-meta/memory/` exists):
+   - `project-overview.md` — what the project is, tech stack, architecture
+   - `project-structure.md` — file tree and file purposes
+   - `recent-session.md` — recent work context
+
+2. **Explore the codebase yourself:**
+   - Find 2-3 existing pages/features SIMILAR to your task
+   - Read their code top to bottom — internalize the patterns
+   - Check what UI components exist in `src/components/`
+   - Read the layout file that wraps your target page — know what it already provides
+
+**You are a professional who understands the project before touching it. Not a script executor who blindly follows instructions.**
 
 ---
 
-## Code Rules
+## Reading Task Materials (MANDATORY)
 
-- ALL code, comments, and file names must be in **English**
-- Do NOT leave comments unrelated to code (no task descriptions, no change notes)
-- Do NOT create test files unless explicitly specified in the task
-- Do NOT add unnecessary comments or documentation
-- Do NOT add features, refactor code, or make "improvements" beyond what was asked
-- Do NOT add error handling, fallbacks, or validation for scenarios that can't happen
-- Follow existing project code patterns EXACTLY — find similar code and use as a template
-- Use the **same libraries and patterns** the project already uses
-- NEVER install new packages without checking the latest stable version first
+When your task references screenshots, Figma JSON, or any files:
+- **Read EVERY screenshot** — use the Read tool on each image file
+- **Read the ENTIRE Figma JSON** — not fragments, not "key parts", the WHOLE file
+- **Read ALL referenced files** — every single one, completely
+
+Partial reading = partial understanding = broken implementation.
+
+---
+
+## Code Standards
+
+- ALL code, comments, file names → English only
+- No comments unrelated to code (no task descriptions, change notes, TODOs about the task)
+- Follow existing project patterns EXACTLY — find similar code and match its style
+- Use the SAME libraries, components, patterns the project already uses
+- NEVER recreate a UI component that already exists in the project
+- NEVER install new packages without explicit instruction
 
 ---
 
 ## Post-Implementation
 
-After finishing your work:
-1. Check what **package manager** the project uses (lockfile: `package-lock.json` → npm, `pnpm-lock.yaml` → pnpm, `bun.lockb` → bun)
-2. Run the project's format/lint/typecheck scripts:
-   - First try: `format-and-check` script in package.json
-   - If not exists: run `format`, `lint`, `typecheck` separately
-   - Do NOT use `npx` commands — use scripts from package.json
-3. Fix ALL issues found by these scripts
+1. Detect package manager from lockfile (`package-lock.json` → npm, `pnpm-lock.yaml` → pnpm, `bun.lockb` → bun)
+2. Run `format-and-check` from package.json (or `format`, `lint`, `typecheck` separately)
+3. Fix ALL issues found
 
 ---
 
-## Chain Communication Protocol
+## Communication
 
-You are part of a chain workflow where agents communicate DIRECTLY via `SendMessage`.
-
-### Key Rules
-- Use `SendMessage` with `type: "message"` to send to another agent by **NAME**
-- Include a `summary` field (5-10 words) with each message
-- When passing the TASK through the chain, paste it **UNCHANGED** — do not modify, summarize, or reinterpret
-- If you receive a task from the orchestrator (team lead), pass it forward unchanged to the next agent
-
-### Message Format Convention
-Always structure your messages with clear sections using markdown headers:
-```
-## TASK (from orchestrator — DO NOT modify)
-[Original task, unchanged]
-
-## YOUR OUTPUT
-[Your role-specific output: research, analysis, report, etc.]
-```
-
----
-
-## File Operations Safety
-
-- NEVER delete files unless explicitly told to
-- NEVER modify files outside the scope of your task
-- Be careful with imports — use exact paths from the project, not invented ones
-- If creating a NEW page/route, you MUST integrate with existing layout (page titles, sidebar, routing)
+- Use `SendMessage` with `type: "message"` to communicate by agent NAME
+- When passing the TASK, paste it UNCHANGED — never summarize or reinterpret
+- Include `summary` (5-10 words) with each message

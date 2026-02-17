@@ -223,7 +223,7 @@ Created: YYYY-MM-DD
 1. Split file by `---` separators
 2. Find task blocks: `## Task N: Title`
 3. Extract metadata: `- Files:`, `- Deps:`, `- Type:`, `- Screenshots:`, `- Figma:`, `- Context:`
-4. Type determines chain flow: `code` → 3 agents, `visual` → 4 agents
+4. All tasks use 2-agent chain: implementer + validator (both research independently)
 
 ## context/task-N.md Format
 
@@ -250,7 +250,8 @@ What to build, constraints, acceptance criteria.
 
 ### For VISUAL tasks (written by Planner Agent):
 
-Full format defined in `agent:planner` skill (context file template, design specs, structural verification).
+Lightweight format — describes WHAT to build, not HOW. No design specs, no component trees.
+Full format defined in `agent:planner` skill. Implementers extract design specs themselves from screenshots/Figma JSON.
 
 ## status.md Format
 

@@ -232,6 +232,11 @@ The chain runs autonomously:
 
 **You do NOT intervene. You do NOT check on progress. You WAIT.**
 
+**⚠️ CRITICAL — END YOUR RESPONSE IMMEDIATELY after sending tasks to agents.**
+Do NOT continue generating text. Do NOT "think out loud" while waiting.
+The agent will deliver its report automatically when done — you will be notified.
+Continuing to generate text after spawning agents wastes tokens and is FORBIDDEN.
+
 #### Step 6: Receive Report and Inform User
 
 When Validator sends you the final report:
@@ -435,6 +440,8 @@ Any bug requiring research or touching 2+ files → create a chain:
 - ✅ Send fix instructions to Implementer — let the chain handle it
 - ❌ Reading screenshots to analyze or validate yourself
 - ✅ Analyzer and Validator agents handle all visual work
+- ❌ Continuing to generate text / "thinking out loud" after spawning agents
+- ✅ END the response immediately after sending tasks — agents notify you when done
 
 ### Chain Communication
 - ❌ Spawning agents WITHOUT `team_name`

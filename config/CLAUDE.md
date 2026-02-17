@@ -66,31 +66,11 @@ Ask yourself: "Will this change more than 1 file, or more than 50 lines, or need
 
 ## CRITICAL: Visual Task Mandatory Agents
 
-**For ANY task with screenshots/Figma specs, you MUST spawn ALL 3 agents:**
+**For ANY task with screenshots/Figma specs, you MUST spawn ALL agents (see `agent-management.md`).**
+**Agents receive detailed instructions via skills:** `/agent:common`, `/agent:analyzer`, `/agent:implementer`, `/agent:validator`
 
-1. **Analyzer** — reads screenshot + Figma JSON → produces element-by-element specs
-2. **Implementer** — builds using analyzer's output + codebase patterns
-3. **Validator** — fresh-eyes comparison of result vs design → reports every discrepancy
-
-**Skipping ANY of these agents is FORBIDDEN.** If you "validate" without a validator agent,
+**Skipping ANY agent is FORBIDDEN.** If you "validate" without a validator agent,
 the validation is fake and critical issues WILL be missed.
-
----
-
-## CRITICAL: Figma-to-Code Rules
-
-**When working with Figma JSON, screenshots, or design specs:**
-
-**READ AND FOLLOW: `.claude/rules/workflow/figma-to-code.md`**
-
-This file contains MANDATORY rules for:
-- Exact dimension conversion (NO approximations ever!)
-- Dimension tables with px and % calculations
-- Color extraction
-- Responsive design strategy
-- Image/asset handling
-
-**Failure to follow these rules results in incorrect implementations.**
 
 ---
 

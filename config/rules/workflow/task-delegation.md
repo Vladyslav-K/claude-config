@@ -232,10 +232,20 @@ The chain runs autonomously:
 
 **You do NOT intervene. You do NOT check on progress. You WAIT.**
 
-**⚠️ CRITICAL — END YOUR RESPONSE IMMEDIATELY after sending tasks to agents.**
-Do NOT continue generating text. Do NOT "think out loud" while waiting.
-The agent will deliver its report automatically when done — you will be notified.
-Continuing to generate text after spawning agents wastes tokens and is FORBIDDEN.
+**🚫 HARD STOP — ZERO OUTPUT AFTER SENDING TASKS TO AGENTS.**
+After the last `SendMessage` call — your response ENDS. No exceptions.
+
+FORBIDDEN after sending tasks (all of these are violations):
+- Status messages: "Очікую фінальний звіт..." ❌
+- Progress updates: "Чейн працює самостійно..." ❌
+- Thinking out loud: "implementer-1 очікує..." ❌
+- Confirmations: "Задачу відправлено агентам" ❌
+- ANY text whatsoever ❌
+
+The agent will deliver its report as a new conversation turn — you will be notified automatically.
+Generating ANY text after spawning agents wastes tokens and is STRICTLY FORBIDDEN.
+
+**The correct behavior: spawn agents → send tasks → response ends. Silence until agent reports back.**
 
 #### Step 6: Receive Report and Inform User
 

@@ -7,17 +7,15 @@ Model assignment per agent role. Orchestrator reads this before spawning agents.
 - `inherit` = omit `model` param → agent uses current chat model
 - `sonnet`, `opus`, `haiku` = pass as `model` param to Task tool
 
-## Default Chain (2 agents)
+## Default (1 implementer per task)
 
 | Role | Model | Notes |
 |------|--------|-------|
-| implementer | opus | Researches + implements. Inherits chat model for best quality. |
-| validator | opus | Independent validation. Inherits chat model for thorough review. |
+| implementer | opus | Researches + implements + self-reviews. Inherits chat model for best quality. |
 
 ## Optional / Special Roles
 
 | Role | Model | Notes |
 |------|--------|-------|
-| planner | opus | Screenshot + Figma analysis for task planning |
 | estimator | opus | Task estimation |
 | assembler | sonnet | File merging |

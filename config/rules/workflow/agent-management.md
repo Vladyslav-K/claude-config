@@ -1,9 +1,9 @@
 # Agent Management
 
-**Agent orchestration, team setup, and 2-agent chain model.**
+**Agent orchestration, team setup, and two-phase implementer model with human validation.**
 **For delegation decisions (solo vs delegate) → see `task-delegation.md`**
 
-**Agent instructions are in skills:** `/agent:common`, `/agent:implementer`, `/agent:validator`
+**Agent instructions are in skills:** `/agent:common`, `/agent:implementer`
 
 ---
 
@@ -12,7 +12,7 @@
 | Type | Model | Use for |
 |------|-------|---------|
 | `Explore` | Haiku (fast) | File search, grep, simple lookups |
-| `general-purpose` | Inherits chat model | Implementation, validation, deep analysis |
+| `general-purpose` | Inherits chat model | Implementation, deep analysis |
 
 **Rule:** Just finding files → `Explore`. Anything that requires judgment → `general-purpose`.
 
@@ -20,43 +20,50 @@
 
 ---
 
-## 2-Agent Chain (Default Workflow)
+## Two-Phase Implementer + Human Validation (Default Workflow)
 
-Every delegated task uses exactly **2 agents**: Implementer + Validator.
+Each delegated task gets exactly **1 agent**: the Implementer.
 
-Both agents research the project INDEPENDENTLY. No broken telephone — each agent sees the original task and forms their own understanding.
+**Phase 1: Research** — Implementer studies the project and design, sends research plan.
+**User approves or requests changes.**
 
-### Chain Flow
+**Phase 2: Build** — Implementer codes (only after approval), self-reviews, runs format-and-check.
+**User validates the result.**
+
+### Flow
 
 ```
 Orchestrator → Implementer (receives task)
                     │
-                    ├─ Researches project independently
-                    ├─ Reads ALL screenshots/Figma JSON
-                    ├─ Implements
-                    ├─ Self-reviews
-                    └─ Reports file paths to → Orchestrator
-                                                    │
-                                    Orchestrator → Validator (receives original task + file paths)
-                                                    │
-                                                    ├─ Researches project independently
-                                                    ├─ Reads ALL screenshots/Figma JSON
-                                                    ├─ Reads implemented code
-                                                    ├─ Compares independently
-                                                    └─ Decision:
-                                                        ├─ Issues? → Corrections → Implementer → fix → Validator (max 3 loops)
-                                                        ├─ All OK? → ✅ Report → Orchestrator → User
-                                                        └─ 3 fails? → ⚠️ Escalation → Orchestrator → User
+                    ├─ Phase 1: Research
+                    │   ├─ Reads ALL screenshots/Figma JSON
+                    │   ├─ Studies existing codebase
+                    │   └─ Sends RESEARCH PLAN to → Orchestrator
+                    │                                    │
+                    │               Orchestrator → Presents plan to User
+                    │                                    │
+                    │               ├─ User approves → Orchestrator sends GO
+                    │               └─ User wants changes → routes to Implementer
+                    │                    └─ Implementer revises → sends again
+                    │                         (repeat until approved)
+                    │
+                    ├─ Phase 2: Build (after approval)
+                    │   ├─ Implements following approved plan
+                    │   ├─ Self-reviews against design
+                    │   ├─ Runs format-and-check
+                    │   └─ Reports file paths to → Orchestrator
+                    │                                    │
+                    │               Orchestrator → Reports to User
+                    │                                    │
+                    │               User reviews the result
+                    │                                    │
+                    │               ├─ All OK → done
+                    │               └─ Issues → Orchestrator routes to Implementer
+                    │                    └─ Implementer fixes → reports back
+                    │                         (repeat until user confirms)
+                    │
+                    User confirms all → cleanup
 ```
-
-### Key Principle: Blind Validation
-
-The Validator NEVER sees the Implementer's self-assessment. Validator receives:
-- Original task (from orchestrator)
-- File paths (from orchestrator)
-- Screenshots/Figma paths (from orchestrator)
-
-Validator forms their OWN understanding of what the result should look like, THEN checks the code.
 
 ---
 
@@ -64,23 +71,21 @@ Validator forms their OWN understanding of what the result should look like, THE
 
 The orchestrator is a PURE MANAGER. FORBIDDEN from:
 1. Reading code files — agents handle all code
-2. Analyzing screenshots — agents do this independently
-3. Validating work quality — Validator handles this
-4. Relaying detailed messages between agents — keep agents independent
+2. Analyzing screenshots or Figma — agents do this independently
+3. Validating work quality — the user handles this
+4. Searching codebase — agents research independently
 
 The orchestrator's ONLY jobs:
-- Create team and spawn agents
-- Send the task to Implementer
-- Receive file paths from Implementer → forward original task + paths to Validator
-- Receive final report from Validator → report to user
-- Route user feedback to Implementer
+- Create team and spawn implementers
+- Send tasks to implementers
+- Collect research plans → present to user for approval
+- Route user feedback (plan changes or implementation fixes) to correct implementer
+- Keep team alive until user confirms everything is OK
+- Shutdown and cleanup after user confirms
 
 ---
 
-## Agent Templates
-
-**All agents invoke their skills as the FIRST action.**
-**Spawn BOTH agents in a SINGLE message (parallel Task tool calls).**
+## Agent Template
 
 ### Implementer Template
 
@@ -101,9 +106,11 @@ Task tool:
 
     ## YOUR CHAIN
     - You receive the task from: orchestrator (team lead)
+    - FIRST send research plan to: orchestrator → user reviews
+    - ONLY implement after orchestrator says "approved"
     - After completion, send file paths to: orchestrator (team lead)
-    - Corrections come from: validator
-    - Send correction updates to: validator
+    - Corrections come from: orchestrator (team lead) — these are USER feedback
+    - After fixes, send updated file list to: orchestrator (team lead)
 
     ## TASK
     {Full task description}
@@ -113,33 +120,6 @@ Task tool:
 
     ## FIGMA JSON (if available)
     {Figma JSON file paths — READ THE ENTIRE file}
-```
-
-### Validator Template
-
-```
-Task tool:
-  subagent_type: "general-purpose"
-  team_name: "{team-name}"
-  name: "validator"
-  mode: "bypassPermissions"
-  prompt: |
-    You are the Validator. Team: "{team-name}".
-
-    ## FIRST ACTION (MANDATORY)
-    Invoke these skills using the Skill tool:
-    1. Skill: "agent:common"
-    2. Skill: "agent:validator"
-    Then follow the loaded instructions.
-
-    ## YOUR CHAIN
-    - You receive the task + file paths from: orchestrator (team lead)
-    - Send corrections to: implementer
-    - Send final report to: orchestrator (team lead)
-
-    ## WAIT
-    Wait for the orchestrator to send you the task and file paths.
-    Do NOT start until you receive a message.
 ```
 
 ---
@@ -157,72 +137,71 @@ TeamCreate:
 
 Write a clear task description with:
 - What to build/change (requirements from user)
-- File paths if known
 - Screenshot paths if visual task
 - Figma JSON paths if available
 - Any user constraints or preferences
 
-### Step 3: Spawn BOTH Agents in ONE Message
+### Step 3: Spawn Implementer
 
-Two parallel Task tool calls: Implementer + Validator.
-Include the full task in Implementer's prompt. Validator waits for orchestrator message.
+Single Task tool call with the implementer template.
 
-### Step 4: Send Task to Implementer
+### Step 4: Send Research Task
 
-Send the task via `SendMessage` to "implementer". The implementer will:
+Send the task via `SendMessage` to "implementer" with instruction to research first and send plan.
+
+The implementer will:
 - Research the project independently
 - Read all task materials (screenshots, Figma JSON)
-- Implement the task
-- Self-review
-- Send file paths back to YOU
+- Send a research plan back to YOU
 
-### Step 5: Forward to Validator
+### Step 5: Present Plan to User
 
-When Implementer reports back with file paths:
-- Send to "validator" via `SendMessage`: the ORIGINAL task + file paths + screenshot/Figma paths
-- Do NOT include implementer's self-assessment
+Forward the implementer's research plan to the user.
+Wait for approval or feedback.
 
-### Step 6: Wait for Validation
+If user wants changes → route to implementer → get revised plan → present again.
 
-Validator works autonomously:
-- Researches project independently
-- Reads all task materials
-- Reads implemented code
-- Compares and validates
-- If issues → sends corrections to Implementer directly (up to 3 rounds)
-- If all OK → sends final report to YOU
+### Step 6: Send GO
 
-### Step 7: Report to User
+After user approves the plan, tell the implementer to proceed with implementation.
 
-Pass Validator's summary to user. Do NOT read code yourself.
+### Step 7: Report Results to User
+
+When implementer reports file paths, inform the user:
+- What task was completed
+- Which files were created/modified
+- Ask user to review
 
 ### Step 8: Handle User Feedback (if any)
 
 User found issues:
-1. Send fix instructions to **Implementer** via `SendMessage`
-2. Implementer fixes → sends updated files to **Validator**
-3. Validator re-checks → reports to you
+1. Send fix instructions to implementer via `SendMessage`
+2. Implementer fixes → sends updated file list to you
+3. Report back to user
 4. Repeat until user satisfied
 
 ### Step 9: Cleanup
 
 After user confirms everything is OK:
-- Shut down Implementer and Validator
+- Send shutdown_request to implementer
 - Delete team via `TeamDelete`
 
 ---
 
 ## Multiple Tasks (tasks:run)
 
-ONE team for all tasks. Agents numbered per task:
-- `implementer-1`, `validator-1`
-- `implementer-2`, `validator-2`
+ONE team for all tasks. Implementers numbered per task:
+- `implementer-1`, `implementer-2`, etc.
 
-Independent tasks run in PARALLEL.
-Dependent tasks run sequentially.
+**Phased execution within each batch:**
+1. All implementers research in PARALLEL
+2. Plans presented to user ONE BY ONE (sequential)
+3. After ALL approved → implementation in PARALLEL
+4. User reviews results
 
-After each Validator reports → update status.md.
-After ALL tasks done → run format-and-check → report to user.
+After each batch → next batch (newly unblocked tasks).
+After ALL done → run format-and-check → report to user.
+User reviews → feedback loop if needed → confirm.
 After user confirms → TeamDelete.
 
 ---
@@ -230,12 +209,3 @@ After user confirms → TeamDelete.
 ## Memory Integration
 
 If `.project-meta/memory/` exists, agents discover it via `/agent:common` skill instructions. No need to paste memory content in prompts — agents read it themselves.
-
----
-
-## Escalation
-
-If Validator escalates after 3 failed rounds:
-1. Read the escalation report
-2. Report to user with remaining issues
-3. User decides: more guidance → send to Implementer, or accept as-is, or take over

@@ -38,15 +38,15 @@ Ask yourself: "Will this change more than 1 file, or more than 50 lines, or need
 
 **Summary:**
 1. **Solo** (1 file, ≤50 lines, no research) → Implement yourself → Verify
-2. **Delegate** (everything else) → Create agent chain → agents execute autonomously → you receive final report from Validator → report to user
+2. **Delegate** (everything else) → Create team → spawn implementer → receive report → user reviews → correction loop → cleanup
 
-**Chain flow:** You → Implementer → (file paths) → You → Validator ↔ Implementer (corrections, max 3) → You → User
+**Chain flow:** You → Implementer → (research plan) → You → User → (approve) → Implementer codes → (file paths) → You → User → (review) → feedback loop → cleanup
 
 **Key rules:**
-- 2 agents per task: Implementer + Validator (both research project independently)
-- Validator receives ORIGINAL task from you, NOT implementer's report (blind validation)
-- You do NOT read code or validate — Validator handles this
-- Implementer and Validator stay alive until USER confirms everything is OK
+- 1 implementer per task (NO validator agent — user validates)
+- **Two-phase:** implementer sends research plan FIRST → user approves → THEN implements
+- You route user feedback to the correct implementer
+- Team stays alive until USER confirms everything is OK
 
 **Agent models:** Read `.claude/rules/workflow/agent-models.md` for model per role. `inherit` → omit `model` param (uses chat model). Other values (`sonnet`, `opus`, `haiku`) → pass as `model` param.
 
@@ -63,13 +63,14 @@ Ask yourself: "Will this change more than 1 file, or more than 50 lines, or need
 
 ---
 
-## CRITICAL: Visual Task — 2 Agents Required
+## CRITICAL: Two-Phase Implementer + Human Review
 
-**For ANY task (including visual with screenshots/Figma), spawn 2 agents: Implementer + Validator.**
-**Agents receive instructions via skills:** `/agent:common`, `/agent:implementer`, `/agent:validator`
+**For ANY task, spawn 1 implementer.** Agent skills: `/agent:common`, `/agent:implementer`
 
-**Both agents independently research the project and read ALL task materials (screenshots, Figma JSON).**
-**Skipping the Validator is FORBIDDEN.** Validation without a validator agent is fake.
+**Phase 1: Research** — Implementer reads ALL materials (screenshots, Figma JSON), studies codebase, sends research plan → user approves.
+**Phase 2: Build** — Implementer codes following approved plan, self-reviews, runs format-and-check.
+**NO validator agent.** Only the user can reliably validate visual fidelity.
+**Team stays alive until user confirms.** Route user feedback to implementer for corrections.
 
 ---
 

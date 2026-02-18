@@ -1,22 +1,37 @@
 ---
 name: tasks-run
-description: Execute tasks from .project-meta/tasks/tasks.md using 2-agent chains. Each task runs through implementer ↔ validator. Independent tasks parallelized. Creates blocked-report.md if any blocked.
+description: Execute tasks from .project-meta/tasks/tasks.md using phased model. Phase 1: parallel research. Phase 2: sequential user plan review. Phase 3: parallel implementation. Phase 4: user result review.
 ---
 
-# Task Execution (2-Agent Chain)
+# Task Execution
 
 ## Additional context from user before start task
 $ARGUMENTS
 
 ## Purpose
-Execute tasks from the lightweight task index using autonomous 2-agent chains. Each task gets an Implementer + Validator pair. Both agents independently research the project and read all task materials.
+Execute tasks using a phased model. Each task gets 1 implementer that researches independently, presents a research plan for user approval, then implements after approval.
 
-**KEY PRINCIPLE:** You are a PURE MANAGER. You read ONLY the task index and status. Agents read their own context files, screenshots, Figma JSON, and codebase. You NEVER read code, screenshots, or context files.
+**KEY PRINCIPLE:** You are a PURE MANAGER. You read ONLY the task index and status. Agents read screenshots, Figma JSON, and codebase. You NEVER read code, screenshots, or Figma. The USER approves plans and validates results.
+
+## Execution Phases
+
+```
+PHASE 1: Research (parallel)
+  All implementers research project + read designs → send plans to you
+
+PHASE 2: Plan Review (sequential — one at a time)
+  You present each plan to user → user approves or requests changes
+
+PHASE 3: Implementation (parallel)
+  All approved implementers code simultaneously
+
+PHASE 4: Result Review
+  User reviews results → feedback routed to correct implementer
+```
 
 ## Input
-- `.project-meta/tasks/tasks.md` — lightweight task INDEX (metadata only, READ ONLY)
+- `.project-meta/tasks/tasks.md` — task INDEX (READ ONLY)
 - `.project-meta/tasks/status.md` — current status
-- `.project-meta/tasks/context/` — individual context files (**agents read these, NOT you**)
 
 ## Output
 - Updated `.project-meta/tasks/status.md`
@@ -31,14 +46,13 @@ Execute tasks from the lightweight task index using autonomous 2-agent chains. E
 Read tasks.md and status.md **IN PARALLEL** (two Read calls, one message):
 
 ```
-From tasks.md extract ONLY metadata per task:
+From tasks.md extract per task:
   - ID, Title
-  - Files list
+  - What (description)
   - Deps
   - Type (code/visual)
   - Screenshots paths (if visual)
   - Figma paths (if visual)
-  - Context file path
 
 From status.md:
   - Current status per task
@@ -47,16 +61,14 @@ Merge → list of tasks with statuses
 Count: total, done, pending, blocked
 ```
 
-**DO NOT read context/ files.** Agents read their own.
-
 ### 2. Find Available Tasks and Group (YOU do this)
 
 ```
 1. Find all tasks with status "pending"
 2. Filter out tasks with unmet deps (deps not "done")
 3. Group for parallel execution:
-   - No shared files AND no deps between them → parallel
-   - Any shared files or dependency → sequential
+   - No shared dependencies between them → parallel
+   - Any dependency → sequential
 ```
 
 **When in doubt → sequential.**
@@ -69,11 +81,11 @@ TeamCreate:
   description: "Executing tasks from tasks.md"
 ```
 
-### 4. Spawn Agent Pairs for Current Batch
+### 4. Spawn Implementers for Current Batch
 
-**Spawn ALL agents for ALL tasks in the batch in a SINGLE message (parallel Task calls).**
+**Spawn ALL implementers for the batch in a SINGLE message (parallel Task calls).**
 
-Each task gets exactly 2 agents: `implementer-{N}` + `validator-{N}`.
+Each task gets exactly 1 agent: `implementer-{N}`.
 
 **Implementer-{N}:**
 ```
@@ -91,43 +103,19 @@ Task tool:
 
     ## YOUR CHAIN
     - Receive task from: orchestrator (team lead)
+    - FIRST send research plan to: orchestrator → user reviews
+    - ONLY implement after orchestrator says "approved"
     - After completion, send file paths to: orchestrator (team lead)
-    - Corrections come from: validator-{N}
-    - Send correction updates to: validator-{N}
+    - Corrections come from: orchestrator (team lead) — these are USER feedback
 
     ## TASK
-    Read your task brief: {CWD}/.project-meta/tasks/context/task-{N}.md
-    Task: "{title}"
-    Files: {files list}
-    Screenshots: {paths or "none" — READ ALL}
-    Figma JSON: {paths or "none" — READ ENTIRE FILE}
+    Task {N}: "{title}"
+    What: {what description from tasks.md}
+    Screenshots: {absolute paths or "none" — READ ALL}
+    Figma JSON: {absolute paths or "none" — READ ENTIRE FILE}
 ```
 
-**Validator-{N}:**
-```
-Task tool:
-  subagent_type: "general-purpose"
-  team_name: "tasks-execution"
-  name: "validator-{N}"
-  mode: "bypassPermissions"
-  prompt: |
-    You are VALIDATOR agent "validator-{N}" in team "tasks-execution".
-
-    ## FIRST ACTION (MANDATORY — before anything else)
-    Invoke skills: 1. "agent:common" 2. "agent:validator"
-    Then follow loaded instructions.
-
-    ## YOUR CHAIN
-    - Receive task + file paths from: orchestrator (team lead)
-    - Send corrections to: implementer-{N} (max 3 rounds)
-    - Send final report to: orchestrator (team lead)
-
-    ## WAIT
-    Wait for orchestrator to send you the task and file paths.
-    Do NOT start until you receive a message.
-```
-
-### 5. Send Task to Implementers
+### 5. Send Research Tasks (PHASE 1)
 
 Send start signals to each implementer-{N}:
 
@@ -136,118 +124,133 @@ SendMessage:
   type: "message"
   recipient: "implementer-{N}"
   content: |
-    Start Task {N}: {title}.
-    Read your task brief at: {CWD}/.project-meta/tasks/context/task-{N}.md
+    PHASE 1: RESEARCH ONLY — do NOT write code yet.
+
+    Task {N}: {title}
+    What: {description}
     Screenshots: {paths}
     Figma JSON: {paths}
-    Research the project independently, implement, self-review.
-    When done, send me the list of created/modified files.
-  summary: "Start Task {N}"
+
+    1. Read ALL screenshots and Figma JSON carefully
+    2. Research the project — find existing components, patterns, similar pages
+    3. Send me your RESEARCH PLAN (format from your skill instructions)
+
+    DO NOT write any code. Wait for my approval.
+  summary: "Research Task {N}"
 ```
 
-Update status.md: batch tasks → `running`
+Update status.md: batch tasks → `research`
 
-### 6. Wait for Implementers
+### 6. Collect All Plans (YOU wait)
 
 Each implementer will:
+- Read all task materials (screenshots, Figma JSON)
 - Research the project independently
-- Read ALL task materials (context file, screenshots, Figma JSON)
-- Implement the task
-- Self-review
-- Send file paths to YOU
+- Send a research plan to YOU
 
-**You do NOT intervene. You WAIT.**
+**Wait for ALL implementers in the batch to send their plans.**
+Store each plan internally.
 
-### 7. Forward to Validators (Blind Validation)
+### 7. Present Plans to User (PHASE 2 — one by one)
 
-When implementer-{N} reports file paths:
+Present plans **ONE AT A TIME** to the user:
+
+```
+"Task {N} ({title}) — план дослідження імплементера:
+
+{implementer's research plan — copy as-is}
+
+Затверджуєш?"
+```
+
+**If user approves:** Mark as approved. Move to next plan.
+**If user requests changes:**
+  1. Send user's feedback to implementer-{N}
+  2. Wait for revised plan
+  3. Present revised plan to user again
+  4. Repeat until approved
+
+Update status.md as plans are approved.
+
+**Continue until ALL plans in the batch are approved.**
+
+### 8. Start Implementation (PHASE 3)
+
+After ALL plans approved, send GO signal to all implementers:
 
 ```
 SendMessage:
   type: "message"
-  recipient: "validator-{N}"
-  content: |
-    Validate Task {N}: {title}.
-    Read the task brief at: {CWD}/.project-meta/tasks/context/task-{N}.md
-    Screenshots: {paths}
-    Figma JSON: {paths}
-
-    Files to validate:
-    {file paths from implementer}
-
-    Research the project independently, read ALL task materials,
-    then read the code and validate.
-  summary: "Validate Task {N}"
+  recipient: "implementer-{N}"
+  content: "Plan approved. Implement now. Follow your approved plan."
+  summary: "GO Task {N}"
 ```
 
-**Do NOT include implementer's self-assessment. Only file paths.**
+Update status.md: approved tasks → `running`
 
-### 8. Wait for Validators
+### 9. Wait for Implementation
 
-Validators work autonomously:
-- Research project independently
-- Read ALL task materials
-- Read implemented code
-- Compare and validate
-- If issues → send corrections to implementer-{N} directly (up to 3 rounds)
-- If all OK → send final report to YOU
+Implementers code independently. Each will:
+- Implement following their approved plan
+- Self-review against the design
+- Run format-and-check
+- Send file paths to YOU
 
-### 9. Process Validator Reports
+**You do NOT intervene. You WAIT.**
 
-**Success report:**
+### 10. Report Results to User (PHASE 4)
+
+When implementer-{N} reports file paths:
 1. Update status.md: task → `done`
 2. Update progress percentage and timestamp
+3. Report to user: task title + created/modified files
 
-**Escalation report:**
-1. Report remaining issues to user
-2. Wait for user decision:
-   - User provides guidance → send to implementer-{N}
-   - User accepts as-is → mark `done`
-   - User takes over → mark `done` with note
+After ALL tasks in batch complete:
+- Report full summary
+- **Ask user to review the results**
 
-### 10. Continue with Next Batch
+### 11. Handle User Feedback (if any)
 
-After current batch completes:
+If user identifies issues after reviewing:
+
+```
+1. Determine which implementer-{N} worked on the relevant task
+2. Send fix instructions to implementer-{N} via SendMessage
+3. Implementer fixes → sends updated files to you
+4. Report back to user
+5. Repeat until user satisfied
+```
+
+**DO NOT fix code yourself. Route to the implementer.**
+
+### 12. Continue with Next Batch
+
+After current batch completes (including user review):
 1. Update status.md
 2. Find newly available tasks (deps now met)
 3. Group for parallelism
-4. Spawn new chains (step 4)
+4. Spawn new implementers (step 4)
 5. Repeat until all done or blocked
 
-### 11. Final Verification (YOU do this)
+### 13. Final Summary
 
-After ALL tasks complete:
+After ALL batches complete:
 1. Run `format-and-check` (or format, lint, typecheck)
-2. Fix any issues found
+2. Fix any issues found (route to relevant implementer)
+3. Report full summary to user
 
-### 12. Shutdown
+### 14. Cleanup
 
+After user confirms ALL is OK:
 ```
-Send shutdown_request to ALL active agents
+Send shutdown_request to ALL active implementers
 TeamDelete
 ```
 
-### 13. Generate Reports
+### 15. Generate Reports
 
 If any tasks are `blocked` → create `.project-meta/tasks/blocked-report.md`
 Update status.md with final state.
-Report summary to user.
-
----
-
-## User Feedback Flow
-
-If user identifies issues after reviewing completed work:
-
-```
-1. Send fix instructions to implementer-{N} via SendMessage
-2. Implementer fixes → sends updated files to validator-{N}
-3. Validator checks → sends report to you
-4. Update status.md if needed
-5. Report to user
-```
-
-**DO NOT fix code yourself. Route to the chain.**
 
 ---
 
@@ -260,7 +263,7 @@ When updating:
 4. Update "Updated:" timestamp
 5. Recalculate progress: `done_count/total (percentage%)`
 
-**Status values:** `pending` → `running` → `done` / `blocked`
+**Status values:** `pending` → `research` → `plan-review` → `running` → `done` / `blocked`
 
 ---
 
@@ -281,7 +284,6 @@ Generated: YYYY-MM-DD HH:mm
 ### Task [ID]: Title
 **Status:** blocked
 **Reason:** Why blocked
-**Files:** list
 **Next steps:** What needs to happen to unblock
 
 ## Tasks Waiting on Blocked
@@ -295,19 +297,18 @@ Generated: YYYY-MM-DD HH:mm
 
 ## Important Rules
 
-1. **NEVER read context/ files** — agents read their own
-2. **NEVER read screenshots** — agents handle this independently
-3. **NEVER validate code yourself** — validator agents handle this
-4. **NEVER modify tasks.md** — read-only after planning
-5. **2 agents per task** — implementer + validator, both research independently
-6. **Blind validation** — validator gets original task, NOT implementer's report
-7. **Spawn ALL batch agents in ONE message** — parallel Task calls
-8. **Update status.md after EACH completed task** — not in large batches
-9. **When in doubt → sequential** — better slow than broken
-10. **Continue past blocked tasks** — do what you can
-11. **Run format-and-check ONCE at the end** — not per task
-12. **Generate blocked-report.md ONLY at the end**
-13. **Route ALL user feedback to implementer** — never fix yourself
+1. **NEVER read screenshots, Figma, or code** — agents handle this
+2. **NEVER validate work yourself** — user validates
+3. **NEVER modify tasks.md** — read-only after planning
+4. **1 implementer per task**
+5. **Spawn ALL batch implementers in ONE message** — parallel Task calls
+6. **Collect ALL plans before presenting to user**
+7. **Present plans ONE BY ONE** — user reviews sequentially
+8. **Send GO only after ALL plans in batch are approved**
+9. **Update status.md after EACH state change**
+10. **Route ALL user feedback to correct implementer**
+11. **Keep team alive until user confirms ALL is OK**
+12. **When in doubt → sequential**
 
 ---
 
@@ -318,53 +319,66 @@ Reading task index... (tasks.md + status.md in parallel)
 Found 4 tasks: 0 done, 4 pending
 
 Grouping:
-├─ Batch 1: Tasks #1, #2 (no deps, no shared files) — PARALLEL
-├─ Batch 2: Task #3 (visual, deps: 1)
+├─ Batch 1: Tasks #1, #2 (no deps) — PARALLEL
+├─ Batch 2: Task #3 (deps: 1)
 └─ Batch 3: Task #4 (deps: 2, 3)
 
 Creating team "tasks-execution"...
 
 ═══ Batch 1: Tasks #1, #2 ═══
 
-Spawning 4 agents in ONE message:
-├─ implementer-1, validator-1
-└─ implementer-2, validator-2
+--- PHASE 1: Research ---
+Spawning 2 implementers in ONE message
+├─ implementer-1 (researches Task 1)
+└─ implementer-2 (researches Task 2)
 
-Send tasks to implementer-1, implementer-2...
+status.md: #1, #2 → research
+
+implementer-1 sends research plan
+implementer-2 sends research plan
+
+--- PHASE 2: Plan Review ---
+"Task 1 план: [plan]. Затверджуєш?"
+User: "Ок"
+
+"Task 2 план: [plan]. Затверджуєш?"
+User: "Прибери аватар, його немає в дизайні"
+→ Send feedback to implementer-2
+← Revised plan from implementer-2
+"Оновлений план Task 2: [revised]. Ок?"
+User: "Ок"
+
+--- PHASE 3: Implementation ---
+All plans approved → GO to both implementers
 status.md: #1, #2 → running
 
-[implementers work autonomously — research, implement, self-review]
+implementer-1 reports files → status.md: #1 → done
+implementer-2 reports files → status.md: #2 → done
+Progress: 2/4 (50%)
 
-implementer-1 reports files → forward task + files to validator-1
-implementer-2 reports files → forward task + files to validator-2
+--- PHASE 4: Review ---
+"Tasks 1, 2 complete. Files: ..."
+"Перевір результати."
 
-[validators work autonomously — research, read code, compare]
+User: "Task 1 фільтри не ті"
+→ Send fix instructions to implementer-1
+← Implementer-1 fixes → reports back
+"Виправлено. Перевір."
 
-validator-1: ✅ done (0 issues)
-validator-2: ✅ done (2 issues fixed in 1 correction round)
-status.md: #1, #2 → done (2/4, 50%)
+User: "Все ок"
 
-═══ Batch 2: Task #3 (visual) ═══
-
-Spawning 2 agents: implementer-3, validator-3
-Send task to implementer-3 (with screenshot + Figma paths)
-status.md: #3 → running
-
-implementer-3 reports files → forward task + files + screenshot paths to validator-3
-
-validator-3: ✅ done (12 elements checked, 0 issues, 1 correction round)
-status.md: #3 → done (3/4, 75%)
-
-═══ Batch 3: Task #4 ═══
+═══ Batch 2: Task #3 ═══
 ...
-status.md: #4 → done (4/4, 100%)
 
 ═══ Final ═══
 format-and-check → ✅
-Shutdown all agents → ✓
-TeamDelete → ✓
 
 Summary: 4/4 completed, 0 blocked
+"Команда жива для виправлень."
+
+User: "All good"
+→ Shutdown all implementers
+→ TeamDelete ✓
 ```
 
 ---
@@ -374,14 +388,8 @@ Summary: 4/4 completed, 0 blocked
 | Field | Format | Example |
 |-------|--------|---------|
 | Header | `## Task N: Title` | `## Task 3: List page` |
-| Files | `- Files: path1, path2` | `- Files: src/page.tsx` |
+| What | `- What: description` | `- What: Create list page with table and filters` |
 | Deps | `- Deps: N, M` or `none` | `- Deps: 1, 2` |
 | Type | `- Type: code/visual` | `- Type: visual` |
 | Screenshots | `- Screenshots: path` | `- Screenshots: screenshots/list.png` |
 | Figma | `- Figma: path` | `- Figma: screenshots/list.json` |
-| Context | `- Context: path` | `- Context: context/task-3.md` |
-
-| Type | Agents | Flow |
-|------|--------|------|
-| code | 2 | implementer ↔ validator → you |
-| visual | 2 | implementer ↔ validator → you (both read screenshots independently) |

@@ -1,6 +1,6 @@
 ---
 name: tasks-plan
-description: Create task index from files in .project-meta/tasks/plan/. Links tasks to screenshots/Figma. No analysis — implementers read and analyze everything themselves.
+description: Create task index from files in .project-meta/tasks/plan/. Links tasks to design documents and screenshots. No analysis — implementers read and analyze everything themselves.
 ---
 
 # Task Planning
@@ -16,28 +16,27 @@ $ARGUMENTS
 
 ## Purpose
 Read task descriptions from `.project-meta/tasks/plan/`, create a lightweight task system:
-- **Task index** (`tasks.md`) — task titles + links to screenshots/Figma
+- **Task index** (`tasks.md`) — task titles + links to design documents/screenshots
 - **Status tracking** (`status.md`)
 
-**KEY PRINCIPLE:** You are a ROUTER, not an analyst. You read task description text files, match them to screenshots/Figma files by name, and write a minimal index. You NEVER read screenshots, Figma JSON, or project source files. You NEVER describe page elements, columns, components, or layout.
+**KEY PRINCIPLE:** You are a ROUTER, not an analyst. You read task description text files, match them to design documents/screenshots by name, and write a minimal index. You NEVER read design documents, screenshots, or project source files. You NEVER describe page elements, columns, components, or layout.
 
 ## Input
 
 ### Task files (root of plan/)
 Files in `.project-meta/tasks/plan/` directory (.md files with task descriptions)
 
-### Screenshots and Figma JSON (screenshots/ subfolder)
+### Design Documents and Screenshots (screenshots/ subfolder)
 `.project-meta/tasks/plan/screenshots/` containing:
+- **Design documents** (`*__design.md`) — structured design specs generated from Figma. Supplementary files for precise screenshot analysis containing exact dimensions, colors, typography, spacing, and hierarchy.
 - **Image files** (.png, .jpg, .jpeg, .webp)
-- **Figma JSON** (.json) — exported Figma node snapshots
 
-**Matching rules (screenshots → tasks):**
+**Matching rules (design docs/screenshots → tasks):**
 - Task "user-profile" matches:
   - `screenshots/user-profile/` folder (all files inside)
   - `screenshots/user-profile.png`
   - `screenshots/user-profile-*.png` (e.g., `-mobile.png`)
-  - `screenshots/user-profile.json`
-  - `screenshots/user-profile-*.json`
+  - `screenshots/user-profile*__design.md`
 - Folder contents override file name matching
 - One file can relate to multiple tasks
 
@@ -45,7 +44,7 @@ Files in `.project-meta/tasks/plan/` directory (.md files with task descriptions
 
 ```
 .project-meta/tasks/
-├── tasks.md          # Task index: titles + screenshot/Figma links
+├── tasks.md          # Task index: titles + design doc/screenshot links
 └── status.md         # Status tracking table
 ```
 
@@ -84,8 +83,8 @@ Extract from task description files:
 - Short title
 - What to build (1-2 sentences — copy from task description, don't elaborate)
 - Dependencies on other tasks
-- Matched screenshot/Figma paths
-- Type: **visual** (has screenshots/figma) or **code** (no visual refs)
+- Matched design document/screenshot paths
+- Type: **visual** (has design docs/screenshots) or **code** (no visual refs)
 
 **Task ordering:** no-dep tasks first, then by dependency chain.
 **One task per logical unit** — don't combine unrelated changes.
@@ -123,8 +122,8 @@ Created: YYYY-MM-DD
 - What: Brief description of what to build (from task description)
 - Deps: none
 - Type: visual
+- Design: screenshots/list__design.md
 - Screenshots: screenshots/list.png
-- Figma: screenshots/list.json
 
 ---
 
@@ -144,14 +143,14 @@ Created: YYYY-MM-DD
 | **What** | 1-2 sentences from task description (copy, don't elaborate) |
 | **Deps** | Task IDs that must complete first, or "none" |
 | **Type** | `code` or `visual` |
+| **Design** | Paths to design documents `*__design.md` (visual tasks only) |
 | **Screenshots** | Paths relative to plan/ (visual tasks only) |
-| **Figma** | Paths to Figma JSON (visual tasks only) |
 
 ## Parsing Rules (for tasks-run)
 
 1. Split file by `---` separators
 2. Find task blocks: `## Task N: Title`
-3. Extract metadata: `- What:`, `- Deps:`, `- Type:`, `- Screenshots:`, `- Figma:`
+3. Extract metadata: `- What:`, `- Deps:`, `- Type:`, `- Design:`, `- Screenshots:`
 4. Each task gets 1 implementer agent
 
 ## status.md Format
@@ -174,11 +173,11 @@ Updated: YYYY-MM-DD HH:mm
 
 ## Important Rules
 
-1. **NEVER read screenshots or Figma JSON** — implementers do this
+1. **NEVER read design documents or screenshots** — implementers do this
 2. **🚫 NEVER search project source files** — no Glob, Grep, or Read on src/, app/, components/ etc.
 3. **NEVER describe page elements** — no columns, components, layout, colors, fonts
 4. **DO NOT delete files from plan/** — user manages them
-5. **tasks.md is INDEX ONLY** — titles + links, no descriptions of UI
+5. **tasks.md is INDEX ONLY** — titles + links to design docs/screenshots, no descriptions of UI
 6. **One task per logical unit** — don't combine unrelated changes
 7. **Order tasks by dependencies** — no-dep first
 8. **Verify API exists** before planning API tasks (Step 3)
@@ -195,8 +194,8 @@ Source files:
 - sourcing-requests.md
 
 Design references:
-- screenshots/list.png + list.json → Task 1
-- screenshots/details.png + details.json → Task 2
+- screenshots/list__design.md + list.png → Task 1
+- screenshots/details__design.md + details.png → Task 2
 
 Tasks created:
 1. Sourcing Requests List Page (visual, no deps)

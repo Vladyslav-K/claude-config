@@ -14,7 +14,7 @@ Create the complete project folder structure used by `/tasks-plan`, `/tasks-run`
 .project-meta/
 ├── tasks/
 │   └── plan/
-│       └── screenshots/     # Input for /tasks:plan (task descriptions + screenshots/Figma JSON)
+│       └── screenshots/     # Input for /tasks:plan (task descriptions + design documents + screenshots)
 ├── estimation/
 │   └── screenshots/         # Input for /estimate (task files + screenshots for estimation)
 └── memory/                  # Project memory files (session context, structure, changelog)
@@ -59,7 +59,7 @@ Created folders:
 ### /tasks-plan — Plan tasks for execution
 1. Add task description files (.md) to `.project-meta/tasks/plan/`
 2. (Optional) Add screenshots (.png, .jpg) to `.project-meta/tasks/plan/screenshots/`
-3. (Optional) Add Figma JSON exports (.json) to `.project-meta/tasks/plan/screenshots/`
+3. (Optional) Add design documents (`*__design.md`) to `.project-meta/tasks/plan/screenshots/` — structured design specs from Figma for precise screenshot analysis
 4. Run `/tasks-plan` to create tasks.md and status.md
 5. Pass extra context: `/tasks-plan focus on mobile first`
 

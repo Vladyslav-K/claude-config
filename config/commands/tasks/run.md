@@ -11,7 +11,7 @@ $ARGUMENTS
 ## Purpose
 Execute tasks using a phased model. Each task gets 1 implementer that researches independently, presents a research plan for user approval, then implements after approval.
 
-**KEY PRINCIPLE:** You are a PURE MANAGER. You read ONLY the task index and status. Agents read screenshots, Figma JSON, and codebase. You NEVER read code, screenshots, or Figma. The USER approves plans and validates results.
+**KEY PRINCIPLE:** You are a PURE MANAGER. You read ONLY the task index and status. Agents read design documents, screenshots, and codebase. You NEVER read code, design documents, or screenshots. The USER approves plans and validates results.
 
 ## Execution Phases
 
@@ -51,8 +51,8 @@ From tasks.md extract per task:
   - What (description)
   - Deps
   - Type (code/visual)
+  - Design document paths (if visual) — `*__design.md` files
   - Screenshots paths (if visual)
-  - Figma paths (if visual)
 
 From status.md:
   - Current status per task
@@ -111,8 +111,8 @@ Task tool:
     ## TASK
     Task {N}: "{title}"
     What: {what description from tasks.md}
-    Screenshots: {absolute paths or "none" — READ ALL}
-    Figma JSON: {absolute paths or "none" — READ ENTIRE FILE}
+    Design documents: {absolute paths to *__design.md or "none" — READ ALL FIRST}
+    Screenshots: {absolute paths or "none" — READ ALL AFTER design documents}
 ```
 
 ### 5. Send Research Tasks (PHASE 1)
@@ -128,10 +128,10 @@ SendMessage:
 
     Task {N}: {title}
     What: {description}
+    Design documents: {paths to *__design.md}
     Screenshots: {paths}
-    Figma JSON: {paths}
 
-    1. Read ALL screenshots and Figma JSON carefully
+    1. Read ALL design documents first, then screenshots carefully
     2. Research the project — find existing components, patterns, similar pages
     3. Send me your RESEARCH PLAN (format from your skill instructions)
 
@@ -144,7 +144,7 @@ Update status.md: batch tasks → `research`
 ### 6. Collect All Plans (YOU wait)
 
 Each implementer will:
-- Read all task materials (screenshots, Figma JSON)
+- Read all task materials (design documents first, then screenshots)
 - Research the project independently
 - Send a research plan to YOU
 
@@ -297,7 +297,7 @@ Generated: YYYY-MM-DD HH:mm
 
 ## Important Rules
 
-1. **NEVER read screenshots, Figma, or code** — agents handle this
+1. **NEVER read design documents, screenshots, or code** — agents handle this
 2. **NEVER validate work yourself** — user validates
 3. **NEVER modify tasks.md** — read-only after planning
 4. **1 implementer per task**
@@ -391,5 +391,5 @@ User: "All good"
 | What | `- What: description` | `- What: Create list page with table and filters` |
 | Deps | `- Deps: N, M` or `none` | `- Deps: 1, 2` |
 | Type | `- Type: code/visual` | `- Type: visual` |
+| Design | `- Design: path` | `- Design: screenshots/list__design.md` |
 | Screenshots | `- Screenshots: path` | `- Screenshots: screenshots/list.png` |
-| Figma | `- Figma: path` | `- Figma: screenshots/list.json` |

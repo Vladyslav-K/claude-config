@@ -33,12 +33,14 @@ Estimate frontend tasks by delegating ALL reading (task files, screenshots, code
 ```
 1. Glob: .project-meta/estimation/*.{md,xlsx,docx} (root only)
 2. Glob: .project-meta/estimation/screenshots/**/*
-3. Group screenshots by task name:
+3. Group screenshots and design documents by task name:
    - Task "user-profile" matches:
      - screenshots/user-profile/ folder (all files inside)
      - screenshots/user-profile.png
      - screenshots/user-profile-*.png
+     - screenshots/user-profile*__design.md
    - Folder contents override file name matching
+   - `*__design.md` files are structured design specs from Figma for precise screenshot analysis
 4. Build map: { taskFile → [matched screenshot paths] }
 5. Count files, note file types
 ```

@@ -67,7 +67,7 @@ Ask yourself: "Will this change more than 1 file, or more than 50 lines, or need
 
 **For ANY task, spawn 1 implementer.** Agent skills: `/agent:common`, `/agent:implementer`
 
-**Phase 1: Research** — Implementer reads ALL materials (screenshots, Figma JSON), studies codebase, sends research plan → user approves.
+**Phase 1: Research** — Implementer reads ALL materials (design documents, screenshots), studies codebase, sends research plan → user approves.
 **Phase 2: Build** — Implementer codes following approved plan, self-reviews, runs format-and-check.
 **NO validator agent.** Only the user can reliably validate visual fidelity.
 **Team stays alive until user confirms.** Route user feedback to implementer for corrections.
@@ -85,10 +85,10 @@ User: "Make the button red"
 -> Even if Figma shows blue button, make it red
 ```
 
-### 2. Figma/Design Specs
-Figma dimensions > Your assumptions
+### 2. Design Specs (Design Documents + Figma)
+Design document dimensions > Your assumptions
 ```
-Figma: Card width 619px
+Design doc: Card width 619px
 -> Use 619px, don't round to 600px or 50%
 ```
 

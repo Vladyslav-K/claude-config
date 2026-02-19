@@ -219,11 +219,11 @@ User: "Add a new button variant and update all usages"
 
 ### Delegate (Visual Task)
 ```
-User: "Create this page" + screenshot
-1. ASSESS: Screenshot → Delegate
+User: "Create this page" + screenshot + design document
+1. ASSESS: Screenshot/design doc → Delegate
 2. TeamCreate "page-implementation"
-3. Spawn implementer (include screenshot paths in prompt)
-4. Send research task → implementer reads screenshot, researches project, sends plan
+3. Spawn implementer (include design document and screenshot paths in prompt)
+4. Send research task → implementer reads design doc first, then screenshot, researches project, sends plan
 5. Present plan to user:
    "Імплементер знайшов CustomSelect, Flag, DataTable.
     Колонки: Request ID, Product, Volume, Destination (Flag), User, Type, Created, Has Sample.

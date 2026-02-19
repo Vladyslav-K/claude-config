@@ -36,7 +36,7 @@ Each delegated task gets exactly **1 agent**: the Implementer.
 Orchestrator → Implementer (receives task)
                     │
                     ├─ Phase 1: Research
-                    │   ├─ Reads ALL screenshots/Figma JSON
+                    │   ├─ Reads ALL design documents (*__design.md) and screenshots
                     │   ├─ Studies existing codebase
                     │   └─ Sends RESEARCH PLAN to → Orchestrator
                     │                                    │
@@ -71,7 +71,7 @@ Orchestrator → Implementer (receives task)
 
 The orchestrator is a PURE MANAGER. FORBIDDEN from:
 1. Reading code files — agents handle all code
-2. Analyzing screenshots or Figma — agents do this independently
+2. Analyzing design documents or screenshots — agents do this independently
 3. Validating work quality — the user handles this
 4. Searching codebase — agents research independently
 
@@ -115,11 +115,11 @@ Task tool:
     ## TASK
     {Full task description}
 
-    ## SCREENSHOTS (if visual task)
-    {Screenshot file paths — READ ALL of them}
+    ## DESIGN DOCUMENTS (if visual task)
+    {Design document paths (*__design.md) — READ ALL of them FIRST}
 
-    ## FIGMA JSON (if available)
-    {Figma JSON file paths — READ THE ENTIRE file}
+    ## SCREENSHOTS (if visual task)
+    {Screenshot file paths — READ ALL of them AFTER design documents}
 ```
 
 ---
@@ -137,8 +137,8 @@ TeamCreate:
 
 Write a clear task description with:
 - What to build/change (requirements from user)
+- Design document paths if visual task (`*__design.md` files)
 - Screenshot paths if visual task
-- Figma JSON paths if available
 - Any user constraints or preferences
 
 ### Step 3: Spawn Implementer
@@ -151,7 +151,7 @@ Send the task via `SendMessage` to "implementer" with instruction to research fi
 
 The implementer will:
 - Research the project independently
-- Read all task materials (screenshots, Figma JSON)
+- Read all task materials (design documents first, then screenshots)
 - Send a research plan back to YOU
 
 ### Step 5: Present Plan to User

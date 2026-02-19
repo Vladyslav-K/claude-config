@@ -52,9 +52,9 @@ Read ALL files assigned to you:
 
 Extract individual tasks from each file.
 
-### Phase 3: Analyze Screenshots
+### Phase 3: Analyze Design Documents and Screenshots
 
-For each task with matched screenshots, read the screenshot and note:
+For each task with matched design documents (`*__design.md`), read the design document FIRST — it contains structured specs from Figma with exact dimensions, colors, typography, spacing, and hierarchy. Then read the screenshot for visual verification. Note:
 - Number of unique UI components visible
 - Form fields and validation indicators
 - Interactive elements (buttons, dropdowns, modals)
@@ -204,7 +204,7 @@ Skipped (non-frontend): Y
 ## Error Handling
 
 - **Unclear task:** Note "Needs clarification: [question]", use wider pessimistic range
-- **No screenshots for a task:** Note "No visual reference", add 1.2x uncertainty to pessimistic
+- **No design doc or screenshots for a task:** Note "No visual reference", add 1.2x uncertainty to pessimistic
 - **Unreadable file format:** Report the error, skip that file, continue with others
 - **No codebase patterns found:** Note "No codebase context", use standard estimates without reuse
 
@@ -219,4 +219,4 @@ Skipped (non-frontend): Y
 5. **Write to assigned output file** — path given in start signal
 6. **Include reasoning for every estimate** — not just numbers
 7. **Flag unclear tasks** — note what needs clarification
-8. **Count ALL UI elements on screenshots** — don't miss interactive elements
+8. **Count ALL UI elements from design documents and screenshots** — don't miss interactive elements

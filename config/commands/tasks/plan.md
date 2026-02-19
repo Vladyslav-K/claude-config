@@ -1,6 +1,6 @@
 ---
 name: tasks-plan
-description: Create task index from files in .project-meta/tasks/plan/. Links tasks to design documents and screenshots. No analysis — implementers read and analyze everything themselves.
+description: Create task index from files in .project-meta/tasks/plan/. Links tasks to design documents and screenshots.
 ---
 
 # Task Planning
@@ -19,7 +19,7 @@ Read task descriptions from `.project-meta/tasks/plan/`, create a lightweight ta
 - **Task index** (`tasks.md`) — task titles + links to design documents/screenshots
 - **Status tracking** (`status.md`)
 
-**KEY PRINCIPLE:** You are a ROUTER, not an analyst. You read task description text files, match them to design documents/screenshots by name, and write a minimal index. You NEVER read design documents, screenshots, or project source files. You NEVER describe page elements, columns, components, or layout.
+**KEY PRINCIPLE:** At this stage you create the INDEX only. You read task description text files, match them to design documents/screenshots by name, and write a minimal index. Deep analysis of designs and codebase happens during execution (`/tasks:run`).
 
 ## Input
 
@@ -28,7 +28,7 @@ Files in `.project-meta/tasks/plan/` directory (.md files with task descriptions
 
 ### Design Documents and Screenshots (screenshots/ subfolder)
 `.project-meta/tasks/plan/screenshots/` containing:
-- **Design documents** (`*__design.md`) — structured design specs generated from Figma. Supplementary files for precise screenshot analysis containing exact dimensions, colors, typography, spacing, and hierarchy.
+- **Design documents** (`*__design.md`) — structured design specs generated from Figma
 - **Image files** (.png, .jpg, .jpeg, .webp)
 
 **Matching rules (design docs/screenshots → tasks):**
@@ -48,21 +48,19 @@ Files in `.project-meta/tasks/plan/` directory (.md files with task descriptions
 └── status.md         # Status tracking table
 ```
 
-**No `context/` directory.** No individual context files. Implementers read source materials directly.
-
 ---
 
 ## Execution Steps
 
-### Step 1: Read Task Files (YOU do this)
+### Step 1: Read Task Files
 Read all .md files from `.project-meta/tasks/plan/` root using Read tool.
 These are text descriptions — small enough for your context.
 
-### Step 2: List Screenshots (YOU do this — Glob ONLY, DON'T read images!)
+### Step 2: List Screenshots (Glob ONLY, DON'T read images at this stage)
 
 ```
 1. Glob: .project-meta/tasks/plan/screenshots/**/*
-2. Note file names and paths — DO NOT open/read image files!
+2. Note file names and paths — DO NOT open/read image files
 3. Group by task name (folder name or file prefix)
 ```
 
@@ -76,7 +74,7 @@ If user provided ONLY screenshots/designs WITHOUT API documentation:
 3. If no API → note "mock data only" in tasks
 4. **NEVER invent** endpoint URLs, field names, or response structures
 
-### Step 4: Determine Tasks (YOU do this)
+### Step 4: Determine Tasks
 
 Extract from task description files:
 - Unique ID (sequential number)
@@ -89,20 +87,16 @@ Extract from task description files:
 **Task ordering:** no-dep tasks first, then by dependency chain.
 **One task per logical unit** — don't combine unrelated changes.
 
-### Step 5: Write tasks.md (YOU do this)
-
+### Step 5: Write tasks.md
 Write the task index with Write tool.
 
-### Step 6: Write status.md (YOU do this)
-
+### Step 6: Write status.md
 Write the status tracking table with Write tool.
 
-### Step 7: Verify (YOU do this)
-
+### Step 7: Verify
 Check that both files exist with correct format (read them).
 
 ### Step 8: Show Summary
-
 Report what was created.
 
 ---
@@ -146,12 +140,12 @@ Created: YYYY-MM-DD
 | **Design** | Paths to design documents `*__design.md` (visual tasks only) |
 | **Screenshots** | Paths relative to plan/ (visual tasks only) |
 
-## Parsing Rules (for tasks-run)
+## Parsing Rules (for tasks:run)
 
 1. Split file by `---` separators
 2. Find task blocks: `## Task N: Title`
 3. Extract metadata: `- What:`, `- Deps:`, `- Type:`, `- Design:`, `- Screenshots:`
-4. Each task gets 1 implementer agent
+4. Tasks are executed sequentially during `/tasks:run`
 
 ## status.md Format
 
@@ -167,21 +161,19 @@ Updated: YYYY-MM-DD HH:mm
 | 2 | Task title | code | pending | |
 ```
 
-**Status values:** `pending` → `research` → `plan-review` → `running` → `done` / `blocked`
+**Status values:** `pending` → `research` → `running` → `done` / `blocked`
 
 ---
 
 ## Important Rules
 
-1. **NEVER read design documents or screenshots** — implementers do this
-2. **🚫 NEVER search project source files** — no Glob, Grep, or Read on src/, app/, components/ etc.
-3. **NEVER describe page elements** — no columns, components, layout, colors, fonts
-4. **DO NOT delete files from plan/** — user manages them
-5. **tasks.md is INDEX ONLY** — titles + links to design docs/screenshots, no descriptions of UI
-6. **One task per logical unit** — don't combine unrelated changes
-7. **Order tasks by dependencies** — no-dep first
-8. **Verify API exists** before planning API tasks (Step 3)
-9. **What field = copy from task description** — don't elaborate, don't analyze
+1. **At planning stage, focus on creating the INDEX** — deep analysis happens during execution
+2. **DO NOT delete files from plan/** — user manages them
+3. **tasks.md is INDEX ONLY** — titles + links to design docs/screenshots
+4. **One task per logical unit** — don't combine unrelated changes
+5. **Order tasks by dependencies** — no-dep first
+6. **Verify API exists** before planning API tasks (Step 3)
+7. **What field = copy from task description** — don't elaborate, don't analyze
 
 ---
 

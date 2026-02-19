@@ -23,32 +23,22 @@
 
 ---
 
-## CRITICAL: Task Workflow (Chain Model)
+## CRITICAL: Task Workflow
 
-**READ:**
-- `.claude/rules/workflow/task-delegation.md` — delegation decisions, chain execution model
-- `.claude/rules/workflow/agent-management.md` — agent templates, chain communication, validation
+**READ:** `.claude/rules/workflow/task-execution.md` — execution model, research protocol, multi-task flow
 
-**⚠️ YOU ARE A PURE MANAGER. You do NOT write code (unless trivial), do NOT read implementation files, do NOT validate code quality.**
+**⚠️ YOU ARE THE IMPLEMENTER. You research, plan, build, and self-review directly. No delegation to agents.**
 
-**MANDATORY DELEGATION CHECK (before EVERY task):**
-Ask yourself: "Will this change more than 1 file, or more than 50 lines, or need research?"
-→ YES = **delegate to agent chain** (NEVER do any work in main context)
-→ NO (1 file, ≤50 lines, pattern known) = do it yourself
+**For every task:**
+1. Research the codebase (use Explore agent for file search, read files yourself)
+2. For complex tasks → present a plan to user, wait for approval
+3. Implement following the plan (or directly for simple tasks)
+4. Self-review → run format-and-check → fix issues
+5. Report what was done
 
-**Summary:**
-1. **Solo** (1 file, ≤50 lines, no research) → Implement yourself → Verify
-2. **Delegate** (everything else) → Create team → spawn implementer → receive report → user reviews → correction loop → cleanup
+**Multi-task execution:** Sequential, one task at a time. Complete fully before moving to next. Continue even through autocompact.
 
-**Chain flow:** You → Implementer → (research plan) → You → User → (approve) → Implementer codes → (file paths) → You → User → (review) → feedback loop → cleanup
-
-**Key rules:**
-- 1 implementer per task (NO validator agent — user validates)
-- **Two-phase:** implementer sends research plan FIRST → user approves → THEN implements
-- You route user feedback to the correct implementer
-- Team stays alive until USER confirms everything is OK
-
-**Agent models:** Read `.claude/rules/workflow/agent-models.md` for model per role. `inherit` → omit `model` param (uses chat model). Other values (`sonnet`, `opus`, `haiku`) → pass as `model` param.
+**Context management:** Use Explore agent (Task tool, subagent_type="Explore") for broad searches to save context. Read only the files you need. Make decisions yourself.
 
 ---
 
@@ -63,14 +53,45 @@ Ask yourself: "Will this change more than 1 file, or more than 50 lines, or need
 
 ---
 
-## CRITICAL: Two-Phase Implementer + Human Review
+## Visual Task Methodology
 
-**For ANY task, spawn 1 implementer.** Agent skills: `/agent:common`, `/agent:implementer`
+**When building from designs (screenshots, Figma, design documents):**
 
-**Phase 1: Research** — Implementer reads ALL materials (design documents, screenshots), studies codebase, sends research plan → user approves.
-**Phase 2: Build** — Implementer codes following approved plan, self-reviews, runs format-and-check.
-**NO validator agent.** Only the user can reliably validate visual fidelity.
-**Team stays alive until user confirms.** Route user feedback to implementer for corrections.
+### Source of Truth Hierarchy
+
+| Priority | Source | Role |
+|----------|--------|------|
+| 1 (HIGHEST) | **Design document (`*__design.md`)** | Defines EVERY element: sizes, colors, text, spacing, states, structure |
+| 2 | **Screenshot** | Visual verification of design document interpretation |
+| 3 | **Task description** | Business requirements and scope |
+| 4 (LOWEST) | **Existing codebase** | Component reference ONLY — shows HOW to use shared components |
+
+**Reading order:** Design document first → Screenshot second → Task description → Codebase research.
+
+**🚫 Existing pages are NOT templates.** They show which components exist and how to import them. They do NOT define what your page looks like. If a similar page has an avatar but the design does not — do NOT add an avatar.
+
+**Rule: Build FROM the design, not from existing code. Use existing code only to find reusable components.**
+
+### Pixel-Perfect Compliance
+
+> **NEVER trust component defaults for visual styling. ALWAYS override with exact values from the design document via `className` or props.**
+
+For each UI element:
+1. **Colors** — Extract exact hex values. Apply via `text-[#hex]`, `bg-[#hex]`, `border-[#hex]`. NEVER use Tailwind named colors unless they match exactly.
+2. **Spacing** — Convert design px to Tailwind: `gap:4` → `gap-1`, `gap:8` → `gap-2`, `gap:12` → `gap-3`, `gap:16` → `gap-4`, `gap:20` → `gap-5`, `gap:24` → `gap-6`. When no match, use arbitrary: `gap-[20px]`.
+3. **Border radius** — `r:12` → `rounded-xl`, `r:16` → `rounded-2xl`, `r:50` → `rounded-full`. When unsure: `rounded-[12px]`.
+4. **Typography** — Font weight, size, line height, letter spacing — all from design. Override component defaults if they differ.
+5. **Shadows** — Exact values: `shadow-[0_1px_2px_0_#1018280D]`.
+6. **Dimensions** — Exact width/height when specified: `w-10 h-10` for 40x40.
+
+### Design Element Extraction (Research Phase)
+
+Before coding a visual task, extract EVERY UI element from the design:
+- For each section: elements, exact text, dimensions, colors
+- For tables: EVERY column header, cell content format, row variations
+- For interactive elements: type (link/button/dropdown), states (hover/active/disabled)
+- For badges/tags: exact text, colors, border-radius
+- **If in design → MUST be in code. If NOT in design → MUST NOT be in code.**
 
 ---
 

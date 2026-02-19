@@ -30,6 +30,45 @@ When building from designs, follow this strict priority:
 
 ---
 
+## 🎯 Pixel-Perfect Compliance (MANDATORY)
+
+**The design document contains EXACT numeric values. You MUST use them — not "close enough", not component defaults.**
+
+### Core Rule
+
+> **NEVER trust component defaults for visual styling. ALWAYS override with exact values from the design document via `className` or props.**
+
+### What This Means In Practice
+
+| ❌ WRONG (relying on defaults) | ✅ RIGHT (exact design values) |
+|--------------------------------|-------------------------------|
+| `<Badge>8</Badge>` hoping defaults match | `<Badge className="bg-[#EFEDFD] text-[#3D3578] rounded-[16px] py-0.5 px-2.5">8</Badge>` |
+| `<Input />` with default padding | `<Input className="py-2.5 px-3.5 rounded-xl border-[#D0D5DD] shadow-xs" />` |
+| `gap-4` because "it looks similar" | `gap-5` because design says `gap:20` (20px = gap-5) |
+| Using a component's built-in color scheme | Overriding with exact hex from design: `text-[#5E4FC4]`, `bg-[#F9FAFB]` |
+
+### Mandatory Checklist (apply to EVERY element)
+
+For each UI element in the design document:
+1. **Colors** — Extract exact hex values. Apply via `text-[#hex]`, `bg-[#hex]`, `border-[#hex]`. NEVER use Tailwind named colors unless they match exactly.
+2. **Spacing** — Convert `gap:N`, `py:N`, `px:N` from design to Tailwind: `gap:4` → `gap-1`, `gap:8` → `gap-2`, `gap:12` → `gap-3`, `gap:16` → `gap-4`, `gap:20` → `gap-5`, `gap:24` → `gap-6`. When no Tailwind match, use arbitrary: `gap-[20px]`.
+3. **Border radius** — Design says `r:12` → `rounded-xl` (12px). Design says `r:16` → `rounded-2xl` (16px). Design says `r:50` → `rounded-full`. When unsure, use arbitrary: `rounded-[12px]`.
+4. **Typography** — Font weight (400/500/600/700), font size, line height, letter spacing — all from design document. Override component defaults if they differ.
+5. **Shadows** — Use exact shadow values from design: `shadow-[0_1px_2px_0_#1018280D]`.
+6. **Dimensions** — Exact width/height when specified: `w-10 h-10` for 40x40, `w-6 h-6` for 24x24.
+
+### The "Component Default" Trap
+
+When you use an existing component (Badge, Input, Button, AnimatedTabs, etc.):
+- ✅ Use the component for its **structure and behavior** (accessibility, keyboard nav, state management)
+- ❌ Do NOT assume its **visual defaults** match the design
+- ✅ ALWAYS compare the component's default styles with the design document values
+- ✅ If they differ — override via `className` with exact design values
+
+**Example:** If `AnimatedTabs` renders badge with `bg-[#F2F4F7]` but design says `bg-[#EFEDFD]`, you MUST pass `className` to override it.
+
+---
+
 ## Process
 
 ### Phase 1: Deep Research + Plan (BEFORE any code)

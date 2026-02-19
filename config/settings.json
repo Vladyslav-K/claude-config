@@ -124,6 +124,7 @@
   "outputStyle": "Explanatory",
   "language": "Ukrainian",
   "alwaysThinkingEnabled": true,
+  "effortLevel": "high",
   "autoMemoryEnabled": true,
   "feedbackSurveyState": {
     "lastShownTime": 1754036467609

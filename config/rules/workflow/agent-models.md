@@ -10,12 +10,12 @@ Model assignment per agent role. Orchestrator reads this before spawning agents.
 ## Default (1 implementer per task)
 
 | Role | Model | Notes |
-|------|--------|-------|
-| implementer | opus | Researches + implements + self-reviews. Inherits chat model for best quality. |
+|------|-------|-------|
+| implementer | opus  | Researches + implements + self-reviews. Inherits chat model for best quality. |
 
 ## Optional / Special Roles
 
 | Role | Model | Notes |
-|------|--------|-------|
-| estimator | opus | Task estimation |
-| assembler | sonnet | File merging |
+|------|-------|-------|
+| estimator | opus  | Task estimation |
+| assembler | opus  | File merging |

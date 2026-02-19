@@ -1,3 +1,17 @@
+## 🚨 #1 RULE — DESIGN IS THE ABSOLUTE SOURCE OF TRUTH 🚨
+
+**When a task has design documents (`*__design.md`) and/or screenshots:**
+
+1. **Design document defines EVERYTHING.** Every element, every column, every icon, every badge — if it's not described in the design document, it DOES NOT EXIST. Period.
+2. **Screenshot is visual verification** of the design document — use it to confirm interpretation, not to invent elements.
+3. **Existing codebase is ONLY for finding reusable components** (how to import, how to use). It NEVER defines what goes on the page.
+4. **NEVER add UI elements from existing pages that are not in the design.** No avatars, no icons, no badges, no columns — NOTHING that the design document doesn't explicitly describe.
+5. **For every element you plan to build — point to the exact line in the design document.** If you can't point to it — don't build it.
+
+**Violation of this rule breaks the entire workflow. This is non-negotiable.**
+
+---
+
 **MEMORY SYSTEM ACTIVE:** Read `.claude/rules/workflow/memory-system.md` for project memory management. At session start, check if `.project-meta/memory/` exists and read its contents.
 
 ---

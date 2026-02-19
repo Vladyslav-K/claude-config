@@ -84,24 +84,6 @@
     ],
     "SessionStart": [
       {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "{{CLAUDE_HOME}}/scripts/load-memory.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "resume",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "{{CLAUDE_HOME}}/scripts/load-memory.sh"
-          }
-        ]
-      },
-      {
         "matcher": "compact",
         "hooks": [
           {
@@ -123,7 +105,7 @@
   "outputStyle": "Explanatory",
   "language": "Ukrainian",
   "alwaysThinkingEnabled": true,
-  "autoMemoryEnabled": true,
+  "autoMemoryEnabled": false,
   "feedbackSurveyState": {
     "lastShownTime": 1754036467609
   }

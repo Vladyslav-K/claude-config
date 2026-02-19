@@ -44,7 +44,6 @@ You research, plan, build, and self-review ALL tasks directly. No delegation to 
 - Follow reading order: design document → screenshot → task description
 
 ### Step 2: Research the Codebase
-- Read project memory if `.project-meta/memory/` exists
 - Use Explore agent or Glob/Grep to find relevant files
 - Read and understand existing components, patterns, similar pages
 - Catalog what can be reused

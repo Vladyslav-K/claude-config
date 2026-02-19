@@ -12,10 +12,6 @@
 
 ---
 
-**MEMORY SYSTEM ACTIVE:** Read `.claude/rules/workflow/memory-system.md` for project memory management. At session start, check if `.project-meta/memory/` exists and read its contents.
-
----
-
 ## Code Rules
 
 - DON'T leave any comments what not connected to code, like tasks description, changes notes, etc.

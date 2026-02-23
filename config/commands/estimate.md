@@ -9,17 +9,17 @@ description: Estimate frontend tasks from .project-meta/estimation/. Read task f
 $ARGUMENTS
 
 ## Purpose
-Estimate frontend tasks by reading task files, analyzing screenshots/design documents, and researching the codebase for similar patterns.
+Estimate frontend tasks by reading task files, analyzing screenshots/design documents, and researching the codebase.
 
-**ONLY FRONTEND tasks are estimated.** Skip backend, DevOps, mobile native, database tasks. If a task has both frontend and backend parts, estimate ONLY the frontend portion.
+**ONLY FRONTEND tasks are estimated.** Skip backend, DevOps, mobile native, database tasks.
 
 ## Input
-`.project-meta/estimation/` directory containing:
-- **Root files:** Task lists (.md, .xlsx, .docx)
-- **screenshots/ folder:** Images and design documents related to tasks
+`.project-meta/estimation/` directory:
+- **Root:** Task lists (.md, .xlsx, .docx)
+- **screenshots/:** Images and design documents
 
 ## Output
-`.project-meta/estimation/estimation.md` — estimation report
+`.project-meta/estimation/estimation.md`
 
 ---
 
@@ -28,57 +28,30 @@ Estimate frontend tasks by reading task files, analyzing screenshots/design docu
 ### 1. Scan Input Folder
 
 ```
-1. Glob: .project-meta/estimation/*.{md,xlsx,docx} (root only)
+1. Glob: .project-meta/estimation/*.{md,xlsx,docx}
 2. Glob: .project-meta/estimation/screenshots/**/*
-3. Group screenshots/design docs by task name:
-   - Task "user-profile" matches:
-     - screenshots/user-profile/ folder (all files inside)
-     - screenshots/user-profile.png
-     - screenshots/user-profile-*.png
-     - screenshots/user-profile*__design.md
-   - Folder contents override file name matching
-   - `*__design.md` files are structured design specs from Figma
+3. Group screenshots/design docs by task name (same matching rules as /tasks:plan)
 4. Build map: { taskFile → [matched screenshot paths] }
 ```
 
-**If no task files found:** Inform user, stop.
+If no task files found → inform user, stop.
 
 ### 2. Read Project Context
-
-1. Read project memory files at `.project-meta/memory/` (if exists)
-2. Get a high-level understanding of the project's tech stack and patterns
+Read `.project-meta/memory/` files (if exist) for tech stack and patterns.
 
 ### 3. Read Task Files
+- `.md` → Read directly
+- `.xlsx` → Python + openpyxl
+- `.docx` → Python + python-docx
 
-- `.md` files: Read directly
-- `.xlsx` files: Use Bash with Python + openpyxl:
-  ```python
-  from openpyxl import load_workbook
-  wb = load_workbook('file.xlsx')
-  for sheet_name in wb.sheetnames:
-      ws = wb[sheet_name]
-      for row in ws.iter_rows(values_only=True):
-          print(row)
-  ```
-- `.docx` files: Use Bash with Python + python-docx
-
-Extract individual tasks from each file.
-
-### 4. Analyze Design Documents and Screenshots
-
-For each task with design documents/screenshots:
-1. Read design document (`*__design.md`) FIRST — structured specs
+### 4. Analyze Designs
+For each task with design docs/screenshots:
+1. Read design document (`*__design.md`) FIRST
 2. Read screenshot for visual verification
-3. Note: UI components, form fields, interactive elements, tables, charts, states, responsive hints
+3. Note: components, form fields, tables, charts, states, responsive hints
 
 ### 5. Research Codebase
-
-For each task, search for:
-- Similar existing components or pages (reuse potential)
-- Tech patterns (libraries for tables, forms, charts)
-- Reusable hooks, utilities, types
-
-Use Glob, Grep, or Explore agent to find relevant files. Read key files to understand complexity.
+Per task: find similar components, reuse potential, relevant libraries, hooks, types.
 
 ### 6. Estimate Each Task
 
@@ -107,12 +80,11 @@ Use Glob, Grep, or Explore agent to find relevant files. Read key files to under
 | Responsive design complexity | 1.1x - 1.3x |
 | Integration with complex API | 1.2x - 1.4x |
 | Real-time updates (WebSocket) | 1.3x - 1.5x |
-| Internationalization (i18n) | 1.1x - 1.2x |
 | Complex form validation | 1.2x - 1.3x |
 | State management complexity | 1.2x - 1.4x |
 | First-time patterns for project | 1.3x - 1.5x |
 
-**Formula:** Base × Multipliers = Final (rounded to 0.5h, 1h, 2h, 4h, 6h, 8h, 12h, 16h, 24h, 32h)
+**Formula:** Base × Multipliers = Final (round to 0.5h, 1h, 2h, 4h, 6h, 8h, 12h, 16h, 24h, 32h)
 
 ### 7. Write estimation.md
 
@@ -128,94 +100,53 @@ Source files: [list]
 |---|------|------|-----|-----|------|-------|
 | 1 | [name] | [type] | Xh | Xh | Xh | |
 
-Frontend tasks: X
-Skipped (non-frontend): Y
+Frontend tasks: X | Skipped (non-frontend): Y
 
-**Totals:**
-- Optimistic: XXh
-- Average: XXh
-- Pessimistic: XXh
+**Totals:** Optimistic: XXh | Average: XXh | Pessimistic: XXh
 
 ---
 
 ## Detailed Estimates
 
 ### 1. [Task Name]
-**Source:** [file name]
-**Type:** frontend
-**Description:** [brief]
+**Source:** [file] | **Type:** frontend
 **Estimate:** Opt: Xh | Avg: Xh | Pess: Xh
 **Reasoning:**
-- Base: [task type] = [base hours]
+- Base: [task type] = [hours]
 - Multipliers: [which and why]
-- Reuse: [existing code that reduces effort]
+- Reuse: [existing code]
 - Risks: [what increases pessimistic]
-**Codebase context:**
-- [relevant existing files/patterns found]
-**Screenshots:** [paths analyzed, or "none"]
+**Codebase context:** [relevant files/patterns]
 
 ---
 
-[...repeat for each task...]
-
 ## Assumptions
-- [list]
-
 ## Risks
-- [list]
-
 ## Clarifications Needed
-- [task]: [question]
 ```
 
 ### 8. Write Back to xlsx (if applicable)
-
-If original files were .xlsx and have estimate columns:
-- Use Bash with Python + openpyxl
-- Find estimate columns (opt/min, avg/ave, pess/max)
-- Write values back
+If original .xlsx has estimate columns (opt/min, avg/ave, pess/max) → write values back with openpyxl.
 
 ### 9. Report Summary
-
-Report to user:
-- Total tasks estimated
-- Total hours (opt/avg/pess)
-- Clarifications needed
-- Reference: full details in estimation.md
+Total tasks, total hours (opt/avg/pess), clarifications needed.
 
 ---
 
 ## Error Handling
 
-- **Unclear task:** Note "Needs clarification: [question]", use wider pessimistic range
-- **No design doc or screenshots:** Note "No visual reference", add 1.2x uncertainty to pessimistic
-- **Unreadable file format:** Report the error, skip that file, continue with others
-- **No codebase patterns found:** Note "No codebase context", use standard estimates without reuse
+- **Unclear task:** Note "Needs clarification", use wider pessimistic range
+- **No design docs:** Note "No visual reference", add 1.2x uncertainty
+- **Unreadable file:** Report error, skip, continue
+- **No codebase patterns:** Note "No codebase context", standard estimates
 
 ---
 
 ## Rules
 
-1. **Estimate ONLY frontend tasks** — skip backend, devops, mobile
-2. **Read project memory FIRST** — understand project context
-3. **Research codebase per task** — find similar patterns, reusable code
-4. **Use exact methodology** — base units × multipliers, round properly
-5. **Include reasoning for every estimate** — not just numbers
-6. **Flag unclear tasks** — note what needs clarification
-7. **Count ALL UI elements from design docs/screenshots** — don't miss interactive elements
-8. **For .xlsx use openpyxl** — as per project rules
-
----
-
-## Example
-
-```
-Task: User management table with search and filters
-Base: Complex component = 8h avg
-Multipliers:
-  + Similar table exists (reuse) → 0.7x
-  - More columns (8 vs 5) → 1.1x
-  - Bulk actions (new) → 1.2x
-Calc: 8h × 0.7 × 1.1 × 1.2 = 7.4h → 8h avg
-Result: Opt 4h | Avg 8h | Pess 14h
-```
+1. **Estimate ONLY frontend tasks**
+2. **Read project memory FIRST**
+3. **Research codebase per task** — find reuse potential
+4. **Use exact methodology** — base × multipliers, round properly
+5. **Include reasoning for every estimate**
+6. **Flag unclear tasks**

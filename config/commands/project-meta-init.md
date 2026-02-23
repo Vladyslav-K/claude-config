@@ -5,28 +5,23 @@ description: Initialize project folder structure for task management, estimation
 
 # Project Meta Initialization
 
-## Purpose
-Create the complete project folder structure used by `/tasks:plan`, `/tasks:run`, `/estimate`, and the memory system.
+Create the folder structure used by `/tasks:plan`, `/tasks:run`, `/estimate`, and the memory system.
 
-## Folders to Create
+## Structure
 
 ```
 .project-meta/
 ├── tasks/
 │   └── plan/
-│       └── screenshots/     # Input for /tasks:plan (task descriptions + design documents + screenshots)
+│       └── screenshots/     # Task descriptions + design documents + screenshots
 ├── estimation/
-│   └── screenshots/         # Input for /estimate (task files + screenshots for estimation)
+│   └── screenshots/         # Task files + screenshots for estimation
 └── memory/
     ├── recent-session.md    # Short-term: last session context (overwritten each time)
-    └── persistent.md        # Long-term: project knowledge (append-only, persists forever)
+    └── persistent.md        # Long-term: project knowledge (append-only)
 ```
 
-## Execution Steps
-
-### Step 1: Create Folder Structure
-
-Create all required folders:
+## Execute
 
 ```bash
 mkdir -p .project-meta/tasks/plan/screenshots
@@ -36,51 +31,12 @@ touch .project-meta/memory/recent-session.md
 touch .project-meta/memory/persistent.md
 ```
 
-### Step 2: Confirm Creation
+After creating, report what was created and remind usage:
+- `/tasks:plan` — add .md files to `tasks/plan/`, screenshots to `tasks/plan/screenshots/`
+- `/tasks:run` — execute planned tasks sequentially
+- `/estimate` — add task files to `estimation/`, screenshots to `estimation/screenshots/`
 
-After creating folders, list them to confirm:
-
-```bash
-find .project-meta -type d
-```
-
-### Step 3: Report to User
-
-Report what was created with usage instructions:
-
-```
-## Project Structure Created
-
-Created folders:
-- .project-meta/tasks/plan/
-- .project-meta/tasks/plan/screenshots/
-- .project-meta/estimation/
-- .project-meta/estimation/screenshots/
-- .project-meta/memory/
-- .project-meta/memory/recent-session.md
-- .project-meta/memory/persistent.md
-
-## How to Use
-
-### /tasks:plan — Plan tasks for execution
-1. Add task description files (.md) to `.project-meta/tasks/plan/`
-2. (Optional) Add screenshots (.png, .jpg) to `.project-meta/tasks/plan/screenshots/`
-3. (Optional) Add design documents (`*__design.md`) to `.project-meta/tasks/plan/screenshots/`
-4. Run `/tasks:plan` to create tasks.md and status.md
-5. Pass extra context: `/tasks:plan focus on mobile first`
-
-### /tasks:run — Execute planned tasks
-1. First run `/tasks:plan` to create task files
-2. Run `/tasks:run` to execute tasks sequentially
-
-### /estimate — Estimate task effort
-1. Add task files (.md, .xlsx) to `.project-meta/estimation/`
-2. Add screenshots to `.project-meta/estimation/screenshots/`
-3. Run `/estimate` for time estimation
-```
-
-## Important Notes
-
-- This command is idempotent — running it multiple times is safe
+## Notes
+- Idempotent — safe to run multiple times
 - Existing files will NOT be deleted
 - `.project-meta/` is typically gitignored

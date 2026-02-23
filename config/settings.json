@@ -43,7 +43,16 @@
       "Bash(pnpm run build:*)",
       "Bash(pnpm run format-and-check:*)",
       "Bash(pnpm install:*)",
-      "Bash(pnpm remove:*)"
+      "Bash(pnpm remove:*)",
+      "Bash(wc:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(sort:*)",
+      "Bash(uniq:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)"
     ],
     "deny": [
       "Read(./.env)",
@@ -53,9 +62,14 @@
       "Bash(git reset:*)",
       "Bash(chmod 777:*)",
       "Bash(npm publish:*)",
+      "Bash(pnpm publish:*)",
       "Bash(docker run --privileged:*)",
       "Bash(chmod -R:*)",
       "Bash(curl | sh:*)",
+      "Bash(curl*| sh:*)",
+      "Bash(curl*| bash:*)",
+      "Bash(wget*| sh:*)",
+      "Bash(wget*| bash:*)",
       "Bash(dd if=:*)",
       "Bash(mkfs:*)",
       "Bash(fdisk:*)",
@@ -63,12 +77,16 @@
       "Bash(git push --force:*)",
       "Bash(--dangerously-skip-permissions:*)",
       "Bash(git clean -fd:*)",
+      "Bash(git restore .:*)",
+      "Bash(git checkout -- .:*)",
       "Bash(docker run -v /:/:*)",
       "Bash(eval:*)",
       "Bash(git push --force-with-lease:*)"
     ],
     "ask": [
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)"
     ]
   },
   "hooks": {

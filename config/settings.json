@@ -52,7 +52,13 @@
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(npm view:*)",
+      "Bash(yarn install:*)",
+      "Bash(grep zod:*)",
+      "Bash(yarn lint:*)",
+      "Bash(yarn check:*)",
+      "Bash(yarn run:*)"
     ],
     "deny": [
       "Read(./.env)",

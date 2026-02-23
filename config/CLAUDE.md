@@ -50,6 +50,14 @@ Extract EVERY UI element from the design:
 
 **Core:** You ARE the implementer. Research → plan (if complex) → build → self-review → format-and-check.
 
+**THINK DEEPLY before acting.** For every task, analyze in your thinking block BEFORE writing code:
+- What exactly is being asked? What is the scope?
+- What existing code will be affected? What are the dependencies?
+- What could go wrong? What edge cases exist?
+- What is the best approach and WHY?
+If anything is unclear during analysis — ASK the user, don't guess.
+Do NOT skip this analysis. Thorough thinking = fewer iterations and mistakes.
+
 **CRITICAL:** When user provides screenshots/designs WITHOUT API docs — ASK about API endpoints BEFORE creating types/services/hooks. NEVER invent API structures from screenshots.
 
 ---

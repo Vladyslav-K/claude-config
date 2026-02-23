@@ -15,6 +15,7 @@
 ## Code Rules
 
 - DON'T leave any comments what not connected to code, like tasks description, changes notes, etc.
+- Comments in code must look human-written: simple `// Comment` style only. NO decorative lines (`// ── Section ──────`), NO ASCII art, NO fancy separators. Use comments ONLY for grouping related content sections or explaining non-obvious logic. If the code is self-explanatory — no comment needed.
 - DON'T create any .md or other text files if you are not ordered to do it.
 - DON'T create tests if you are not ordered to do it.
 - With me, you ALWAYS speak on Ukrainian, but ALL generated code, comments, files must be only on English language, if not ordered other language.
@@ -139,3 +140,13 @@ Rule: "Use tabs for indentation"
 
 ### 5. General Best Practices (LOWEST)
 Only when nothing above applies
+
+---
+
+## Session Memory
+
+**File:** `.project-meta/memory/recent-session.md`
+
+**Save session** — when user says "збережи сесію" or describes what to save, write the summary to `.project-meta/memory/recent-session.md`. Include: date, what was done, files created/modified, current state, next steps. Overwrite the file each time.
+
+**"продовжуємо."** — when user sends exactly this message (with a dot) at the start of a fresh chat, read `.project-meta/memory/recent-session.md` FIRST before doing anything else. Use it as context for the next task.

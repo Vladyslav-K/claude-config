@@ -30,6 +30,7 @@ Create all required folders:
 mkdir -p .project-meta/tasks/plan/screenshots
 mkdir -p .project-meta/estimation/screenshots
 mkdir -p .project-meta/memory
+touch .project-meta/memory/recent-session.md
 ```
 
 ### Step 2: Confirm Creation
@@ -53,6 +54,7 @@ Created folders:
 - .project-meta/estimation/
 - .project-meta/estimation/screenshots/
 - .project-meta/memory/
+- .project-meta/memory/recent-session.md
 
 ## How to Use
 

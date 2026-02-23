@@ -1,3 +1,14 @@
+## 🚨🚨🚨 FIRST ACTION ON EVERY SESSION START
+
+**BEFORE responding to the user's FIRST message — you MUST:**
+1. **Read `.project-meta/memory/persistent.md`** — contains critical project context
+2. **Apply the context** from that file to your response
+
+**NO EXCEPTIONS.** Do NOT skip this step. Do NOT respond to the user before reading.
+If the file doesn't exist — proceed normally.
+
+---
+
 ## 🚨 Design-First Development
 
 **When a task has design documents (`*__design.md`) and/or screenshots:**

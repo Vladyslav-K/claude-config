@@ -54,11 +54,18 @@
       "Bash(git log:*)",
       "Bash(git branch:*)",
       "Bash(npm view:*)",
-      "Bash(yarn install:*)",
-      "Bash(grep zod:*)",
+      "Bash(yarn typecheck:*)",
+      "Bash(yarn format:*)",
       "Bash(yarn lint:*)",
-      "Bash(yarn check:*)",
-      "Bash(yarn run:*)"
+      "Bash(yarn build:*)",
+      "Bash(yarn format-and-check:*)",
+      "Bash(yarn run typecheck:*)",
+      "Bash(yarn run format:*)",
+      "Bash(yarn run lint:*)",
+      "Bash(yarn run build:*)",
+      "Bash(yarn run format-and-check:*)",
+      "Bash(yarn install:*)",
+      "Bash(yarn remove:*)"
     ],
     "deny": [
       "Read(./.env)",

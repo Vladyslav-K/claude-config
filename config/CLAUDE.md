@@ -46,7 +46,7 @@ Extract EVERY UI element from the design:
 
 ## Task Workflow
 
-**Full workflow:** `.claude/rules/workflow/task-execution.md`
+**Full workflow:** `.claude/rules/task-execution.md`
 
 **Core:** You ARE the implementer. Research → plan (if complex) → build → self-review → format-and-check.
 

@@ -17,12 +17,22 @@
 - Extract exact hex values for colors, exact px for spacing, exact font specs from design.
 
 ### Before Coding a Visual Task
+
+**Full protocol:** `.claude/rules/screenshot-protocol.md` — follow it STRICTLY for every screenshot/design task.
+
+**Key non-negotiables:**
+- Analyze screenshot **top-to-bottom, left-to-right** — preserve this exact order in code
+- Copy ALL text **verbatim, character by character** — NEVER rephrase, translate, or "improve"
+- Match the **exact visual component type** (screenshot shows Switch → use Switch, not Checkbox)
+- Search and read actual project components BEFORE coding — understand their API
+- **If in design → MUST be in code. If NOT in design → MUST NOT be in code.**
+- If unsure about ANY element — ASK, don't guess
+
 Extract EVERY UI element from the design:
 - Each section: elements, text, dimensions, colors
 - Tables: EVERY column header, cell content format, row variations
 - Interactive elements: type, states (hover/active/disabled)
 - Badges/tags: text, colors, border-radius
-- **If in design → MUST be in code. If NOT in design → MUST NOT be in code.**
 
 ---
 
@@ -40,6 +50,7 @@ Extract EVERY UI element from the design:
 ## Post-Task Requirements
 
 - AFTER EVERY TASK: run `format-and-check` (or `format`, `lint`, `typecheck` if unavailable). Fix all issues.
+- If a project does NOT have a `format-and-check` script and it's possible to create one (e.g., project has `format`, `lint`, `typecheck` or similar scripts) — CREATE `format-and-check` in package.json that combines them (e.g., `"format-and-check": "npm run format && npm run lint && npm run typecheck"`). Adapt to the project's package manager and existing scripts.
 - Use scripts from package.json, NOT custom npx commands.
 
 ---

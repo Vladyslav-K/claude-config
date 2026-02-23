@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Post-compact hook: Remind Claude to re-read all rules
+# Post-compact hook: Remind Claude to re-read all rules and persistent memory
 # Called by SessionStart hook with "compact" matcher
 
 echo ""
@@ -10,7 +10,10 @@ echo "╠═══════════════════════�
 echo "║                                                                      ║"
 echo "║  BEFORE CONTINUING, YOU MUST RE-READ:                                ║"
 echo "║                                                                      ║"
-echo "║  RULES (use Glob + Read):                                           ║"
+echo "║  1. PERSISTENT MEMORY (read FIRST):                                 ║"
+echo "║     - .project-meta/memory/persistent.md                            ║"
+echo "║                                                                      ║"
+echo "║  2. RULES (use Glob + Read):                                        ║"
 echo "║     - ~/.claude/CLAUDE.md                                            ║"
 echo "║     - ~/.claude/rules/**/*.md                                        ║"
 echo "║                                                                      ║"
@@ -19,4 +22,4 @@ echo "║                                                                      �
 echo "╚══════════════════════════════════════════════════════════════════════╝"
 echo ""
 
-echo "IMPORTANT: Now use Glob to find ~/.claude/rules/**/*.md and Read each file!"
+echo "IMPORTANT: First read .project-meta/memory/persistent.md, then use Glob to find ~/.claude/rules/**/*.md and Read each file!"

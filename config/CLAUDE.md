@@ -143,10 +143,54 @@ Only when nothing above applies
 
 ---
 
-## Session Memory
+## Memory System
+
+### Session Memory (Short-term)
 
 **File:** `.project-meta/memory/recent-session.md`
 
 **Save session** — when user says "збережи сесію" or describes what to save, write the summary to `.project-meta/memory/recent-session.md`. Include: date, what was done, files created/modified, current state, next steps. Overwrite the file each time.
 
 **"продовжуємо."** — when user sends exactly this message (with a dot) at the start of a fresh chat, read `.project-meta/memory/recent-session.md` FIRST before doing anything else. Use it as context for the next task.
+
+---
+
+### Persistent Memory (Long-term)
+
+**File:** `.project-meta/memory/persistent.md`
+
+**Purpose:** Stores important project-specific knowledge that must persist across ALL sessions. Unlike recent-session (overwritten each time), persistent memory is **append-only** and accumulates over time.
+
+**Trigger phrases (user → you must add to persistent memory):**
+- "запам'ятай це", "запам'ятай", "запам'ятай що..."
+- "додай в пам'ять", "збережи в пам'ять"
+- "remember this", "save to memory"
+- Any variation where user explicitly asks to remember something permanently
+
+**When triggered:**
+1. Read the current `.project-meta/memory/persistent.md`
+2. Append a new entry at the end in this format:
+   ```
+   ## [YYYY-MM-DD] Brief title
+   [What to remember — concise, actionable]
+   ```
+3. NEVER overwrite or delete existing entries (only user can request deletion)
+4. Confirm to user what was saved
+
+**Auto-read rules (CRITICAL):**
+- **On every chat start** — read `.project-meta/memory/persistent.md` BEFORE doing anything else (enforced by SessionStart hook)
+- **After every autocompact** — re-read `.project-meta/memory/persistent.md` (enforced by post-compact hook)
+- **This is automatic** — no user prompt needed. The hook will remind you.
+
+**What to store (examples):**
+- Project architecture decisions ("ми використовуємо X замість Y тому що...")
+- User preferences for this specific project
+- Known issues and workarounds
+- API endpoints and their quirks
+- Important business logic rules
+- Anything user explicitly asks to remember
+
+**What NOT to store:**
+- Temporary task progress (use recent-session.md)
+- General coding rules (already in CLAUDE.md and rules/)
+- Things that change frequently

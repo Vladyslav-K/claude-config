@@ -84,6 +84,15 @@
     ],
     "SessionStart": [
       {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{CLAUDE_HOME}}/scripts/session-start.sh"
+          }
+        ]
+      },
+      {
         "matcher": "compact",
         "hooks": [
           {

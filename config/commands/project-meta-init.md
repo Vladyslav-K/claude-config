@@ -17,7 +17,9 @@ Create the complete project folder structure used by `/tasks:plan`, `/tasks:run`
 │       └── screenshots/     # Input for /tasks:plan (task descriptions + design documents + screenshots)
 ├── estimation/
 │   └── screenshots/         # Input for /estimate (task files + screenshots for estimation)
-└── memory/                  # Project memory files (session context, structure, changelog)
+└── memory/
+    ├── recent-session.md    # Short-term: last session context (overwritten each time)
+    └── persistent.md        # Long-term: project knowledge (append-only, persists forever)
 ```
 
 ## Execution Steps
@@ -31,6 +33,7 @@ mkdir -p .project-meta/tasks/plan/screenshots
 mkdir -p .project-meta/estimation/screenshots
 mkdir -p .project-meta/memory
 touch .project-meta/memory/recent-session.md
+touch .project-meta/memory/persistent.md
 ```
 
 ### Step 2: Confirm Creation
@@ -55,6 +58,7 @@ Created folders:
 - .project-meta/estimation/screenshots/
 - .project-meta/memory/
 - .project-meta/memory/recent-session.md
+- .project-meta/memory/persistent.md
 
 ## How to Use
 

@@ -41,13 +41,6 @@ Read task descriptions from `.project-meta/tasks/plan/`, create a lightweight ta
 
 ---
 
-## Pre-requisite: Plan Mode
-
-**If you are NOT already in plan mode — enter plan mode (EnterPlanMode) BEFORE starting any execution steps.**
-Plan mode ensures the user can review and approve the task index before any files are written.
-
----
-
 ## Execution Steps
 
 ### 1. Read Task Files

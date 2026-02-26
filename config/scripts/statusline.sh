@@ -6,6 +6,7 @@
 INPUT=$(cat)
 
 # Colors (ANSI)
+CYAN='\033[38;5;116m'
 BLUE='\033[94m'
 MAGENTA='\033[95m'
 YELLOW='\033[93m'
@@ -48,7 +49,13 @@ if [[ -z "$TRANSCRIPT" ]] || [[ "$TRANSCRIPT" != "$CACHED_TRANSCRIPT" ]]; then
 fi
 
 # ============================================
-# LINE 1: Git branch | Working directory
+# LINE 1: Working directory
+# ============================================
+
+LINE1="${CYAN}${CWD}${RESET}"
+
+# ============================================
+# LINE 2: Git branch
 # ============================================
 
 GIT_BRANCH=""
@@ -57,13 +64,13 @@ if [[ -n "$CWD_FULL" ]] && [[ -d "$CWD_FULL" ]]; then
 fi
 
 if [[ -n "$GIT_BRANCH" ]]; then
-    LINE1="${BLUE}${BOLD}⎇ ${GIT_BRANCH}${RESET}${BLUE} | ${CWD}${RESET}"
+    LINE2="${BLUE}${BOLD}⎇ ${GIT_BRANCH}${RESET}${BLUE}"
 else
-    LINE1="${BLUE}${BOLD}⎇ no git${RESET}${BLUE} | ${CWD}${RESET}"
+    LINE2="${BLUE}${BOLD}⎇ no git${RESET}${BLUE}"
 fi
 
 # ============================================
-# LINE 2: Model | Version | Tokens
+# LINE 3: Model | Version | Tokens
 # ============================================
 
 if [[ -n "$MODEL_NAME" ]]; then
@@ -91,10 +98,10 @@ else
     FORMATTED_TOKENS="$TOTAL_TOKENS"
 fi
 
-LINE2="${MAGENTA}${MODEL} | v${VERSION} | Tokens: ${FORMATTED_TOKENS}${RESET}"
+LINE3="${MAGENTA}${MODEL} | v${VERSION} | Tokens: ${FORMATTED_TOKENS}${RESET}"
 
 # ============================================
-# LINE 3: Context | Cost
+# LINE 4: Context | Cost
 # ============================================
 
 # Context
@@ -123,7 +130,7 @@ COST=$(echo "$INPUT" | jq -r '.cost.total_cost_usd // 0' | LC_ALL=C awk '{printf
 LINES_ADDED=$(echo "$INPUT" | jq -r '.cost.total_lines_added // 0')
 LINES_REMOVED=$(echo "$INPUT" | jq -r '.cost.total_lines_removed // 0')
 
-LINE3="${YELLOW}Context: ${CONTEXT_PCT}% | +${LINES_ADDED} -${LINES_REMOVED} | \$${COST}${RESET}"
+LINE4="${YELLOW}Context: ${CONTEXT_PCT}% | +${LINES_ADDED} -${LINES_REMOVED} | \$${COST}${RESET}"
 
 # ============================================
 # OUTPUT
@@ -132,3 +139,4 @@ LINE3="${YELLOW}Context: ${CONTEXT_PCT}% | +${LINES_ADDED} -${LINES_REMOVED} | \
 echo -e "$LINE1"
 echo -e "$LINE2"
 echo -e "$LINE3"
+echo -e "$LINE4"

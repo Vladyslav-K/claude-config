@@ -1,9 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "env": {
-    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "48000",
-    "DISABLE_TELEMETRY": "1",
-    "CLAUDE_CODE_EFFORT_LEVEL": "high"
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "48000"
   },
   "includeCoAuthoredBy": false,
   "permissions": {
@@ -69,8 +67,6 @@
       "Bash(yarn remove:*)"
     ],
     "deny": [
-      "Read(./.env)",
-      "Read(./.env.*)",
       "Read(./secrets/**)",
       "Bash(sudo:*)",
       "Bash(git reset:*)",
@@ -100,7 +96,9 @@
     "ask": [
       "Bash(rm:*)",
       "Bash(python3:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Read(./.env)",
+      "Read(./.env.*)"
     ]
   },
   "hooks": {
@@ -146,9 +144,9 @@
   "outputStyle": "Explanatory",
   "language": "Ukrainian",
   "alwaysThinkingEnabled": true,
+  "effortLevel": "high",
   "autoMemoryEnabled": false,
   "feedbackSurveyState": {
     "lastShownTime": 1754036467609
-  },
-  "effortLevel": "high"
+  }
 }

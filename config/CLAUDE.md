@@ -13,17 +13,6 @@ The user explicitly pays for quality, not for brevity. Act accordingly in every 
 
 ---
 
-## 🚨🚨🚨 FIRST ACTION ON EVERY SESSION START
-
-**BEFORE responding to the user's FIRST message — you MUST:**
-1. **Read `.project-meta/memory/persistent.md`** — contains critical project context
-2. **Apply the context** from that file to your response
-
-**NO EXCEPTIONS.** Do NOT skip this step. Do NOT respond to the user before reading.
-If the file doesn't exist — proceed normally.
-
----
-
 ## 🚨 Design-First Development
 
 **When a task has design documents (`*__design.md`) and/or screenshots:**
@@ -102,7 +91,17 @@ Do NOT skip this analysis. Thorough thinking = fewer iterations and mistakes.
 
 ---
 
-## Memory System
+## 🚨 Memory System
+
+### Auto-read (MANDATORY — every session)
+
+**BEFORE responding to the user's FIRST message — you MUST:**
+1. **Read `.project-meta/memory/persistent.md`** — contains critical project context
+2. **Apply the context** from that file to your response
+3. After every autocompact → re-read persistent.md
+
+**NO EXCEPTIONS.** Do NOT skip this step. Do NOT respond to the user before reading.
+If the file doesn't exist — proceed normally.
 
 ### Session Memory (Short-term)
 
@@ -111,8 +110,6 @@ Do NOT skip this analysis. Thorough thinking = fewer iterations and mistakes.
 **"збережи сесію"** → write summary (date, what was done, files, current state, next steps). Overwrite each time.
 
 **"продовжуємо."** → read `recent-session.md` FIRST before doing anything else.
-
----
 
 ### Persistent Memory (Long-term)
 
@@ -127,10 +124,6 @@ Append-only project knowledge that persists across ALL sessions.
 2. Append: `## [YYYY-MM-DD] Brief title` + concise content
 3. NEVER overwrite/delete existing entries
 4. Confirm what was saved
-
-**Auto-read (enforced by hooks):**
-- On every chat start → read persistent.md BEFORE anything
-- After every autocompact → re-read persistent.md
 
 **Store:** Architecture decisions, project preferences, known issues, API quirks, business logic.
 **Don't store:** Temporary progress (use recent-session), general coding rules (already in rules/).

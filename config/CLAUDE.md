@@ -64,7 +64,10 @@ Extract EVERY UI element from the design:
 
 ## Code Rules
 
-- Comments: simple `// Comment` style only. NO decorative lines, NO ASCII art. Only for grouping or non-obvious logic.
+- Comments MUST look human-written — short and plain: `// Enums`, `// Types`, `// Helpers`.
+  - BANNED patterns: `// --- Section ---`, `// === Section ===`, `// *** Section ***`, `// ~~~~~~~~`, any dashes/equals/stars/tildes used as decoration.
+  - BANNED: verbose "AI-style" comments like `// Helper function to transform user data` — write `// Transform user data` or nothing at all.
+  - If the comment just restates the code — delete it. Only comment for grouping sections or non-obvious logic.
 - DON'T create .md files or tests unless explicitly ordered.
 - Speak Ukrainian with user, ALL code/comments in English.
 - ALWAYS check package manager before running scripts.

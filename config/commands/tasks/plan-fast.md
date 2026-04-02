@@ -1,17 +1,17 @@
 ---
-name: tasks-plan
-description: Create task index from files in .project-meta/tasks/plan/. Links tasks to design documents and screenshots.
+name: tasks-plan-fast
+description: Quick task index from files in .project-meta/tasks/plan/. Links tasks to design documents and screenshots without deep analysis.
 ---
 
-# Task Planning
+# Task Planning (Fast)
 
 ## Additional context from user before start task
 $ARGUMENTS
 
 **How to use arguments:**
-- `/tasks-plan` — run with default behavior
-- `/tasks-plan focus on mobile layout first` — additional context for task ordering
-- `/tasks-plan skip auth tasks, only UI` — scope limitations
+- `/tasks:plan-fast` — run with default behavior
+- `/tasks:plan-fast focus on mobile layout first` — additional context for task ordering
+- `/tasks:plan-fast skip auth tasks, only UI` — scope limitations
 
 ## Purpose
 Read task descriptions from `.project-meta/tasks/plan/`, create a lightweight task index.
@@ -23,7 +23,7 @@ Read task descriptions from `.project-meta/tasks/plan/`, create a lightweight ta
 **Task files:** `.project-meta/tasks/plan/*.md`
 **Design docs/screenshots:** `.project-meta/tasks/plan/screenshots/`
 
-**Matching rules (screenshots → tasks):**
+**Matching rules (screenshots -> tasks):**
 - Task "user-profile" matches:
   - `screenshots/user-profile/` folder (all files inside)
   - `screenshots/user-profile.png`, `screenshots/user-profile-*.png`
@@ -47,13 +47,13 @@ Read task descriptions from `.project-meta/tasks/plan/`, create a lightweight ta
 Read all .md files from `.project-meta/tasks/plan/` root.
 
 ### 2. List Screenshots (Glob ONLY, DON'T read images)
-Glob `.project-meta/tasks/plan/screenshots/**/*` → group by task name.
+Glob `.project-meta/tasks/plan/screenshots/**/*` -> group by task name.
 If no screenshots/ folder — skip, all tasks are code-only.
 
 ### 3. API Verification (MANDATORY)
 If user provided ONLY screenshots/designs WITHOUT API docs:
 1. **ASK:** "Is there a backend API? What are the endpoints?"
-2. If no API → note "mock data only" in tasks
+2. If no API -> note "mock data only" in tasks
 3. **NEVER invent** endpoint URLs, field names, or response structures
 
 ### 4. Determine Tasks
@@ -107,7 +107,7 @@ Updated: YYYY-MM-DD HH:mm
 | 1 | Task title | visual | pending | |
 ```
 
-**Status values:** `pending` → `research` → `running` → `done` / `blocked`
+**Status values:** `pending` -> `research` -> `running` -> `done` / `blocked`
 
 ---
 

@@ -1,15 +1,15 @@
 ---
-name: tasks-run-confirm
-description: Execute tasks from .project-meta/tasks/tasks.md one by one, stopping after each for user testing and confirmation before proceeding.
+name: tasks-run-once
+description: Execute the next available task from .project-meta/tasks/tasks.md, then enter testing/fixing mode. Does NOT continue to the next task.
 ---
 
-# Task Execution (Confirm Mode)
+# Task Execution (Single Task Mode)
 
 ## Additional context from user before start task
 $ARGUMENTS
 
 ## Purpose
-Execute tasks from `.project-meta/tasks/tasks.md` **one at a time with mandatory user confirmation** between tasks. Follow the general workflow from `.claude/rules/task-execution.md` for each task. After completing a task — STOP, report, provide testing instructions, and wait for explicit user confirmation before proceeding.
+Execute **exactly ONE task** from `.project-meta/tasks/tasks.md` — the next available one. Follow the general workflow from `.claude/rules/task-execution.md`. After completing the task — STOP, report, and enter **testing & fixing mode**. Do NOT proceed to the next task.
 
 ---
 
@@ -24,15 +24,18 @@ Merge → task list with statuses
 Count: total, done, pending, blocked
 ```
 
-## Step 2: Find Available Tasks
+## Step 2: Find Next Available Task
 
 1. Find all tasks with status `pending`
 2. Filter out tasks with unmet deps (deps not `done`)
 3. Order by ID (lowest first)
+4. **Pick the FIRST available task** — this is the only task you will execute
 
-## Step 3: Execute ONE Task
+If no tasks are available → report to user and stop.
 
-For the NEXT available task, follow the execution flow from `task-execution.md`:
+## Step 3: Execute the Task
+
+For the selected task, follow the execution flow from `task-execution.md`:
 1. Update status.md → `research`
 2. **Research:** Read design docs, screenshots, codebase (per task-execution.md steps)
 3. **Plan (visual/complex):** Present plan, wait for approval. Simple code tasks → skip
@@ -40,7 +43,7 @@ For the NEXT available task, follow the execution flow from `task-execution.md`:
 5. **Implement** → **Self-review** → **format-and-check**
 6. Update status.md → `done`, update progress %
 
-## Step 4: Stop and Report (MANDATORY after each task)
+## Step 4: Report and Enter Testing Mode (MANDATORY)
 
 **After completing the task, you MUST STOP and provide:**
 
@@ -56,27 +59,25 @@ For the NEXT available task, follow the execution flow from `task-execution.md`:
    - Expected behavior
    - Edge cases worth testing
 
-### Next Task Preview
-5. **Next task** — show ID and title of the next available task (if any)
-6. **Remaining** — how many tasks are left (pending/total)
+### Status
+5. **Progress** — how many tasks are done out of total (done/total)
 
-### Waiting Message
+### Testing Mode Message
 End with:
-> ⏸️ Чекаю на підтвердження. Перевір результат і дай команду переходити до наступної задачі. Якщо є зауваження — пиши, виправимо.
+> 🧪 Задача виконана. Тестуй результат — якщо є зауваження чи баги, пиши, виправлю. Коли буде все ок — запусти `/tasks:run-once` для наступної задачі.
 
 ---
 
-## 🚨 CRITICAL: Confirm Mode Rules
+## 🚨 CRITICAL: Single Task Mode Rules
 
-1. **STOP after EVERY task** — do NOT auto-continue to the next task
-2. **WAIT for explicit user confirmation** — the user must say to proceed (e.g., "далі", "наступна", "continue", "next", "ок, йдемо далі")
-3. **While waiting — you are in FIX MODE:**
+1. **Execute EXACTLY ONE task** — do NOT continue to the next task after completion
+2. **After the task is done — you are in TESTING & FIXING MODE:**
    - If the user reports issues → fix them immediately
    - If the user asks for changes → implement them
-   - Stay on the CURRENT task until user confirms it's done
    - Run format-and-check after every fix
-4. **Only after confirmation** → go back to Step 2, find next available task, repeat
-5. **Continue through autocompact** — status.md tracks progress on disk
+   - Stay on this task until the user is satisfied
+3. **NEVER auto-continue** to the next task — the user must explicitly run `/tasks:run-once` again
+4. **This command = one task cycle.** Each invocation handles one task, period.
 
 ---
 
@@ -110,11 +111,11 @@ Generated: YYYY-MM-DD HH:mm
 
 ## Rules
 
-1. **ONE task at a time** — complete, report, STOP, wait for confirmation
+1. **ONE task per invocation** — complete it, report, enter testing mode, DONE
 2. **Follow `task-execution.md`** for research/plan/implement/review cycle
 3. **Update status.md after EACH state change**
 4. **NEVER modify tasks.md** — read-only after planning
-5. **Continue through autocompact** — status.md persists on disk
+5. **NEVER proceed to the next task** — user must run the command again
 6. **When in doubt about complexity → present a plan**
-7. **NEVER skip the stop-and-report step** — even for simple tasks
-8. **Fix mode between tasks** — user feedback → fix → re-verify → wait again
+7. **NEVER skip the report step** — even for simple tasks
+8. **Testing mode after completion** — user feedback → fix → re-verify

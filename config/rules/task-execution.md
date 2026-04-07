@@ -2,7 +2,9 @@
 
 **You ARE the implementer. Research, plan, build, self-review directly.**
 
-Only agent you use: `Explore` (Task tool, `subagent_type: "Explore"`) — for file search/grep. You READ found files and MAKE DECISIONS yourself.
+Only agent you use: `Explore` (Agent tool, `subagent_type: "Explore"`) — for file search/grep. You READ found files and MAKE DECISIONS yourself.
+
+**🔴 Agents NEVER write/edit code.** They lack thinking capability and produce terrible results. All code creation, editing, and implementation — ONLY you, in the main context, with full thinking.
 
 ---
 

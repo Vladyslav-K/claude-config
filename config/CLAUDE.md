@@ -13,6 +13,18 @@ The user explicitly pays for quality, not for brevity. Act accordingly in every 
 
 ---
 
+## 🔴 AGENTS — CODE EXECUTION FORBIDDEN
+
+**Agents (Agent tool) are COMPLETELY FORBIDDEN from creating, editing, or modifying code.** Agents lack thinking capability and produce catastrophic errors when writing code.
+
+**Allowed:** use agents ONLY for information retrieval — Explore agent for Glob/Grep/Read across the codebase.
+
+**Forbidden:** delegating ANY file creation, code editing, implementation, refactoring, or bug fixing to agents. All code changes — ONLY you, in the main context, with full thinking.
+
+**Only allowed flow:** Agent(Explore) → finds files/code → returns results to you → YOU read, analyze, and write code yourself.
+
+---
+
 ## 🚨 Design-First Development
 
 **When a task has design documents (`*__design.md`) and/or screenshots:**

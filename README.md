@@ -10,7 +10,7 @@ git clone git@github.com:YOUR_USERNAME/claude-config.git
 cd claude-config
 
 # Install config on this machine
-./sync.sh push
+npm run push    # or: pnpm push
 ```
 
 ## Usage
@@ -19,7 +19,7 @@ cd claude-config
 
 ```bash
 # 1. Pull changes from ~/.claude to repo
-./sync.sh pull
+npm run pull    # or: pnpm pull
 
 # 2. Commit and push
 git add -A && git commit -m "Update config" && git push
@@ -32,7 +32,7 @@ git add -A && git commit -m "Update config" && git push
 git pull
 
 # 2. Push config to ~/.claude
-./sync.sh push
+npm run push    # or: pnpm push
 
 # 3. Restart Claude Code
 ```
@@ -41,9 +41,9 @@ git pull
 
 | Command | Description |
 |---------|-------------|
-| `./sync.sh pull` | Copy from `~/.claude` → repo (for committing) |
-| `./sync.sh push` | Copy from repo → `~/.claude` (install config) |
-| `./sync.sh status` | Show what's synced |
+| `npm run pull` / `pnpm pull` | Copy from `~/.claude` → repo (for committing) |
+| `npm run push` / `pnpm push` | Copy from repo → `~/.claude` (install config) |
+| `npm run status` / `pnpm status` | Show what's synced |
 
 ## What's Synced
 

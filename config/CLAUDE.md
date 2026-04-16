@@ -74,6 +74,10 @@ Extract EVERY UI element from the design:
 - ALWAYS check package manager before running scripts.
 - Before installing libraries, ALWAYS check latest stable version with context7 or Web.
 - For reading/editing `.xlsx` files — ALWAYS use `openpyxl` (Python). No other tool.
+- For `.docx` files (both `python-docx` and `pandoc` are already installed):
+  - **Read / edit** existing DOCX → `python-docx` (Python). Access `doc.paragraphs`, `doc.tables`, styles.
+  - **Generate from scratch** — if source is Markdown, prefer `pandoc` CLI (`pandoc in.md -o out.docx --toc`) for correct headings/lists/tables; otherwise build with `python-docx`.
+  - Never hand-roll OOXML XML.
 
 ---
 

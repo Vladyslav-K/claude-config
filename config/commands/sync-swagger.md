@@ -141,29 +141,29 @@ Run `format-and-check` script from `package.json` (typically combines format + l
 
 ### 7. Final Report
 
-After ALL work is done, present a single summary:
+After ALL work is done, present a single summary. **The report MUST be written in Ukrainian (українською мовою).** All section headers, descriptions, and explanations — in Ukrainian. Only code identifiers, file paths, HTTP methods, and endpoint paths remain in English.
 
 ```
-## Swagger Sync Complete
+## Синхронізація Swagger завершена
 
-### Updated endpoints:
-- [METHOD /path] — what changed (e.g., "added field X to response, removed field Y")
+### Оновлені ендпоінти:
+- [METHOD /path] — що змінилось (наприклад, "додано поле X у відповідь, видалено поле Y")
 - ...
 
-### Usage sites fixed:
-- [file path] — what was fixed (e.g., "updated destructuring to use new field name")
+### Виправлені місця використання:
+- [шлях до файлу] — що виправлено (наприклад, "оновлено деструктуризацію для нового імені поля")
 - ...
 
-### New endpoints added (types + services + hooks only):
-- [METHOD /path] — description
+### Нові ендпоінти додані (лише types + services + hooks):
+- [METHOD /path] — опис
 - ...
 
-### Flagged (in code but missing from swagger):
-- [METHOD /path] — may need review/removal
+### Позначені для перевірки (є в коді, але відсутні у swagger):
+- [METHOD /path] — потребує перегляду/видалення
 - ...
 
-### Files modified:
-- [list of all changed files]
+### Змінені файли:
+- [список всіх змінених файлів]
 ```
 
 ---

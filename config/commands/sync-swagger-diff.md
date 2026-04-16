@@ -68,6 +68,173 @@ Do this independently for both specs — do NOT merge yet.
 
 Compare `swagger-old.json` (baseline) vs `swagger.json` (new). **This is the heart of this command.** The diff itself — not the project code — is the source of truth for what needs to change.
 
+**⚡ Use these Python scripts via Bash tool** — swagger files are too large for Read tool (~300KB+), so always compute the diff programmatically.
+
+#### Script 1: Compare endpoints (new / removed / changed)
+
+```bash
+python3 -c "
+import json, sys
+
+OLD_PATH = '<path-to-swagger-old.json>'
+NEW_PATH = '<path-to-swagger.json>'
+
+with open(OLD_PATH) as f:
+    old = json.load(f)
+with open(NEW_PATH) as f:
+    new = json.load(f)
+
+def get_endpoints(spec):
+    endpoints = {}
+    for path, methods in spec.get('paths', {}).items():
+        for method, details in methods.items():
+            if method in ('get', 'post', 'put', 'patch', 'delete', 'options', 'head'):
+                key = f'{method.upper()} {path}'
+                endpoints[key] = details
+    return endpoints
+
+old_eps = get_endpoints(old)
+new_eps = get_endpoints(new)
+old_keys = set(old_eps.keys())
+new_keys = set(new_eps.keys())
+
+added = sorted(new_keys - old_keys)
+removed = sorted(old_keys - new_keys)
+common = sorted(old_keys & new_keys)
+
+print('=== NEW ENDPOINTS ===')
+for ep in added:
+    tags = new_eps[ep].get('tags', [])
+    op_id = new_eps[ep].get('operationId', 'N/A')
+    print(f'  {ep} | tags={tags} | operationId={op_id}')
+
+print()
+print('=== REMOVED ENDPOINTS ===')
+for ep in removed:
+    tags = old_eps[ep].get('tags', [])
+    op_id = old_eps[ep].get('operationId', 'N/A')
+    print(f'  {ep} | tags={tags} | operationId={op_id}')
+
+print()
+print(f'=== COMMON ENDPOINTS: {len(common)} ===')
+changed = []
+for ep in common:
+    if json.dumps(old_eps[ep], sort_keys=True) != json.dumps(new_eps[ep], sort_keys=True):
+        changed.append(ep)
+
+print(f'Changed: {len(changed)}')
+for ep in changed:
+    print(f'  {ep}')
+"
+```
+
+#### Script 2: Compare schemas (new / removed / changed)
+
+```bash
+python3 -c "
+import json
+
+OLD_PATH = '<path-to-swagger-old.json>'
+NEW_PATH = '<path-to-swagger.json>'
+
+with open(OLD_PATH) as f:
+    old = json.load(f)
+with open(NEW_PATH) as f:
+    new = json.load(f)
+
+old_schemas = set(old.get('components', {}).get('schemas', {}).keys())
+new_schemas = set(new.get('components', {}).get('schemas', {}).keys())
+
+added = sorted(new_schemas - old_schemas)
+removed = sorted(old_schemas - new_schemas)
+common = sorted(old_schemas & new_schemas)
+
+print('=== NEW SCHEMAS ===')
+for s in added:
+    print(f'  {s}')
+
+print()
+print('=== REMOVED SCHEMAS ===')
+for s in removed:
+    print(f'  {s}')
+
+print()
+print(f'=== COMMON SCHEMAS: {len(common)} ===')
+changed = []
+for s in common:
+    if json.dumps(old['components']['schemas'][s], sort_keys=True) != json.dumps(new['components']['schemas'][s], sort_keys=True):
+        changed.append(s)
+
+print(f'Changed: {len(changed)}')
+for s in changed:
+    print(f'  {s}')
+"
+```
+
+#### Script 3: Show detailed diff for a specific endpoint
+
+Use this AFTER scripts 1-2 identify changed endpoints. Replace `METHOD` and `/path` accordingly:
+
+```bash
+python3 -c "
+import json
+
+OLD_PATH = '<path-to-swagger-old.json>'
+NEW_PATH = '<path-to-swagger.json>'
+# Change these to the target endpoint:
+TARGET_PATH = '/api/companies'
+TARGET_METHOD = 'get'
+
+with open(OLD_PATH) as f:
+    old = json.load(f)
+with open(NEW_PATH) as f:
+    new = json.load(f)
+
+old_ep = old['paths'][TARGET_PATH][TARGET_METHOD]
+new_ep = new['paths'][TARGET_PATH][TARGET_METHOD]
+
+print('=== OLD ===')
+print(json.dumps(old_ep, indent=2))
+print()
+print('=== NEW ===')
+print(json.dumps(new_ep, indent=2))
+"
+```
+
+#### Script 4: Show detailed diff for a specific schema
+
+Use this AFTER script 2 identifies changed schemas:
+
+```bash
+python3 -c "
+import json
+
+OLD_PATH = '<path-to-swagger-old.json>'
+NEW_PATH = '<path-to-swagger.json>'
+SCHEMA_NAME = 'UserDto'  # Change to target schema
+
+with open(OLD_PATH) as f:
+    old = json.load(f)
+with open(NEW_PATH) as f:
+    new = json.load(f)
+
+old_s = old['components']['schemas'].get(SCHEMA_NAME, {})
+new_s = new['components']['schemas'].get(SCHEMA_NAME, {})
+
+print('=== OLD ===')
+print(json.dumps(old_s, indent=2))
+print()
+print('=== NEW ===')
+print(json.dumps(new_s, indent=2))
+"
+```
+
+**Execution order:** Run Script 1 + Script 2 in parallel → then Script 3/4 only for items that changed.
+
+**Replace `<path-to-swagger-old.json>` and `<path-to-swagger.json>`** with actual paths found in step 0.
+
+---
+
 Categorize every difference into:
 
 #### A. CHANGED endpoints
@@ -212,49 +379,49 @@ Run `format-and-check` script from `package.json` (typically combines format + l
 
 ### 8. Final Report
 
-After ALL work is done, present a single summary:
+After ALL work is done, present a single summary. **The report MUST be written in Ukrainian (українською мовою).** All section headers, descriptions, and explanations — in Ukrainian. Only code identifiers, file paths, HTTP methods, and endpoint paths remain in English.
 
 ```
-## Swagger Diff Sync Complete
+## Синхронізація Swagger Diff завершена
 
-### Swagger diff summary:
-- CHANGED endpoints: N
-- NEW endpoints: N
-- REMOVED endpoints: N (flagged, not deleted)
-- CHANGED schemas: N
-- NEW schemas: N
-- REMOVED schemas: N (flagged, not deleted)
+### Підсумок swagger diff:
+- Змінені ендпоінти: N
+- Нові ендпоінти: N
+- Видалені ендпоінти: N (позначені, не видалені з коду)
+- Змінені схеми: N
+- Нові схеми: N
+- Видалені схеми: N (позначені, не видалені з коду)
 
-### Updated endpoints (with exact delta applied):
-- [METHOD /path] — what changed (e.g., "renamed name->fullName in request body; added updatedAt in response")
+### Оновлені ендпоінти (з точною дельтою):
+- [METHOD /path] — що змінилось (наприклад, "перейменовано name→fullName у тілі запиту; додано updatedAt у відповідь")
 - ...
 
-### Updated schemas:
-- [SchemaName] — what changed
+### Оновлені схеми:
+- [SchemaName] — що змінилось
 - ...
 
-### Usage sites fixed:
-- [file path] — what was fixed (e.g., "updated destructuring to use fullName instead of name")
+### Виправлені місця використання:
+- [шлях до файлу] — що виправлено (наприклад, "оновлено деструктуризацію: fullName замість name")
 - ...
 
-### New endpoints added (types + services + hooks only, NO UI):
-- [METHOD /path] — description
+### Нові ендпоінти додані (лише types + services + hooks, БЕЗ UI):
+- [METHOD /path] — опис
 - ...
 
-### New schemas added:
-- [SchemaName] — description
+### Нові схеми додані:
+- [SchemaName] — опис
 - ...
 
-### Flagged REMOVED (in code but missing from new swagger):
-- Endpoints: [METHOD /path] — may need review/removal
-- Schemas: [SchemaName] — may need review/removal
+### Позначені ВИДАЛЕНІ (є в коді, але відсутні у новому swagger):
+- Ендпоінти: [METHOD /path] — потребує перегляду/видалення
+- Схеми: [SchemaName] — потребує перегляду/видалення
 - ...
 
-### Files modified:
-- [list of all changed files]
+### Змінені файли:
+- [список всіх змінених файлів]
 
-### Next steps for user:
-- Swap `swagger-old.json` with `swagger.json` once this sync is verified, so the next diff starts from the new baseline.
+### Наступні кроки:
+- Замініть `swagger-old.json` на `swagger.json` після перевірки цієї синхронізації, щоб наступний diff починався з нової базової версії.
 ```
 
 ---

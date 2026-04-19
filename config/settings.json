@@ -107,12 +107,26 @@
   },
   "model": "opus[1m]",
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{CLAUDE_HOME}}/scripts/prompt-inject.sh"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
             "command": "printf '\\a' > /dev/tty 2>/dev/null || printf '\\a'"
+          },
+          {
+            "type": "command",
+            "command": "{{CLAUDE_HOME}}/scripts/stop-check.sh"
           }
         ]
       }

@@ -1,32 +1,31 @@
 # Frontend Rules
 
-## Project-First Principle
-Always follow the project's existing libraries, patterns, and code style over these defaults.
+## Project-First Principle (overrides everything below)
+Every rule in this file is a **default that applies only when the project has no established convention of its own**. If the project already uses a different pattern — follow the project. Your job is to match the codebase, not to push these defaults onto it.
 
-## Component Conventions
+Check before applying any default below:
+- Does the existing code use a different pattern? → follow the existing pattern
+- Does the linter/formatter config disagree? → follow the linter
+- Is the project a different stack (Vue, Angular, older React, etc.)? → ignore framework-specific defaults below
+
+---
+
+## Defaults when the project has no established convention
+
+### Component Conventions (defaults)
 - Define components using `function` keyword
-- All methods inside components must be `const` — no raw function declarations in component body
+- Methods inside components as `const`
 - Prefer `interface` over `type` for object structures
-- Default to Server Components. Use `'use client'` only for: event listeners, browser APIs, state management, client-only libs
+- Server Components by default; `'use client'` only for event listeners, browser APIs, state, client-only libs
 
-## Naming
-- Files/directories: **kebab-case** (`user-profile.tsx`, `auth-wizard/`)
-- Components/Types/Interfaces: **PascalCase**
-- Variables/Functions/Props: **camelCase**
-- Handlers: `handle*` (`handleClick`, `handleSubmit`)
-- Booleans: `is*`/`has*`/`can*` (`isLoading`, `hasError`)
-- Hooks: `use*` (`useAuth`, `useForm`)
-- Constants/Env: **UPPERCASE**
+### Naming (defaults)
+- Files/directories: kebab-case (`user-profile.tsx`)
+- Components/Types/Interfaces: PascalCase
+- Variables/Functions/Props: camelCase
+- Handlers: `handle*`; Booleans: `is*`/`has*`/`can*`; Hooks: `use*`; Constants: UPPERCASE
 
-## Code Style Defaults
-- Spaces for indentation, semicolons, single quotes, trailing commas
-- Strict equality (`===`), line length ~80 chars
-- NOTE: project linter/formatter config ALWAYS overrides these
+### Code Style (defaults, linter overrides)
+Spaces, semicolons, single quotes, trailing commas, strict equality, ~80 char lines.
 
-## Stack Defaults (when project has no existing choice)
-- Framework: Next.js (App Router, Server Components default)
-- UI: Shadcn UI + Radix UI + Tailwind CSS
-- Validation: Zod + React Hook Form
-- i18n: i18next
-- Sanitization: DOMPurify
-- Testing: Jest + React Testing Library (only when asked)
+### Stack Defaults (new greenfield only)
+Next.js App Router + Server Components, Shadcn UI + Radix + Tailwind, Zod + React Hook Form, i18next, DOMPurify, Jest + RTL when asked.

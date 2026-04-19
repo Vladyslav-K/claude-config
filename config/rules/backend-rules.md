@@ -1,10 +1,13 @@
 # Backend Rules
 
-## Stack Defaults (for new projects)
+## Project-First Principle (overrides everything below)
+Every default below applies only when the project has no established stack/pattern. If the project already uses something else (Express, Fastify, TypeORM, Drizzle, etc.) — follow the project. Your job is to match the codebase.
+
+---
+
+## Stack Defaults (for greenfield only)
 - **Framework:** Nest.js | **ORM:** Prisma | **Docs:** Swagger (@nestjs/swagger)
 - **Validation:** class-validator + class-transformer | **Auth:** JWT + Passport.js
-
-For existing projects — follow the established stack and patterns.
 
 ---
 

@@ -1,10 +1,10 @@
 # Task Execution Workflow
 
-**You ARE the implementer. Research, plan, build, self-review directly.**
+**You are the implementer. You read files, plan, build, and self-review yourself — none of this delegates to agents.**
 
 Only agent you use: `Explore` (Agent tool, `subagent_type: "Explore"`) — for file search/grep. You READ found files and MAKE DECISIONS yourself.
 
-**🔴 Agents NEVER write/edit code.** They lack thinking capability and produce terrible results. All code creation, editing, and implementation — ONLY you, in the main context, with full thinking.
+**🔴 Agents NEVER write/edit code.** They lack thinking capability and produce terrible results. All code changes are made by you in the main context. Agents cannot replace the discovery → decide → implement loop.
 
 ---
 

@@ -123,10 +123,6 @@
           {
             "type": "command",
             "command": "printf '\\a' > /dev/tty 2>/dev/null || printf '\\a'"
-          },
-          {
-            "type": "command",
-            "command": "{{CLAUDE_HOME}}/scripts/stop-check.sh"
           }
         ]
       }

@@ -30,7 +30,7 @@ Before writing or editing component code, complete these reads. Skipping any of 
 4. **The file you are editing (if editing).** Read the entire file, not just the lines mentioned in the request. The surrounding code holds the context that explains why the current code looks the way it does.
 5. **Closest neighboring page or screen.** Open one similar page in the same project. This is the project's design language — match it.
 
-**Output of pre-flight.** Before the first edit, name (in your response) the components found, the spacing scale values, and the closest sibling page. This proves the reads happened. If you cannot name them — you have not done the pre-flight.
+**Using pre-flight findings.** The component list, spacing scale, and neighboring page you discovered feed into your action plan and any ★ Insight blocks — reference specific names where they are relevant (e.g., "reusing `<Card>` and `<Button>`, spacing on the 4/8/16 scale"). Do not emit a standalone "pre-flight inventory" block just to prove the reads happened. If the task is complex enough to need a plan for approval (per task-execution.md), that plan should mention the specific components and tokens by name; for simpler tasks, a short reference is enough. If you catch yourself unable to name these while writing code — stop and re-read.
 
 **Failure mode this prevents.** Building a `<Card>` from scratch when the project already has one. Inventing a `padding: 13px` when the project's scale is 4/8/16/24. Picking a color that does not exist in the palette. Re-implementing a Button with utility classes because you did not look.
 
@@ -200,9 +200,9 @@ Creativity is judgement, not unsolicited replacement. Use this table.
 
 Before reporting the task as done, walk through every item below. If any answer is "no" or "I did not check" — go back and fix it before reporting.
 
-1. **Pre-flight reads.** Did I read the component library, sibling components, and tokens file? Can I name them in my response?
-2. **Reuse.** For each new component or markup, did I check the project for an existing equivalent? Can I name what I checked?
-3. **Spacing scale.** Are all my spacing values from the project's scale? List the values used.
+1. **Pre-flight reads.** Did I read the component library, sibling components, and tokens file? (Internal check — if anything was skipped, go back and read.)
+2. **Reuse.** For each new component or markup, did I check the project for an existing equivalent before writing it?
+3. **Spacing scale.** Are all my spacing values from the project's scale?
 4. **Hierarchy.** Is there a clear primary element per section? Does it scan in 2 seconds?
 5. **States.** Does every interactive element have all required states (default, hover, focus-visible, active, disabled, plus loading/error/empty where applicable)?
 6. **Mobile.** Are primary actions in the thumb-friendly zone (bottom or right)? Are touch targets ≥ 44px? Is there enough spacing between them?

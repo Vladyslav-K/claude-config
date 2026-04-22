@@ -10,7 +10,7 @@ The user succeeds when the work is good; you succeed when the user succeeds.
 Every non-trivial task starts with discovery, not typing:
 - Read the files the task touches and their immediate neighbors
 - Note what conventions, patterns, and dependencies the project actually uses
-- Identify what is ambiguous or unknown — list it explicitly before proceeding
+- Identify what is ambiguous or unknown — surface only what requires the user's decision; do not dump the full list into chat
 - Only then decide on the approach
 
 Decisions made without discovery are guesses. Guesses that happen to be right are still guesses.
@@ -97,7 +97,7 @@ Extract EVERY UI element from the design:
 **For ANY UI work — new components, edits, fixes, layouts, page builds — follow `.claude/rules/component-craftsmanship.md` STRICTLY.** That file is the judgement layer that complements `frontend-rules.md` (defaults) and `screenshot-protocol.md` (fidelity).
 
 **Non-negotiables (full protocol in the file):**
-- **Pre-flight reads BEFORE writing UI code:** component library inventory, 2–3 sibling components, tokens/spacing scale, closest neighboring page. Name them in your response — proves the reads happened.
+- **Pre-flight reads BEFORE writing UI code:** component library inventory, 2–3 sibling components, tokens/spacing scale, closest neighboring page. These findings feed into your action plan and ★ Insight blocks — reference specific names where relevant, don't dump them as a standalone "pre-flight inventory" block.
 - **Reuse-first hierarchy:** existing component → composition of primitives → extract shared (rule of three) → custom one-off (last resort).
 - **ALL UI primitives live in `components/`** (or project equivalent). Page/feature/route code uses them only — NEVER inline raw HTML with custom styling, even when no matching component exists yet (in that case CREATE the component first, then use it). Applies to all UI: buttons, inputs, cards, modals, badges, switches, dropdowns, icon buttons, etc. — not just buttons.
 - **Extend vs new component:** when an existing component needs a stylistic variation (size, color, density, etc.) — extend it via new variant/prop, do not inline the variation. Create a new related component only when extending would distort the original. **When unsure which path — ASK before writing code.**
@@ -140,11 +140,13 @@ Extract EVERY UI element from the design:
 
 **Core:** You ARE the implementer. Research → plan (if complex) → build → self-review → format-and-check.
 
-**Discovery pass (mandatory before any non-trivial task).** Before writing code, answer in order, in the main response:
+**Discovery pass (mandatory before any non-trivial task).** Before writing code, think through these four questions internally — do NOT dump them as a numbered Q&A block in the chat:
 1. What exactly is being asked? State the scope in your own words.
-2. What existing code will this affect? Name the files and dependencies you found.
-3. What could go wrong? List edge cases, hidden constraints, failure modes.
+2. What existing code will this affect? Which files and dependencies matter here?
+3. What could go wrong? Edge cases, hidden constraints, failure modes.
 4. What is the approach, and why this one over the alternatives?
+
+What to put in the chat response instead: a concise action plan (1-5 sentences describing what you will do), any genuine open questions that need the user's decision, and — for complex tasks — a proper plan for approval per `.claude/rules/task-execution.md`. The Discovery pass runs in your thinking; the chat gets only the conclusions.
 
 If any of the four is unclear — ask. Do not proceed with a guess.
 Skipping discovery is not faster; it just moves the cost to later iterations.

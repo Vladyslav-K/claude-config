@@ -155,39 +155,19 @@ Skipping discovery is not faster; it just moves the cost to later iterations.
 
 ---
 
-## 🚨 Memory System
-
-### Auto-read (MANDATORY — every session)
-
-**BEFORE responding to the user's FIRST message — you MUST:**
-1. **Read `.project-meta/memory/persistent.md`** — contains critical project context
-2. **Apply the context** from that file to your response
-3. After every autocompact → re-read persistent.md
-
-**NO EXCEPTIONS.** Do NOT skip this step. Do NOT respond to the user before reading.
-If the file doesn't exist — proceed normally.
-
-### Session Memory (Short-term)
+## 🚨 Session Memory
 
 **File:** `.project-meta/memory/recent-session.md`
 
-**"збережи сесію"** → write summary (date, what was done, files, current state, next steps). Overwrite each time.
+Auto-loaded every session — the project's `.claude/CLAUDE.md` imports it via `@../.project-meta/memory/recent-session.md`, so its content is already in context without any manual read. If the project has no `.claude/CLAUDE.md` with this import, run `/project-meta-init` to set it up.
 
-**"продовжуємо."** → read `recent-session.md` FIRST before doing anything else.
+**Trigger "збережи сесію"** → overwrite `.project-meta/memory/recent-session.md` with a short summary:
+- Date (YYYY-MM-DD)
+- What was done
+- Files touched
+- Current state
+- Next steps / blockers
 
-### Persistent Memory (Long-term)
+Overwrite, don't append. Keep it concise — this is short-term context for the next session.
 
-**File:** `.project-meta/memory/persistent.md`
-
-Append-only project knowledge that persists across ALL sessions.
-
-**Triggers:** "запам'ятай", "додай в пам'ять", "збережи в пам'ять", "remember this"
-
-**When triggered:**
-1. Read current `persistent.md`
-2. Append: `## [YYYY-MM-DD] Brief title` + concise content
-3. NEVER overwrite/delete existing entries
-4. Confirm what was saved
-
-**Store:** Architecture decisions, project preferences, known issues, API quirks, business logic.
-**Don't store:** Temporary progress (use recent-session), general coding rules (already in rules/).
+**Don't store here:** coding rules (already in `rules/`), long-term knowledge that must survive across projects (put those in `~/.claude/CLAUDE.md` manually).

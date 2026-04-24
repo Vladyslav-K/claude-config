@@ -130,7 +130,28 @@ COST=$(echo "$INPUT" | jq -r '.cost.total_cost_usd // 0' | LC_ALL=C awk '{printf
 LINES_ADDED=$(echo "$INPUT" | jq -r '.cost.total_lines_added // 0')
 LINES_REMOVED=$(echo "$INPUT" | jq -r '.cost.total_lines_removed // 0')
 
-LINE4="${YELLOW}Context: ${CONTEXT_PCT}% | +${LINES_ADDED} -${LINES_REMOVED} | \$${COST}${RESET}"
+# Effort level & thinking state
+EFFORT_LEVEL=$(echo "$INPUT" | jq -r '.effort.level // empty')
+THINKING_ENABLED=$(echo "$INPUT" | jq -r '.thinking.enabled')
+
+EXTRAS=""
+if [[ -n "$EFFORT_LEVEL" ]]; then
+    EXTRAS="${EFFORT_LEVEL}"
+fi
+if [[ "$THINKING_ENABLED" == "true" ]] || [[ "$THINKING_ENABLED" == "false" ]]; then
+    THINK_DISPLAY="Not Thinking"
+    [[ "$THINKING_ENABLED" == "true" ]] && THINK_DISPLAY="Thinking"
+    if [[ -n "$EXTRAS" ]]; then
+        EXTRAS="${EXTRAS} | ${THINK_DISPLAY}"
+    else
+        EXTRAS="${THINK_DISPLAY}"
+    fi
+fi
+
+SUFFIX=""
+[[ -n "$EXTRAS" ]] && SUFFIX=" | ${EXTRAS}"
+
+LINE4="${YELLOW}Context: ${CONTEXT_PCT}% | +${LINES_ADDED} -${LINES_REMOVED} | \$${COST}${SUFFIX}${RESET}"
 
 # ============================================
 # OUTPUT

@@ -16,6 +16,7 @@ Create the folder structure used by `/tasks:plan`, `/tasks:run`, `/estimate`, an
 │       └── screenshots/     # Task descriptions + design documents + screenshots
 ├── estimation/
 │   └── screenshots/         # Task files + screenshots for estimation
+├── swagger/                 # swagger.json / swagger-old.json for /sync-swagger and /sync-swagger-diff
 └── memory/
     └── recent-session.md    # Short-term: last session summary (overwritten each time)
 
@@ -28,6 +29,7 @@ Create the folder structure used by `/tasks:plan`, `/tasks:run`, `/estimate`, an
 ```bash
 mkdir -p .project-meta/tasks/plan/screenshots
 mkdir -p .project-meta/estimation/screenshots
+mkdir -p .project-meta/swagger
 mkdir -p .project-meta/memory
 mkdir -p .claude
 touch .project-meta/memory/recent-session.md
@@ -43,6 +45,7 @@ After creating, report what was created and remind usage:
 - `/tasks:plan` — add .md files to `tasks/plan/`, screenshots to `tasks/plan/screenshots/`
 - `/tasks:run` — execute planned tasks sequentially
 - `/estimate` — add task files to `estimation/`, screenshots to `estimation/screenshots/`
+- `/sync-swagger`, `/sync-swagger-diff` — put `swagger.json` (and `swagger-old.json` for diff) into `swagger/`
 - Say "збережи сесію" at end of session — I'll overwrite `recent-session.md` with a summary; next session it auto-loads via `.claude/CLAUDE.md`
 
 ## Notes

@@ -24,7 +24,7 @@ Before anything else — **research this specific project** to understand how it
 
 Use Explore agent / Glob / Grep to answer:
 
-1. **Where is `swagger.json`?** — Check `.project-meta/tasks/swagger.json` first, then search broadly (`**/swagger.json`, `**/openapi.json`). If not found — ask the user.
+1. **Where is `swagger.json`?** — Check `.project-meta/swagger/swagger.json` first, then search broadly (`**/swagger.json`, `**/openapi.json`). If not found — ask the user.
 2. **Where are API types defined?** — Search for directories/files containing API interfaces, DTOs, enums (e.g., `types/`, `models/`, `interfaces/`, `api/`, `generated/`).
 3. **Where are API service functions?** — Search for files that make HTTP calls (axios, fetch, ky, got, etc.). Understand the HTTP client used.
 4. **Where are API hooks defined?** — Search for React Query / SWR / custom hooks that wrap service calls. Identify the data-fetching library used.

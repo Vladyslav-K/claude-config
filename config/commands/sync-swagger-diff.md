@@ -29,8 +29,8 @@ Before anything else — **research this specific project** to understand how it
 Use Explore agent / Glob / Grep to answer:
 
 1. **Where are the swagger files?**
-   - `swagger-old.json` — baseline, already synced with project. Check `.project-meta/tasks/swagger-old.json` first, then search broadly (`**/swagger-old.json`).
-   - `swagger.json` — new version. Check `.project-meta/tasks/swagger.json` first, then search broadly.
+   - `swagger-old.json` — baseline, already synced with project. Check `.project-meta/swagger/swagger-old.json` first, then search broadly (`**/swagger-old.json`).
+   - `swagger.json` — new version. Check `.project-meta/swagger/swagger.json` first, then search broadly.
    - **If either file is missing — STOP and ask the user where they are.** Do NOT proceed without both files.
 2. **Where are API types defined?** — Search for directories/files containing API interfaces, DTOs, enums (e.g., `types/`, `models/`, `interfaces/`, `api/`, `generated/`).
 3. **Where are API service functions?** — Search for files that make HTTP calls (axios, fetch, ky, got, etc.). Understand the HTTP client used.

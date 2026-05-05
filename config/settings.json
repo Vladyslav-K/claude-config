@@ -35,6 +35,7 @@
       "Bash(npm install:*)",
       "Bash(npm remove:*)",
       "Bash(npm run format-and-check:*)",
+      "Bash(npm exec:*)",
       "Bash(pnpm typecheck:*)",
       "Bash(pnpm format:*)",
       "Bash(pnpm lint:*)",
@@ -47,6 +48,7 @@
       "Bash(pnpm run format-and-check:*)",
       "Bash(pnpm install:*)",
       "Bash(pnpm remove:*)",
+      "Bash(pnpm exec:*)",
       "Bash(wc:*)",
       "Bash(head:*)",
       "Bash(tail:*)",
@@ -68,7 +70,8 @@
       "Bash(yarn run build:*)",
       "Bash(yarn run format-and-check:*)",
       "Bash(yarn install:*)",
-      "Bash(yarn remove:*)"
+      "Bash(yarn remove:*)",
+      "Bash(yarn exec:*)"
     ],
     "deny": [
       "Read(./secrets/**)",

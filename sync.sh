@@ -52,6 +52,7 @@ SYNC_ITEMS=(
     "commands"
     "scripts"
     "skills"
+    "skills-lock.json"
     "plugins/installed_plugins.json"
     "plugins/known_marketplaces.json"
 )

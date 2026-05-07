@@ -3,18 +3,16 @@
   "env": {
     "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "65000",
     "CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS": "300000",
-    "CLAUDE_CODE_NO_FLICKER": "0",
     "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING": "1"
   },
-  "includeCoAuthoredBy": false,
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
   "permissions": {
     "allow": [
       "WebSearch",
       "WebFetch",
-      "mcp__Framelink_Figma_MCP__get_figma_data",
-      "mcp__Framelink_Figma_MCP__download_figma_images",
-      "mcp__context7__query-docs",
-      "mcp__context7__resolve-library-id",
       "Bash(find:*)",
       "Bash(ls:*)",
       "Bash(ls -*:*)",
@@ -71,7 +69,18 @@
       "Bash(yarn run format-and-check:*)",
       "Bash(yarn install:*)",
       "Bash(yarn remove:*)",
-      "Bash(yarn exec:*)"
+      "Bash(yarn exec:*)",
+      "Bash(bun:*)",
+      "Bash(bunx:*)",
+      "Bash(rg:*)",
+      "Bash(fd:*)",
+      "Bash(tree:*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh issue view:*)"
     ],
     "deny": [
       "Read(./secrets/**)",
@@ -98,7 +107,9 @@
       "Bash(git checkout -- .:*)",
       "Bash(docker run -v /:/:*)",
       "Bash(eval:*)",
-      "Bash(git push --force-with-lease:*)"
+      "Bash(git push --force-with-lease:*)",
+      "Bash(rm -rf /*:*)",
+      "Bash(rm -rf ~:*)"
     ],
     "ask": [
       "Bash(rm:*)",
@@ -138,13 +149,21 @@
   "enabledPlugins": {
     "explanatory-output-style@claude-code-plugins": true
   },
+  "skillListingBudgetFraction": 0.05,
   "outputStyle": "Explanatory",
   "language": "Ukrainian",
   "alwaysThinkingEnabled": true,
+  "effortLevel": "xhigh",
+  "showThinkingSummaries": true,
   "tui": "fullscreen",
   "autoMemoryEnabled": false,
+  "editorMode": "normal",
   "preferredNotifChannel": "terminal_bell",
+  "autoCompactEnabled": false,
+  "terminalProgressBarEnabled": false,
   "teammateMode": "tmux",
+  "remoteControlAtStartup": false,
+  "useAutoModeDuringPlan": false,
   "feedbackSurveyState": {
     "lastShownTime": 1754036467609
   }

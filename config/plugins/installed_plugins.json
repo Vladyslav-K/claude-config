@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "plugins": {
+    "explanatory-output-style@claude-code-plugins": [
+      {
+        "scope": "user",
+        "installPath": "{{CLAUDE_HOME}}/plugins/cache/claude-code-plugins/explanatory-output-style/1.0.0",
+        "version": "1.0.0",
+        "installedAt": "2025-11-02T19:32:59.748Z",
+        "lastUpdated": "2025-11-02T19:32:59.748Z",
+        "gitCommitSha": "b42fd9928c8f80ead5ca43e4e0673da22faca6bd",
+        "isLocal": true
+      }
+    ]
+  }
+}

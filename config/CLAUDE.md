@@ -54,57 +54,15 @@ The user pays for quality, not for speed. Token cost is irrelevant to the outcom
 
 ---
 
-## 🚨 Design-First Development
+## 🔧 Skills (auto-triggered)
 
-**When a task has design documents (`*__design.md`) and/or screenshots:**
+При відповідних тригерах автоматично активуються skills (контент завантажується тільки при потребі — економить контекст):
 
-### Source of Truth (in order of priority)
-1. **User's explicit instruction** in current chat — overrides everything
-2. **Design document** (`*__design.md`) — defines EVERY element: sizes, colors, text, spacing, states
-3. **Screenshot** — visual verification of design interpretation
-4. **Task description** — business requirements and scope
-5. **Existing codebase** — component reference ONLY (how to import/use, not what to build)
+- **`component-craftsmanship`** — UI компоненти (нові, edits, fixes, layouts, page builds). Pre-flight reads, reuse hierarchy, quality triggers, scope calibration, self-review checklist.
+- **`screenshot-implementation`** — імплементація з скріншотів / дизайнів / `*__design.md`. Source-of-truth, visual inventory, hard rules для тексту / порядку / елементів, self-review.
+- **`frontend-conventions`** — frontend код (React, Next.js, Vue, etc.). Component patterns, naming, code style, stack defaults.
 
-### Rules
-- If it's not in the design — it DOES NOT exist. Don't build it.
-- Existing pages are NOT templates. They show which components exist, not what your page looks like.
-- For every element you build — point to the exact line in the design document.
-- NEVER trust component defaults for visual styling. ALWAYS override with exact values from design via `className` or props.
-- Extract exact hex values for colors, exact px for spacing, exact font specs from design.
-
-### Before Coding a Visual Task
-
-**Full protocol:** `.claude/rules/screenshot-protocol.md` — follow it STRICTLY for every screenshot/design task.
-
-**Key non-negotiables:**
-- Analyze screenshot **top-to-bottom, left-to-right** — preserve this exact order in code
-- Copy ALL text **verbatim, character by character** — NEVER rephrase, translate, or "improve"
-- Match the **exact visual component type** (screenshot shows Switch → use Switch, not Checkbox)
-- Search and read actual project components BEFORE coding — understand their API
-- **If in design → MUST be in code. If NOT in design → MUST NOT be in code.**
-- If unsure about ANY element — ASK, don't guess
-
-Extract EVERY UI element from the design:
-- Each section: elements, text, dimensions, colors
-- Tables: EVERY column header, cell content format, row variations
-- Interactive elements: type, states (hover/active/disabled)
-- Badges/tags: text, colors, border-radius
-
----
-
-## 🎨 UI Component Work
-
-**For ANY UI work — new components, edits, fixes, layouts, page builds — follow `.claude/rules/component-craftsmanship.md` STRICTLY.** That file is the judgement layer that complements `frontend-rules.md` (defaults) and `screenshot-protocol.md` (fidelity).
-
-**Non-negotiables (full protocol in the file):**
-- **Pre-flight reads BEFORE writing UI code:** component library inventory, 2–3 sibling components, tokens/spacing scale, closest neighboring page. These findings feed into your action plan and ★ Insight blocks — reference specific names where relevant, don't dump them as a standalone "pre-flight inventory" block.
-- **Reuse-first hierarchy:** existing component → composition of primitives → extract shared (rule of three) → custom one-off (last resort).
-- **ALL UI primitives live in `components/`** (or project equivalent). Page/feature/route code uses them only — NEVER inline raw HTML with custom styling, even when no matching component exists yet (in that case CREATE the component first, then use it). Applies to all UI: buttons, inputs, cards, modals, badges, switches, dropdowns, icon buttons, etc. — not just buttons.
-- **Extend vs new component:** when an existing component needs a stylistic variation (size, color, density, etc.) — extend it via new variant/prop, do not inline the variation. Create a new related component only when extending would distort the original. **When unsure which path — ASK before writing code.**
-- **Copy-paste from another page:** if the source has the pattern as raw inline markup — DO NOT carry the raw forward. Extract to `components/` first, refactor the source, then use the new component in both places.
-- **Match scope:** point-fix = exactly that change, then scan one zoom-level out, surface broader issues separately, ASK before any restructuring. NEVER silently expand scope.
-- **Quality triggers mandatory:** hierarchy (one primary per section), density (project scale only, never inventing px), layout (no equal % for unequal elements), full state matrix (default/hover/focus-visible/active/disabled + loading/error/empty), mobile thumb zone (primary actions bottom or right, never top-left).
-- **Self-review against section 6 checklist before reporting done.**
+Якщо очевидно треба skill, але автоматично не активувався — виклич вручну через `/<skill-name>`.
 
 ---
 
@@ -118,11 +76,6 @@ Extract EVERY UI element from the design:
 - Speak Ukrainian with user, ALL code/comments in English.
 - ALWAYS check package manager before running scripts.
 - Before installing libraries, ALWAYS check latest stable version with context7 or Web.
-- For reading/editing `.xlsx` files — ALWAYS use `openpyxl` (Python). No other tool.
-- For `.docx` files (both `python-docx` and `pandoc` are already installed):
-  - **Read / edit** existing DOCX → `python-docx` (Python). Access `doc.paragraphs`, `doc.tables`, styles.
-  - **Generate from scratch** — if source is Markdown, prefer `pandoc` CLI (`pandoc in.md -o out.docx --toc`) for correct headings/lists/tables; otherwise build with `python-docx`.
-  - Never hand-roll OOXML XML.
 
 ---
 

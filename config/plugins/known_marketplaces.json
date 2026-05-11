@@ -5,7 +5,7 @@
       "repo": "anthropics/claude-code"
     },
     "installLocation": "{{CLAUDE_HOME}}/plugins/marketplaces/claude-code-plugins",
-    "lastUpdated": "2026-05-07T18:04:39.141Z"
+    "lastUpdated": "2026-05-11T10:47:23.434Z"
   },
   "claude-plugins-official": {
     "source": {

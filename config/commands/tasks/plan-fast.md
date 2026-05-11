@@ -98,7 +98,7 @@ Created: YYYY-MM-DD
 
 ```markdown
 # Tasks Status
-Updated: YYYY-MM-DD HH:mm
+Updated: YYYY-MM-DD
 
 ## Progress: 0/N (0%)
 

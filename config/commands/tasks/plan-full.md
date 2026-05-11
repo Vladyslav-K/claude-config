@@ -209,7 +209,7 @@ Mode: full-analysis
 
 ```markdown
 # Tasks Status
-Updated: YYYY-MM-DD HH:mm
+Updated: YYYY-MM-DD
 
 ## Progress: 0/N (0%)
 

@@ -56,7 +56,7 @@ After ALL tasks:
 ## status.md Updates
 
 1. Find row by task ID → replace status
-2. Update "Updated:" timestamp
+2. Update "Updated:" date (YYYY-MM-DD only, no time — use `currentDate` from session context)
 3. Recalculate progress: `done_count/total (percentage%)`
 
 **Status values:** `pending` → `research` → `running` → `done` / `blocked`

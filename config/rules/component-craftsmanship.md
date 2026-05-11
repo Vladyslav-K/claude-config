@@ -1,11 +1,6 @@
----
-name: component-craftsmanship
-description: Component craftsmanship for building, editing, or fixing UI components. Mandates pre-flight reads (component library inventory, sibling components, design tokens, neighboring page), reuse-first hierarchy (existing component → extend with variant → compose primitives → new component), quality triggers (hierarchy, density/spacing, layout, full state matrix including hover/focus-visible/disabled/loading/error/empty, mobile thumb zone), scope calibration (point-fix vs scoped vs open-ended), creativity calibration, and self-review checklist. Use when writing, editing, or fixing any UI component, page, layout, button, input, card, modal, badge, switch, dropdown, icon button, or visual element. Triggers on .tsx/.jsx/.vue/.svelte files, "build a component", "make a page", "fix the layout", "the button looks", "redo this card", "design a profile screen", screenshot-to-code work, anything involving a components/ folder.
----
-
 # Component Craftsmanship
 
-**Scope.** This skill applies whenever you create, edit, or fix UI components — regardless of framework. It works alongside the `frontend-conventions` skill (defaults: naming, syntax, stack) and the `screenshot-implementation` skill (fidelity to screenshots). This is the **judgement layer**: what to read first, when to reuse vs build, how to make the result objectively good, when to stay literal vs propose alternatives.
+**Scope.** This file applies whenever you create, edit, or fix UI components — regardless of framework. It works alongside `frontend-rules.md` (defaults: naming, syntax, stack) and `screenshot-protocol.md` (fidelity to screenshots). This file is the **judgement layer**: what to read first, when to reuse vs build, how to make the result objectively good, when to stay literal vs propose alternatives.
 
 **Why this exists.** Without explicit triggers, components get built badly: equal-percent layouts that ignore hierarchy, raw `<button>` with custom utility classes when a project Button exists, copy-paste from another page instead of reuse, primary actions in mobile top-left where no thumb reaches. Each failure has the same root cause — skipping the analysis step. The triggers below force the analysis.
 
@@ -35,7 +30,7 @@ Before writing or editing component code, complete these reads. Skipping any of 
 4. **The file you are editing (if editing).** Read the entire file, not just the lines mentioned in the request. The surrounding code holds the context that explains why the current code looks the way it does.
 5. **Closest neighboring page or screen.** Open one similar page in the same project. This is the project's design language — match it.
 
-**Using pre-flight findings.** The component list, spacing scale, and neighboring page you discovered feed into your action plan and any ★ Insight blocks — reference specific names where they are relevant (e.g., "reusing `<Card>` and `<Button>`, spacing on the 4/8/16 scale"). Do not emit a standalone "pre-flight inventory" block just to prove the reads happened. If the task is complex enough to need a plan for approval (per `task-execution.md`), that plan should mention the specific components and tokens by name; for simpler tasks, a short reference is enough. If you catch yourself unable to name these while writing code — stop and re-read.
+**Using pre-flight findings.** The component list, spacing scale, and neighboring page you discovered feed into your action plan and any ★ Insight blocks — reference specific names where they are relevant (e.g., "reusing `<Card>` and `<Button>`, spacing on the 4/8/16 scale"). Do not emit a standalone "pre-flight inventory" block just to prove the reads happened. If the task is complex enough to need a plan for approval (per task-execution.md), that plan should mention the specific components and tokens by name; for simpler tasks, a short reference is enough. If you catch yourself unable to name these while writing code — stop and re-read.
 
 **Failure mode this prevents.** Building a `<Card>` from scratch when the project already has one. Inventing a `padding: 13px` when the project's scale is 4/8/16/24. Picking a color that does not exist in the palette. Re-implementing a Button with utility classes because you did not look.
 
@@ -243,8 +238,8 @@ Before reporting the task as done, walk through every item below. If any answer 
 
 ---
 
-## 8. When This Skill Activates
+## 8. When to Read This File
 
-This skill activates automatically on UI tasks via the description triggers above (lives in `.claude/skills/component-craftsmanship/SKILL.md`). When the current task involves any UI code — new component, edit, fix, redesign, screenshot implementation, page build — apply it.
+This file auto-loads at every session start (it lives in `.claude/rules/`). When the current task involves any UI code — new component, edit, fix, redesign, screenshot implementation, page build — apply it.
 
 Entry point: section 1 (Pre-flight). Exit gate: section 6 (Self-Review). Skipping either makes the work a guess.

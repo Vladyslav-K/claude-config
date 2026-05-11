@@ -1,47 +1,6 @@
----
-name: screenshot-implementation
-description: Visual fidelity protocol for implementing UI from screenshots, mockups, or design documents. Defines source-of-truth hierarchy (user instruction → *__design.md → screenshot → task description → existing code), mandatory phases (visual inventory top-to-bottom + left-to-right, component mapping by visual type, hard rules for text verbatim, element order, no extras, no omissions, self-review pass). Use when the task includes a screenshot, image, mockup, design document (*__design.md), or any visual UI specification to implement. Triggers on phrases "from this screenshot", "implement this design", "build this layout", "this mockup", "this page", attached PNG/JPG images, design docs in .project-meta/tasks/plan/screenshots/.
----
+# Screenshot Implementation Protocol
 
-# Screenshot & Design-First Implementation
-
-**Scope.** This skill applies whenever a task includes a screenshot, image mockup, or design document (`*__design.md`) to implement.
-
-It complements the `component-craftsmanship` skill (judgement on how to build well) — this skill is the **fidelity layer** (don't deviate from what the design specifies).
-
----
-
-## Source of Truth (in order of priority)
-
-1. **User's explicit instruction** in current chat — overrides everything
-2. **Design document** (`*__design.md`) — defines EVERY element: sizes, colors, text, spacing, states
-3. **Screenshot** — visual verification of design interpretation
-4. **Task description** — business requirements and scope
-5. **Existing codebase** — component reference ONLY (how to import/use, not what to build)
-
----
-
-## Hard Rules (apply before, during, and after coding)
-
-- If it's not in the design — it DOES NOT exist. Don't build it.
-- Existing pages are NOT templates. They show which components exist, not what your page looks like.
-- For every element you build — point to the exact line in the design document.
-- NEVER trust component defaults for visual styling. ALWAYS override with exact values from design via `className` or props.
-- Extract exact hex values for colors, exact px for spacing, exact font specs from design.
-
-**Key non-negotiables:**
-- Analyze screenshot **top-to-bottom, left-to-right** — preserve this exact order in code
-- Copy ALL text **verbatim, character by character** — NEVER rephrase, translate, or "improve"
-- Match the **exact visual component type** (screenshot shows Switch → use Switch, not Checkbox)
-- Search and read actual project components BEFORE coding — understand their API
-- **If in design → MUST be in code. If NOT in design → MUST NOT be in code.**
-- If unsure about ANY element — ASK, don't guess
-
-Extract EVERY UI element from the design:
-- Each section: elements, text, dimensions, colors
-- Tables: EVERY column header, cell content format, row variations
-- Interactive elements: type, states (hover/active/disabled)
-- Badges/tags: text, colors, border-radius
+**When a task includes a screenshot to implement — follow this protocol STRICTLY.**
 
 ---
 
@@ -135,13 +94,3 @@ If ANY answer is "no" — fix it before reporting completion.
 | Adding extras | Screenshot has 3 buttons → Code has 4 buttons | Only 3 buttons |
 | Omitting elements | Screenshot has a search input → Code skips it | Include the search input |
 | Wrong variant | Screenshot shows outlined button → Code uses filled/default | Use outline variant |
-
----
-
-## API Verification (CRITICAL)
-
-When user provides screenshots/designs WITHOUT API docs:
-- **STOP** before creating types, services, or hooks
-- **ASK:** "Is there a backend API? What are the endpoints?"
-- If no API → UI with mock data only
-- **NEVER invent** endpoints, field names, or response structures from a screenshot

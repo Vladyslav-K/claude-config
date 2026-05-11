@@ -1,8 +1,3 @@
----
-name: frontend-conventions
-description: Frontend code conventions and stack defaults. Component patterns (function keyword for components, const for inner methods, interface over type), naming (kebab-case files, PascalCase components, camelCase variables, handle*/is*/has*/can*/use* prefixes), code style (linter overrides). Default greenfield stack — Next.js App Router with Server Components, Shadcn UI + Radix + Tailwind, Zod + React Hook Form, i18next, DOMPurify. Project-first principle — defaults apply only when project has no established convention. Use when writing or editing frontend code in React, Next.js, Vue, Svelte, or any UI framework. Triggers on .tsx, .jsx, .vue, .svelte, .astro files; React components; hooks; Next.js pages/layouts; Tailwind classes; client-side code.
----
-
 # Frontend Conventions
 
 ## Project-First Principle (overrides everything below)

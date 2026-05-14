@@ -1,9 +1,11 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "skillListingBudgetFraction": 0.05,
   "env": {
     "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "65000",
     "CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS": "300000",
-    "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING": "1"
+    "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING": "1",
+    "CLAUDE_CODE_EFFORT_LEVEL": "max"
   },
   "attribution": {
     "commit": "",
@@ -149,14 +151,13 @@
   "enabledPlugins": {
     "explanatory-output-style@claude-code-plugins": true
   },
-  "skillListingBudgetFraction": 0.05,
   "outputStyle": "Explanatory",
   "language": "Ukrainian",
   "alwaysThinkingEnabled": true,
   "effortLevel": "xhigh",
-  "showThinkingSummaries": true,
   "tui": "fullscreen",
   "autoMemoryEnabled": false,
+  "showThinkingSummaries": true,
   "editorMode": "normal",
   "preferredNotifChannel": "terminal_bell",
   "autoCompactEnabled": false,

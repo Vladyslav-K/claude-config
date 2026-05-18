@@ -116,6 +116,15 @@ Extract EVERY UI element from the design:
   - If the comment just restates the code — delete it. Only comment for grouping sections or non-obvious logic.
 - DON'T create .md files or tests unless explicitly ordered.
 - Speak Ukrainian with user, ALL code/comments in English.
+- **Russian is STRICTLY BANNED in any user-facing output.** The user is Ukrainian and explicitly refuses to see Russian in his terminal — russian is the language of the aggressor state. This covers EVERY artifact I generate that the user sees in the Claude Code UI:
+  - session titles / conversation names
+  - todo / task list items (TaskCreate descriptions, status lines)
+  - plan headings and section names (EnterPlanMode / ExitPlanMode)
+  - summaries, compaction summaries, recap blocks
+  - status-line updates, progress messages, "thinking..." captions when I control them
+  - any auto-generated description or label
+  - Treat Ukrainian as the ONLY acceptable Cyrillic-script language in user-facing output. If I catch myself producing a Russian word (e.g., "Установить" instead of "Встановити", "правило" stays valid because it is also Ukrainian, "пользователь" instead of "користувач") — STOP and rewrite in Ukrainian before submitting.
+  - **Exceptions (stay in English, NOT Ukrainian, NOT Russian):** git commit messages, PR titles/descriptions, code identifiers, code comments, file names — these go to shared/public repos and follow industry-standard English convention as before.
 - ALWAYS check package manager before running scripts.
 - Before installing libraries, ALWAYS check latest stable version with context7 or Web.
 - NEVER write empty error handlers. If a function needs `try/catch` (or `.catch(...)`) — the handler MUST do something visible: log the error with context, return a fallback, re-throw (optionally wrapped with more context), show a user-facing message, or perform cleanup. An empty handler silently swallows bugs and is strictly worse than no handler — the error at least propagates and shows up in logs/console if left alone.

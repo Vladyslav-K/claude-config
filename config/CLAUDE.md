@@ -118,6 +118,11 @@ Extract EVERY UI element from the design:
 - Speak Ukrainian with user, ALL code/comments in English.
 - ALWAYS check package manager before running scripts.
 - Before installing libraries, ALWAYS check latest stable version with context7 or Web.
+- NEVER write empty error handlers. If a function needs `try/catch` (or `.catch(...)`) — the handler MUST do something visible: log the error with context, return a fallback, re-throw (optionally wrapped with more context), show a user-facing message, or perform cleanup. An empty handler silently swallows bugs and is strictly worse than no handler — the error at least propagates and shows up in logs/console if left alone.
+  - BANNED forms: `catch {}`, `catch (e) {}` with `e` never referenced, `catch { /* ignore */ }`, `catch (e) { /* noop */ }`, `.catch(() => {})`, `.catch(() => undefined)`, `.then(...).catch(noop)`, `Promise.allSettled(...)` results discarded without inspection.
+  - Decision rule: if you cannot name in one short phrase what the handler does ("log and rethrow", "fall back to default X", "show toast and stay on page", "cleanup temp file") — DELETE the `try/catch` entirely and let the error propagate. The handler exists to do work; if it does no work, it has no reason to exist.
+  - Rare legitimate "intentionally ignore" cases (best-effort cleanup, optional telemetry, etc.) STILL require at minimum a `console.debug`/`logger.warn` call AND a one-line comment naming WHY ignoring is safe here. No silent ignores.
+  - This rule covers stubs too: do not pre-create `try/catch` with an empty body planning to "fill it later". Either implement the handler now or do not write the `try/catch` until you need it.
 
 ---
 

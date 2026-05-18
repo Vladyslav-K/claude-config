@@ -54,7 +54,6 @@ npm run push    # or: pnpm push
 - `commands/` - Custom slash commands
 - `scripts/` - Helper scripts
 - `skills/` - Custom skills
-- `plugins/installed_plugins.json` + `plugins/known_marketplaces.json` - plugin metadata only (marketplaces and cache are restored automatically on push)
 
 ## Path Handling
 
@@ -65,12 +64,3 @@ The script automatically handles different paths between Linux (Ubuntu/WSL) and 
 - **On pull:** Any `/Users/<user>/.claude` or `/home/<user>/.claude` path is normalized back to the placeholder — even if it came from a different machine
 
 The pull-side regex catches foreign-system paths too, so a repo polluted by a manual copy from another machine is self-healing on the next pull.
-
-## Plugin Sync
-
-Only the two metadata files (`installed_plugins.json`, `known_marketplaces.json`) are committed. On push the script automatically:
-
-1. `git clone --depth=1` any marketplace listed in `known_marketplaces.json` if its `installLocation` is missing.
-2. Copies plugin files from the marketplace into the cache `installPath` if it's empty.
-
-Requires `git` and `jq` on PATH. If either is missing, the metadata still pushes but plugin restore is skipped with a warning.

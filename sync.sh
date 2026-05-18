@@ -42,8 +42,6 @@ log_error() {
 }
 
 # Files and folders to sync.
-# For plugins we sync only the two metadata files — marketplaces and the cache
-# itself are restored from those metadata on push (see restore_plugins).
 SYNC_ITEMS=(
     "CLAUDE.md"
     "settings.json"
@@ -52,8 +50,6 @@ SYNC_ITEMS=(
     "commands"
     "scripts"
     "skills"
-    "plugins/installed_plugins.json"
-    "plugins/known_marketplaces.json"
 )
 
 # Files to exclude from sync
@@ -125,77 +121,6 @@ normalize_paths_in_synced_items() {
             done < <(find "$target" -type f \( -name "*.json" -o -name "*.sh" \))
         fi
     done
-}
-
-# After push, rebuild plugin marketplaces (git clone) and plugin cache (copy
-# from marketplace) using the metadata in plugins/*.json. Idempotent.
-restore_plugins() {
-    local marketplaces_file="$CLAUDE_DIR/plugins/known_marketplaces.json"
-    local installed_file="$CLAUDE_DIR/plugins/installed_plugins.json"
-
-    [[ ! -f "$marketplaces_file" && ! -f "$installed_file" ]] && return 0
-
-    if ! command -v jq >/dev/null 2>&1; then
-        log_warning "jq not installed — skipping plugin restore. Install jq, then re-run './sync.sh push'."
-        return 0
-    fi
-    if ! command -v git >/dev/null 2>&1; then
-        log_warning "git not installed — skipping plugin restore."
-        return 0
-    fi
-
-    echo ""
-    log_info "Restoring plugins (marketplaces + cache)..."
-
-    if [[ -f "$marketplaces_file" ]]; then
-        while IFS= read -r mp_name; do
-            [[ -z "$mp_name" ]] && continue
-            local install_loc repo
-            install_loc=$(jq -r --arg n "$mp_name" '.[$n].installLocation // ""' "$marketplaces_file")
-            repo=$(jq -r --arg n "$mp_name" '.[$n].source.repo // ""' "$marketplaces_file")
-            [[ -z "$install_loc" || "$install_loc" == "null" ]] && continue
-            if [[ -d "$install_loc/.claude-plugin" || -d "$install_loc/.git" ]]; then
-                log_info "  Marketplace present: $mp_name"
-                continue
-            fi
-            if [[ -z "$repo" ]]; then
-                log_warning "  Marketplace $mp_name has no source.repo — skipped"
-                continue
-            fi
-            mkdir -p "$(dirname "$install_loc")"
-            log_info "  Cloning $mp_name from github.com/$repo..."
-            if git clone --depth=1 "https://github.com/$repo" "$install_loc" >/dev/null 2>&1; then
-                log_success "  Cloned: $mp_name"
-            else
-                log_error "  Failed to clone $mp_name"
-            fi
-        done < <(jq -r 'keys[]' "$marketplaces_file")
-    fi
-
-    if [[ -f "$installed_file" ]]; then
-        while IFS= read -r plugin_key; do
-            [[ -z "$plugin_key" ]] && continue
-            local plugin_name="${plugin_key%@*}"
-            local mp_name="${plugin_key#*@}"
-            local install_path
-            install_path=$(jq -r --arg k "$plugin_key" '.plugins[$k][0].installPath // ""' "$installed_file")
-            [[ -z "$install_path" || "$install_path" == "null" ]] && continue
-            if [[ -d "$install_path" && -n "$(ls -A "$install_path" 2>/dev/null)" ]]; then
-                log_info "  Plugin cached: $plugin_key"
-                continue
-            fi
-            local mp_loc=""
-            [[ -f "$marketplaces_file" ]] && mp_loc=$(jq -r --arg n "$mp_name" '.[$n].installLocation // ""' "$marketplaces_file")
-            local source_dir="$mp_loc/plugins/$plugin_name"
-            if [[ -z "$mp_loc" || ! -d "$source_dir" ]]; then
-                log_warning "  Plugin source missing for $plugin_key (looked in $source_dir)"
-                continue
-            fi
-            mkdir -p "$install_path"
-            cp -r "$source_dir/." "$install_path/"
-            log_success "  Restored: $plugin_key"
-        done < <(jq -r '.plugins | keys[]' "$installed_file")
-    fi
 }
 
 # =============================================================================
@@ -287,8 +212,6 @@ do_push() {
     echo ""
     log_info "Fixing paths (replacing $PLACEHOLDER with $CLAUDE_DIR)..."
     normalize_paths_in_synced_items "$CLAUDE_DIR" replace_placeholder_with_path
-
-    restore_plugins
 
     echo ""
     log_success "Push complete! Config installed to: $CLAUDE_DIR"

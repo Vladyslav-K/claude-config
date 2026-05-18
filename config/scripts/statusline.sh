@@ -115,8 +115,9 @@ if [[ -z "$REMAINING_PCT" ]] || [[ "$REMAINING_PCT" == "null" ]] || [[ "$REMAINI
     fi
 else
     CONTEXT_PCT=$(echo "$REMAINING_PCT" | awk '{
-        result = $1 - 16.5 - 1;
+        result = $1;
         if (result < 0) result = 0;
+        if (result > 100) result = 100;
         printf "%d", result;
     }')
     echo "$CONTEXT_PCT" > "$CONTEXT_CACHE_FILE"

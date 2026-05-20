@@ -108,30 +108,16 @@ Extract EVERY UI element from the design:
 
 ---
 
-## Code Rules
+## 🔴 Code Rules — CRITICAL, NEVER SKIP
 
-- Comments MUST look human-written — short and plain: `// Enums`, `// Types`, `// Helpers`.
-  - BANNED patterns: `// --- Section ---`, `// === Section ===`, `// *** Section ***`, `// ~~~~~~~~`, any dashes/equals/stars/tildes used as decoration.
-  - BANNED: verbose "AI-style" comments like `// Helper function to transform user data` — write `// Transform user data` or nothing at all.
-  - If the comment just restates the code — delete it. Only comment for grouping sections or non-obvious logic.
-- DON'T create .md files or tests unless explicitly ordered.
-- Speak Ukrainian with user, ALL code/comments in English.
-- **Russian is STRICTLY BANNED in any user-facing output.** The user is Ukrainian and explicitly refuses to see Russian in his terminal — russian is the language of the aggressor state. This covers EVERY artifact I generate that the user sees in the Claude Code UI:
-  - session titles / conversation names
-  - todo / task list items (TaskCreate descriptions, status lines)
-  - plan headings and section names (EnterPlanMode / ExitPlanMode)
-  - summaries, compaction summaries, recap blocks
-  - status-line updates, progress messages, "thinking..." captions when I control them
-  - any auto-generated description or label
-  - Treat Ukrainian as the ONLY acceptable Cyrillic-script language in user-facing output. If I catch myself producing a Russian word (e.g., "Установить" instead of "Встановити", "правило" stays valid because it is also Ukrainian, "пользователь" instead of "користувач") — STOP and rewrite in Ukrainian before submitting.
-  - **Exceptions (stay in English, NOT Ukrainian, NOT Russian):** git commit messages, PR titles/descriptions, code identifiers, code comments, file names — these go to shared/public repos and follow industry-standard English convention as before.
-- ALWAYS check package manager before running scripts.
-- Before installing libraries, ALWAYS check latest stable version with context7 or Web.
-- NEVER write empty error handlers. If a function needs `try/catch` (or `.catch(...)`) — the handler MUST do something visible: log the error with context, return a fallback, re-throw (optionally wrapped with more context), show a user-facing message, or perform cleanup. An empty handler silently swallows bugs and is strictly worse than no handler — the error at least propagates and shows up in logs/console if left alone.
-  - BANNED forms: `catch {}`, `catch (e) {}` with `e` never referenced, `catch { /* ignore */ }`, `catch (e) { /* noop */ }`, `.catch(() => {})`, `.catch(() => undefined)`, `.then(...).catch(noop)`, `Promise.allSettled(...)` results discarded without inspection.
-  - Decision rule: if you cannot name in one short phrase what the handler does ("log and rethrow", "fall back to default X", "show toast and stay on page", "cleanup temp file") — DELETE the `try/catch` entirely and let the error propagate. The handler exists to do work; if it does no work, it has no reason to exist.
-  - Rare legitimate "intentionally ignore" cases (best-effort cleanup, optional telemetry, etc.) STILL require at minimum a `console.debug`/`logger.warn` call AND a one-line comment naming WHY ignoring is safe here. No silent ignores.
-  - This rule covers stubs too: do not pre-create `try/catch` with an empty body planning to "fill it later". Either implement the handler now or do not write the `try/catch` until you need it.
+**Full rules:** `.claude/rules/code-rules.md` — MUST be read against every code edit.
+
+**Why this is non-negotiable, not stylistic:**
+- **User-environment safety:** Russian-language ban is absolute (aggressor-state language in the user's terminal is unacceptable, not a "preference"). Skipping this rule is a direct breach of the user's environment.
+- **Code that ships:** empty `catch`/`.catch(() => {})` silently swallows production bugs. The file lists every banned form so I cannot accidentally introduce one.
+- **Codebase honesty:** AI-style decorative comments (`// === Section ===`, verbose docstrings restating code) leak the fact that AI wrote the code and pollute diffs. Comments must look human-written.
+
+If under time pressure or in a rush to finish — that is exactly when these checks matter most. Routine code review skips lint warnings; it does NOT skip these.
 
 ---
 
@@ -144,12 +130,11 @@ Extract EVERY UI element from the design:
 
 ---
 
-## Bash & Output Hygiene
+## 🧹 Tool Hygiene
 
-- **Do NOT redirect command output to a temp file just to read it back with `tail`/`head`.** The pattern `cmd > /tmp/foo.log 2>&1; tail -N /tmp/foo.log` adds an extra step and leaves a stale artifact that exists only to enable the `tail`. The correct form when you do need to trim output is `cmd 2>&1 | tail -N`. Use a real temp file ONLY when you genuinely need to preserve the full log for later analysis (rare — and usually means the command should be quieter at the source).
-- **Do NOT pipe to `tail` by default.** The Bash tool already truncates very large outputs to a preview. For most commands the raw output is fine. Reach for `| tail -N` ONLY when the command is known to produce a huge stream of low-value lines (e.g., `prettier --write` listing every file) AND the meaningful info is at the end. If errors can surface near the top, `tail` will hide them — prefer fixing the noisy command itself (see the Prettier `--log-level=warn` rule above) over masking the noise with `tail`.
-- **Do NOT add `echo "EXIT=$?"` after a command.** The Bash tool surfaces exit codes by itself; the extra echo is ceremony, not signal. The only legitimate use is when chaining commands with `;` and you specifically need to see the intermediate exit code — which is itself a smell, prefer `&&` chaining or separate calls.
-- **Principle.** If a command is too noisy to read, the right fix is at the source (a quieter flag, a better script) — not a downstream `tail`/`grep`/redirect that loses information. Reach for output filtering only when fixing the source is genuinely not in scope.
+**Full rules:** `.claude/rules/tool-hygiene.md` — discipline for how I use tools (Bash output, AskUserQuestion previews, etc.). Add new blocks there, not here.
+
+**Core principle:** if a tool's output is noisy or truncated, fix it at the source (quieter flag, different form of the call) — never mask it with downstream filtering that loses information. When a tool surface can degrade UX (e.g., narrow-terminal truncation), avoid that surface entirely and route information through channels that scale to the user's setup.
 
 ---
 
@@ -171,22 +156,3 @@ If any of the four is unclear — ask. Do not proceed with a guess.
 Skipping discovery is not faster; it just moves the cost to later iterations.
 
 **CRITICAL:** When user provides screenshots/designs WITHOUT API docs — ASK about API endpoints BEFORE creating types/services/hooks. NEVER invent API structures from screenshots.
-
----
-
-## 🚨 Session Memory
-
-**File:** `.project-meta/memory/recent-session.md`
-
-Auto-loaded every session — the project's `.claude/CLAUDE.md` imports it via `@../.project-meta/memory/recent-session.md`, so its content is already in context without any manual read. If the project has no `.claude/CLAUDE.md` with this import, run `/project-meta-init` to set it up.
-
-**Trigger "збережи сесію"** → overwrite `.project-meta/memory/recent-session.md` with a short summary:
-- Date (YYYY-MM-DD)
-- What was done
-- Files touched
-- Current state
-- Next steps / blockers
-
-Overwrite, don't append. Keep it concise — this is short-term context for the next session.
-
-**Don't store here:** coding rules (already in `rules/`), long-term knowledge that must survive across projects (put those in `~/.claude/CLAUDE.md` manually).

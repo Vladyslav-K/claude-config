@@ -140,6 +140,16 @@ Extract EVERY UI element from the design:
 - AFTER EVERY TASK: run `format-and-check` (or `format`, `lint`, `typecheck` if unavailable). Fix all issues.
 - If a project does NOT have a `format-and-check` script and it's possible to create one (e.g., project has `format`, `lint`, `typecheck` or similar scripts) — CREATE `format-and-check` in package.json that combines them (e.g., `"format-and-check": "npm run format && npm run lint && npm run typecheck"`). Adapt to the project's package manager and existing scripts.
 - Use scripts from package.json, NOT custom npx commands.
+- **Prettier silence at success.** When creating OR editing a `format` script that runs Prettier (e.g., `prettier --write "..."`) — ALWAYS include `--log-level=warn`. Without it Prettier prints every file with its parse time and `(unchanged)` marker, which on a 200+ file project floods the terminal with tens of KB of noise on every run. With `--log-level=warn` Prettier is silent on success and only speaks for warnings and errors — matching the discipline ESLint and TypeScript already follow. Apply the same flag to `format:check`. Example: `"format": "prettier --write --log-level=warn \"**/*.{ts,tsx,js,jsx,json,css,scss,md}\""`. If you encounter an existing project where Prettier scripts lack `--log-level=warn` — fix it as part of the current task; do not propagate the noisy form.
+
+---
+
+## Bash & Output Hygiene
+
+- **Do NOT redirect command output to a temp file just to read it back with `tail`/`head`.** The pattern `cmd > /tmp/foo.log 2>&1; tail -N /tmp/foo.log` adds an extra step and leaves a stale artifact that exists only to enable the `tail`. The correct form when you do need to trim output is `cmd 2>&1 | tail -N`. Use a real temp file ONLY when you genuinely need to preserve the full log for later analysis (rare — and usually means the command should be quieter at the source).
+- **Do NOT pipe to `tail` by default.** The Bash tool already truncates very large outputs to a preview. For most commands the raw output is fine. Reach for `| tail -N` ONLY when the command is known to produce a huge stream of low-value lines (e.g., `prettier --write` listing every file) AND the meaningful info is at the end. If errors can surface near the top, `tail` will hide them — prefer fixing the noisy command itself (see the Prettier `--log-level=warn` rule above) over masking the noise with `tail`.
+- **Do NOT add `echo "EXIT=$?"` after a command.** The Bash tool surfaces exit codes by itself; the extra echo is ceremony, not signal. The only legitimate use is when chaining commands with `;` and you specifically need to see the intermediate exit code — which is itself a smell, prefer `&&` chaining or separate calls.
+- **Principle.** If a command is too noisy to read, the right fix is at the source (a quieter flag, a better script) — not a downstream `tail`/`grep`/redirect that loses information. Reach for output filtering only when fixing the source is genuinely not in scope.
 
 ---
 

@@ -166,7 +166,7 @@
   "preferredNotifChannel": "terminal_bell",
   "autoCompactEnabled": false,
   "terminalProgressBarEnabled": false,
-  "teammateMode": "tmux",
+  "teammateMode": "auto",
   "remoteControlAtStartup": false,
   "useAutoModeDuringPlan": false,
   "feedbackSurveyState": {

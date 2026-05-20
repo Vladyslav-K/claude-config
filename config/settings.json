@@ -24,6 +24,7 @@
       "Bash(mkdir:*)",
       "Bash(jq:*)",
       "Bash(cat:*)",
+      "Read(//tmp/**)",
       "Read(/tmp/**)",
       "Read(/private/tmp/**)",
       "Bash(echo:*)",

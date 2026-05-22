@@ -145,6 +145,16 @@ If under time pressure or in a rush to finish — that is exactly when these che
 
 ---
 
+## 📚 Documentation Lookup
+
+**Use the `ctx7` CLI for library docs.** Two-step flow: `ctx7 library <name>` resolves the library ID (format `/org/project`), then `ctx7 docs <id> <query>` fetches the docs. Run via Bash like any other CLI.
+
+The legacy `context7` MCP server has been removed from this setup — `mcp__context7__*` tools are no longer available, and there is no reason to ask for them. CLI is the only path.
+
+Full reference: the `context7-cli` skill (`~/.claude/skills/context7-cli/`).
+
+---
+
 ## Task Workflow
 
 **Full workflow:** `.claude/rules/task-execution.md`

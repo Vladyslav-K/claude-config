@@ -86,7 +86,8 @@
       "Bash(gh pr view:*)",
       "Bash(gh pr list:*)",
       "Bash(gh issue view:*)",
-      "Bash(context7:*)"
+      "Bash(ctx7:*)",
+      "Bash(npx ctx7@latest:*)"
     ],
     "deny": [
       "Read(./secrets/**)",

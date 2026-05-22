@@ -52,7 +52,7 @@ For each outdated package:
 
 1. **Compute semver diff**: `patch` / `minor` / `major`.
 2. **For `major` bumps** — fetch the upgrade story:
-   - **Use context7 first** — `mcp__context7__resolve-library-id` then `mcp__context7__query-docs` for the migration guide / breaking changes / upgrade notes.
+   - **Use the `ctx7` CLI first** — run `ctx7 library <name>` to resolve the library ID, then `ctx7 docs <id> <query>` for the migration guide / breaking changes / upgrade notes.
    - **Fallback**: WebFetch the GitHub releases page (`https://github.com/<org>/<repo>/releases`) or the repo's `CHANGELOG.md`. Get repo URL via `npm view <name> repository.url`.
    - Extract: breaking changes, removed APIs, renamed exports, behavior changes, required code migrations.
 3. **Check deprecation**: `npm view <name> deprecated`.
@@ -225,7 +225,7 @@ Follow-up:
 - **Peer-dep conflicts:** report them; do not silently `--force`.
 - **`@types/*` packages:** bump in sync with their parent — flag mismatches.
 - **`react` + `react-dom`** (and similar paired packages): treat as a unit, must move together.
-- **Framework majors** (Next, Nuxt, Nest, Vite, Webpack, Vue, Angular, etc.): always BREAKING in plan terms, even when the SemVer diff looks small — codemods are often required. Use the framework's own migration guide via context7.
+- **Framework majors** (Next, Nuxt, Nest, Vite, Webpack, Vue, Angular, etc.): always BREAKING in plan terms, even when the SemVer diff looks small — codemods are often required. Use the framework's own migration guide via the `ctx7` CLI.
 - **Tooling that owns config files** (eslint, prettier, tailwind, postcss, biome, vitest, jest): a major bump can require config rewrites — surface that in the plan.
 - **Lockfile drift** (lockfile inconsistent with `package.json`): regenerate via the PM, never hand-edit.
 - **Mixed lockfiles** (e.g., both `bun.lockb` and `yarn.lock` present): bad state — report and ASK before any update.
@@ -237,6 +237,6 @@ Follow-up:
 1. **Plan before action. Always.**
 2. **Stop and ask** at any decision point, not just Phase 4.
 3. **One major bump at a time**, verified between each.
-4. **Use context7 first** for migration docs; WebFetch as fallback.
+4. **Use the `ctx7` CLI first** for migration docs (`ctx7 library` → `ctx7 docs`); WebFetch as fallback.
 5. **The package manager is the source of truth** — use its commands, not manual edits.
 6. **Speak Ukrainian to the user**; commands and version names stay verbatim.

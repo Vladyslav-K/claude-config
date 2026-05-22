@@ -33,7 +33,7 @@
 ## Dependencies
 
 - ALWAYS check package manager before running scripts.
-- Before installing libraries, ALWAYS check latest stable version with context7 or Web.
+- Before installing libraries, ALWAYS check latest stable version with the `ctx7` CLI (`ctx7 library <name>` → `ctx7 docs <id> <query>`); WebFetch is fallback when CLI cannot find the library. Do NOT call `mcp__context7__*` tools — the MCP server has been removed in favor of the CLI; full reference is the `context7-cli` skill.
 
 ## Error Handling
 

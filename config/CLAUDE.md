@@ -123,10 +123,17 @@ If under time pressure or in a rush to finish — that is exactly when these che
 
 ## Post-Task Requirements
 
-- AFTER EVERY TASK: run `format-and-check` (or `format`, `lint`, `typecheck` if unavailable). Fix all issues.
-- If a project does NOT have a `format-and-check` script and it's possible to create one (e.g., project has `format`, `lint`, `typecheck` or similar scripts) — CREATE `format-and-check` in package.json that combines them (e.g., `"format-and-check": "npm run format && npm run lint && npm run typecheck"`). Adapt to the project's package manager and existing scripts.
-- Use scripts from package.json, NOT custom npx commands.
+**AFTER EVERY TASK: run the project's verification.** The protocol is a strict decision tree, not a menu. Skipping a step here is how `lint` errors ship.
+
+1. **Discovery step (mandatory).** Open the project's `package.json` (or equivalent: `Makefile`, `justfile`, `pnpm-workspace.yaml`, `nx.json`, `turbo.json`, root scripts in monorepo) and look for a `format-and-check` script — or any project-specific aggregator with a different name that combines format + lint + typecheck (e.g., `check`, `verify`, `ci`, `validate`). If a custom aggregator exists, treat it identically to `format-and-check` for the rules below.
+2. **If `format-and-check` (or equivalent aggregator) EXISTS → run ONLY that script. Calling `format`, `lint`, `typecheck` separately is FORBIDDEN in this branch.** Reason: the aggregator is the single source of truth for what "verified" means in this project. Running pieces separately means I might forget one of them (most often `lint`) and miss errors that the aggregator would have caught. There is zero upside to splitting — the aggregator runs the same commands, in the right order, with the project's chosen flags. If the aggregator fails, read its output and fix the issues; do NOT switch to running pieces separately to "isolate" the problem — re-run the aggregator after each fix.
+3. **If `format-and-check` does NOT exist BUT the project has `format` + `lint` + `typecheck` (or similar) as separate scripts → (a) run each separately for the current task, AND (b) CREATE the aggregator in `package.json` as part of this task** (e.g., `"format-and-check": "npm run format && npm run lint && npm run typecheck"`). Adapt to the project's package manager (`npm` / `pnpm` / `yarn` / `bun`) and the actual script names. From the next task onward step 2 applies.
+4. **If the project has no relevant scripts at all** → say so explicitly in the final response. Do not invent npx invocations as a silent substitute.
+
+**Other rules in this section:**
+- Use scripts from `package.json`, NOT custom `npx` commands. The script encodes the project's chosen flags, file globs, and config paths — bypassing it with raw `npx` produces results that diverge from CI.
 - **Prettier silence at success.** When creating OR editing a `format` script that runs Prettier (e.g., `prettier --write "..."`) — ALWAYS include `--log-level=warn`. Without it Prettier prints every file with its parse time and `(unchanged)` marker, which on a 200+ file project floods the terminal with tens of KB of noise on every run. With `--log-level=warn` Prettier is silent on success and only speaks for warnings and errors — matching the discipline ESLint and TypeScript already follow. Apply the same flag to `format:check`. Example: `"format": "prettier --write --log-level=warn \"**/*.{ts,tsx,js,jsx,json,css,scss,md}\""`. If you encounter an existing project where Prettier scripts lack `--log-level=warn` — fix it as part of the current task; do not propagate the noisy form.
+- **Fix ALL issues the verification reports.** Warnings included unless the project has an explicit policy to defer them. Do not report a task as done while the aggregator still prints errors or warnings I introduced.
 
 ---
 

@@ -170,6 +170,7 @@
   "terminalProgressBarEnabled": false,
   "teammateMode": "auto",
   "remoteControlAtStartup": false,
+  "skipAutoPermissionPrompt": true,
   "useAutoModeDuringPlan": false,
   "autoMode": {
     "allow": [
@@ -210,5 +211,5 @@
   "feedbackSurveyState": {
     "lastShownTime": 1754036467609
   },
-  "skipAutoPermissionPrompt": true
+  "skipDangerousModePermissionPrompt": true
 }

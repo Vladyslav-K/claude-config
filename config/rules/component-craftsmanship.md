@@ -235,6 +235,7 @@ Before reporting the task as done, walk through every item below. If any answer 
 | 16 | Stylistic variation inlined in page instead of as a variant | `<Button style={{ background: 'red' }}>Delete</Button>` because no destructive variant exists | Add a new variant/prop to the component (`variant="destructive"`). If extending would distort the component, create a related component in `components/`. ASK if unsure which |
 | 17 | Picked extend-vs-create-new on your own when unclear | Silently invented `<DangerButton>` instead of considering `<Button variant="danger">` (or vice versa) | When unsure between extending an existing component vs creating a new related one — ASK the user before writing code |
 | 18 | Created a one-off UI piece inline in page code | "It is only used once, no need for a component" — wrote markup directly in the page | Even one-off UI primitives live in `components/`. Page code consumes; it never defines raw UI. Add a code comment naming when to reach for it |
+| 19 | Inline SVG as an icon in component code | `<svg viewBox="0 0 24 24"><path d="..." /></svg>` hand-written inside a component, or `const icon = 'data:image/svg+xml;...'` embedded in JS, or SVG injected via `dangerouslySetInnerHTML` | NEVER inline SVG silently. Use a `.svg` asset from `assets/icons/` (or project equivalent) OR an icon-library component (`lucide-react`, `@heroicons/react`, etc.). If the needed icon is missing in both — STOP and ASK; never inline as a "temporary" fix. Full rules: `code-rules.md` → "Icons & Inline SVG" |
 
 ---
 

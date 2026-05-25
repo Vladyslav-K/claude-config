@@ -42,3 +42,24 @@
   - Decision rule: if you cannot name in one short phrase what the handler does ("log and rethrow", "fall back to default X", "show toast and stay on page", "cleanup temp file") — DELETE the `try/catch` entirely and let the error propagate. The handler exists to do work; if it does no work, it has no reason to exist.
   - Rare legitimate "intentionally ignore" cases (best-effort cleanup, optional telemetry, etc.) STILL require at minimum a `console.debug`/`logger.warn` call AND a one-line comment naming WHY ignoring is safe here. No silent ignores.
   - This rule covers stubs too: do not pre-create `try/catch` with an empty body planning to "fill it later". Either implement the handler now or do not write the `try/catch` until you need it.
+
+## Icons & Inline SVG
+
+- **Inline SVG in code is STRICTLY FORBIDDEN without prior discussion.** An icon must be ONE of two things:
+  - a `.svg` asset file under `assets/icons/` (or the project's equivalent — `public/icons/`, `static/icons/`, `src/icons/`, `src/assets/icons/`), imported as a resource
+  - a component from an icon library installed in the project (`lucide-react`, `@heroicons/react`, `react-icons`, `@tabler/icons-react`, `@phosphor-icons/react`, `@mui/icons-material`, etc.) — chosen to match what the project already uses
+- BANNED forms — every one of these requires asking first, never written silently:
+  - JSX inline SVG: `<svg viewBox="..."><path d="..." /></svg>` inside a component file
+  - SVG composed by hand from `<path>`, `<circle>`, `<g>`, `<rect>`, `<polyline>`, `<polygon>`, etc. assembled in React (or Vue / Svelte / Angular — the rule is framework-agnostic)
+  - SVG as a string constant: `const ICON = '<svg>...</svg>'`
+  - SVG injected via `dangerouslySetInnerHTML` (or framework equivalent — `v-html`, `[innerHTML]`, `{@html ...}`)
+  - SVG encoded as base64 / data-URL embedded in JS/TS code: `const icon = 'data:image/svg+xml;base64,...'` or `data:image/svg+xml;utf8,...`
+  - SVG-as-CSS-mask or SVG-as-background with the SVG body written inline in CSS / `style={{}}` / styled-components / Tailwind arbitrary values
+  - Importing SVG as a React component (e.g., SVGR) AND then editing the underlying file to be hand-written by me — the file must come from a designer / library / export, not from me typing path data
+- **Why this is strict.** Silently inlining SVG into code (a) bypasses the project's icon system and breaks visual consistency, (b) bloats components with non-component concerns, (c) makes icons impossible to swap without a code change and PR, (d) is the most common path to "AI-looking" code that pollutes the codebase and leaks the fact AI wrote it. The bar is: an icon ships as an asset or as a library component — NEVER as hand-written SVG markup in component code.
+- **What to do when the icon you need is missing.** Do NOT inline. Stop and ASK, in this order:
+  1. Check the project's installed icon library — is there a close match? If yes, propose it: "Я використаю `<ChevronRightIcon>` з `lucide-react` — підтверди?"
+  2. Check the project's `assets/icons/` (or equivalent) — is there an existing custom `.svg`? If yes, use it.
+  3. If neither exists — ASK: "Іконки `<name>` немає ні в бібліотеці (`<library-name>`), ні в `assets/icons/`. Варіанти: (a) додай .svg файл — скажи звідки взяти, (b) використати найближчу — пропоную `<closest-name>`, (c) щось інше. Як робимо?"
+  4. Wait for the user's answer. NEVER proceed with an inline SVG as a "temporary" fix. There is no "temporary" — inline SVG that ships once stays.
+- **Exceptions** exist but require explicit discussion in chat first — e.g., a unique illustration that is genuinely one-off and not an icon (hero artwork, empty-state illustration), a chart rendered dynamically from data via a chart library (`recharts`, `visx`, `nivo`, `d3`), a programmatic shape generator (sparklines, gauges). Those are not "icons" and live outside this rule's strict ban, but if there is any doubt whether the case is an exception — ASK before writing the SVG. Default position is always "this is banned until I confirm otherwise".

@@ -42,6 +42,52 @@ The user pays for quality, not for speed. Token cost is irrelevant to the outcom
 
 ---
 
+## 🔴 ASK INSTEAD OF GUESSING
+
+**If you do not understand something — ASK. Do not guess.** Every guess this codebase has ever seen has been wrong. The cost of one clarifying question is always lower than the cost of building on the wrong assumption.
+
+This rule exists as its own top-level section, not as a footnote in "Discovery before decisions", precisely because the failure mode is silent: a guess feels like progress until the user reviews it. Making ASK visible at the same level as "AGENTS — CODE EXECUTION FORBIDDEN" matches the actual severity.
+
+### Mandatory triggers — STOP and ask
+
+- "I don't know where this file lives" → ask, don't `find` your way into the wrong area
+- "I don't know what the API looks like" → ask, don't invent endpoints from a screenshot
+- "I don't know which component the project uses for X" → ask, don't pick one from another project's habits
+- "I don't know if this should be a new component or extending an existing one" → ask (also called out in `component-craftsmanship.md` section 2)
+- "I don't know the exact text on the design" → ask, don't paraphrase
+- "I don't know if this element is in the design or not" → ask, don't add or omit
+- "I don't know the project's spacing / color / font convention" → ask, don't invent values
+- "I'm not sure if the user wants A or B" → ask, don't pick one
+- "I think there might be two ways to interpret this" → ask, don't pick the more likely one
+- "The design is ambiguous on this detail" → ask, don't fill the gap silently
+
+### Forbidden behaviors
+
+- "Зроблю як здається правильним і потім поправлю якщо що" — NO. The wrong path produces work that has to be redone, usually after the user has already started reviewing it.
+- "Це ймовірно X, бо в інших проектах так" — NO. Other projects are irrelevant; this codebase decides.
+- "Я вгадаю — навіть якщо помилюся, то швидко" — NO. The track record is zero. Stop trying.
+- Silent assumptions buried in code — NO. If an assumption is load-bearing, name it BEFORE writing the code.
+- "I'll ship a stub and iterate" without naming what the stub assumes — NO. State the assumption out loud or do not ship the stub.
+
+### How to ask
+
+- One-line, concrete. "Чи має на сторінці бути ще й кнопка `Експорт`?" beats "Хочеш щось ще додати?"
+- Group related questions into one message; do not pad with filler questions to look thorough.
+- If you're 90% sure but not 100% — still ask. "Здається, має бути [X], підтверди?" is the right form.
+- When asking, name what you would have guessed AND why you are not guessing. This helps the user calibrate the gap and gives them a quick yes/no path.
+- Use `AskUserQuestion` when there are 2–4 discrete options; use prose chat when the question is open-ended.
+
+### When you ARE allowed to proceed without asking
+
+- The thing is fully specified in the task / design / docs you've already read this session
+- The convention is established in the codebase and you've already seen the concrete example
+- The user has previously answered this exact question in this session
+- It is genuinely trivial and not visible to the user (a private helper variable name, a local loop counter, etc.)
+
+**When in doubt about whether to ask or not — ASK.** Asking is never the worse choice. A useless "are you sure" is a minor annoyance; a wrong assumption is rework.
+
+---
+
 ## 🔴 AGENTS — CODE EXECUTION FORBIDDEN
 
 **Agents (Agent tool) are COMPLETELY FORBIDDEN from creating, editing, or modifying code.** Agents lack thinking capability and produce catastrophic errors when writing code.
@@ -51,6 +97,44 @@ The user pays for quality, not for speed. Token cost is irrelevant to the outcom
 **Forbidden:** delegating ANY file creation, code editing, implementation, refactoring, or bug fixing to agents. All code changes — ONLY you, in the main context, with full thinking.
 
 **Only allowed flow:** Agent(Explore) → finds files/code → returns results to you → YOU read, analyze, and write code yourself.
+
+---
+
+## 🔴 GIT — WRITES FORBIDDEN
+
+**Any git or gh command that modifies state is STRICTLY FORBIDDEN.** The user reviews and runs all version-control writes himself. My job is to write code, not to ship it.
+
+This is an absolute ban, not a "by default" rule. The user has stated this rule explicitly and repeatedly. Every offer to commit, push, or open a PR is friction in his workflow — the answer is always "no", and **the ask itself is the problem**, not just the act. Internalize: git writes do not belong in my hands.
+
+### Strictly banned commands
+
+**git writes (all forms):** `commit`, `commit --amend`, `push` (any flags, any remote), `merge`, `rebase` (any form, interactive or not), `reset`, `reset --hard`, `revert`, `restore` (when it modifies the working tree), `checkout` for branch switch or file restore, `branch -D`, `branch -m`, `tag` create/delete, `cherry-pick`, `stash drop`, `stash pop` (when destructive), `clean`, `gc --prune`, `update-ref`, and any other invocation that mutates the repository, the working tree, or the staging area.
+
+**gh writes (all forms):** `gh pr create`, `gh pr edit`, `gh pr merge`, `gh pr close`, `gh pr reopen`, `gh pr comment`, `gh pr review` with any submit action, `gh issue create`, `gh issue edit`, `gh issue close`, `gh issue reopen`, `gh issue comment`, `gh release create / edit / delete`, `gh repo create / edit / delete / fork`, `gh workflow run`, `gh secret set`, `gh variable set`, `gh api` invoked with `POST` / `PATCH` / `PUT` / `DELETE` — anything that mutates the remote.
+
+**Implicit writes:** `git add` (or `git stage`) followed by any intent to commit. Do NOT stage files "to help prepare a commit". The user stages himself when he wants. Staging without an authorized commit is wasted state I should not leave behind.
+
+### What IS allowed
+
+**Read-only git:** `git status`, `git log`, `git diff` (any args), `git show`, `git branch` (listing only), `git remote -v`, `git config --get`, `git reflog` (read), `git blame`, `git ls-files`, `git rev-parse`, `git describe`.
+
+**Read-only gh:** `gh pr view`, `gh pr list`, `gh pr diff`, `gh pr checks`, `gh issue view`, `gh issue list`, `gh run list`, `gh run view`, `gh run watch` (no submit), `gh release view`, `gh release list`, `gh api` invoked with `GET` only.
+
+### Forbidden offers
+
+- **NEVER** end a task with "хочеш закомітити?", "may I commit?", "should I open a PR?", "want me to push?". Not even as a polite suggestion. Not even with a confirmation wrapper.
+- **NEVER** propose a commit message in chat unprompted. If the user runs the commit himself and wants help with a message, they will ask.
+- **NEVER** stage files "in preparation" for a commit I am not authorized to run.
+- **NEVER** write a commit hook, pre-commit script, husky config, GitHub Action, or any other automation that auto-commits / auto-pushes / auto-merges without an explicit user request for that automation.
+- **NEVER** suggest "let's commit each step" as a workflow proposal during multi-step work.
+
+### No exceptions. Absolute means absolute.
+
+There is NO "Exceptions" block in this rule and never will be. "Табу" means табу — not "табу except for X, Y, Z". I do not pre-program "valid triggers", "single-shot authorization", "when in doubt offer it as a question", or any other loophole. Every such loophole re-introduces the exact failure mode this rule exists to prevent: me deciding, from my own judgement, that a git write is now OK.
+
+The initiative for any git write belongs to the user, full stop. I do not need a list of "what the user might say" to recognize an instruction when I receive one — if the user wants something to happen, the user expresses that and I act on it. I do not anticipate, pre-authorize, or carve out cases where writes become allowed by default. There is no "by default" for writes; there is only "user just told me to do this specific thing".
+
+If I catch myself thinking "but what about the case when...", "but the user might want...", "but it would be helpful to...", "but I could just offer to..." — STOP. That thought is the rule firing. The answer is: do nothing about git, say nothing about git, wait.
 
 ---
 

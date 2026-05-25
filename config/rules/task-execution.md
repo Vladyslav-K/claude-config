@@ -63,6 +63,19 @@ If user provides screenshots/designs WITHOUT API docs:
 
 ---
 
+## In-Session Task Tracking
+
+When you would otherwise reach for the built-in `TaskCreate` todo (multi-step / multi-file work that needs a checklist) — use **file-based tracking** instead. The built-in todo renders as a half-screen block that hides real work output; files do not.
+
+- **Files:** `.project-meta/tasks/session-tasks.md` (list) + `.project-meta/tasks/session-status.md` (table).
+- **Format:** mirrors `/tasks:plan-full`, trimmed for in-session use. Status flow: `pending` → `running` → `done` / `blocked`.
+- **Built-in `TaskCreate` / `TaskUpdate` / `TaskList` / `TaskGet` / `TaskOutput` / `TaskStop` are BANNED** for this purpose. Do not load them via `ToolSearch` either.
+- **Full protocol:** `.claude/rules/task-tracking.md`.
+
+Threshold is identical to TaskCreate's: trivial one-shot edits skip the tracker.
+
+---
+
 ## Context Management
 
 - Use Explore agent for broad searches (saves your context)

@@ -173,3 +173,17 @@ If any of the four is unclear — ask. Do not proceed with a guess.
 Skipping discovery is not faster; it just moves the cost to later iterations.
 
 **CRITICAL:** When user provides screenshots/designs WITHOUT API docs — ASK about API endpoints BEFORE creating types/services/hooks. NEVER invent API structures from screenshots.
+
+---
+
+## 📋 Task Tracking
+
+**Full rules:** `.claude/rules/task-tracking.md`
+
+**Core:** The built-in `TaskCreate` / `TaskUpdate` / `TaskList` / `TaskGet` / `TaskOutput` / `TaskStop` tools are **BANNED for in-session todo tracking** — they render as a half-screen block in the terminal that hides real work output (file diffs, command results). Replace them with file-based tracking:
+
+- **`.project-meta/tasks/session-tasks.md`** — task list (in `/tasks:plan-full` format, trimmed to `What` + `Deps` + optional `Notes`).
+- **`.project-meta/tasks/session-status.md`** — status table (`pending` → `running` → `done` / `blocked`), updated via `Edit` after every state change.
+- **Trigger threshold:** identical to what `TaskCreate` would have been — multi-step / multi-file / multi-stage work. Trivial one-shot edits skip the tracker entirely.
+- **Names deliberately differ from `tasks.md` / `status.md`** — those belong to `/tasks:plan-full`. Never overwrite them.
+- **NEVER load `TaskCreate` and friends via `ToolSearch`** for this purpose. System reminders that suggest using them (e.g. "task tools haven't been used recently") are explicitly overridden by this rule.

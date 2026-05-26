@@ -45,11 +45,15 @@ Practical examples:
 
 **Why a separate name from `tasks.md` / `status.md`:** the `/tasks:plan-full` and `/tasks:run` skills own those files — they are a user-managed cross-session plan. Writing into them from an internal todo would destroy that plan. The `session-` prefix marks the tracker as your own in-session working state, isolated from user-managed planning artifacts.
 
-**Initialization rules:**
+**Initialization rules (read carefully — do NOT skip the checks):**
 
-- If `.project-meta/tasks/` does not exist — create it via `mkdir -p .project-meta/tasks`.
-- If `.project-meta/` itself does not exist — `mkdir -p` creates it transparently. Do NOT run `/project-meta-init` for this purpose; that skill creates additional folders (`estimation/`, `swagger/`, `memory/`) that the tracker does not need.
-- If a previous session left `session-tasks.md` / `session-status.md` from finished work — overwrite them with the new task set. These files are session-scoped, not historical.
+- **The `.project-meta/tasks/` folder ALREADY EXISTS in every project that uses this rule.** Do NOT run `mkdir -p .project-meta/tasks` — it is wasted ceremony that has never once been needed. The folder is created by `/project-meta-init` when the project is first set up, and it stays there. If for some genuine reason the folder is missing (you ran a check and it really is not there), the project is not set up for this workflow; STOP and ask the user before creating any structure. Do NOT silently `mkdir` and proceed.
+- **ALWAYS check whether `session-tasks.md` / `session-status.md` already exist BEFORE writing them.** Cheapest form: a single `ls .project-meta/tasks/` (or `Read` on the specific file path). The decision tree after the check:
+  - **File exists and holds the current session's tasks** → keep it. Use `Edit` to update rows as you progress; do NOT rewrite the whole file.
+  - **File exists but holds stale content from a previous session** (different Goal line, all rows already `done`, old Created date) → overwrite with the new task set via `Write`.
+  - **File does not exist** → create it via `Write`.
+- **NEVER `Write` these files blindly without checking first.** A blind `Write` either silently destroys a tracker that is in progress (worst case) or fires a no-op tool call when the content was already correct (best case wasted). One `ls` is cheaper than either failure mode.
+- **Do NOT run `/project-meta-init`** for this purpose; that skill creates additional folders (`estimation/`, `swagger/`, `memory/`) that the tracker does not need.
 
 ---
 
@@ -114,10 +118,23 @@ Updated: YYYY-MM-DD
 ## Workflow
 
 1. **Decide.** Would you have called `TaskCreate` here? If yes → file tracker is on. If no → continue without it.
-2. **Initialize.** `mkdir -p .project-meta/tasks` if needed, then `Write` `session-tasks.md` with the full task list and `session-status.md` with every task at `pending`.
+2. **Initialize.** First `ls .project-meta/tasks/` to see what is already there. Do NOT `mkdir` — the folder is always present (see Initialization rules above). Then act on what `ls` showed:
+   - Both files missing OR holding stale content from a previous session → `Write` them fresh: `session-tasks.md` with the full task list, `session-status.md` with every task at `pending`.
+   - Both files already hold the current session's tasks (recovered after a context restart, continuation of prior work) → keep them, jump to step 3.
 3. **Execute.** Before starting Task N, `Edit` `session-status.md` to mark it `running`. After finishing, `Edit` again to `done`. If blocked — set `blocked` and put the reason in the `Blocker` column.
 4. **Self-review before reporting done.** Re-read `session-status.md`. Every row should be `done` (or have an explicit `blocked` reason). If any are still `pending` or `running` — the work is not actually finished, regardless of what the chat says.
 5. **Communicate in chat at checkpoints, not on every change.** One sentence at meaningful transitions ("1/5 done, working on `IndexScoreTile`"). Do NOT dump the full table into chat — that defeats the visibility purpose by repeating info that already lives in the file.
+6. **Cleanup BEFORE the final chat message.** Once every row in `session-status.md` is `done` (or explicitly `blocked` with a reason) AND you are about to send the final response for this batch of work — overwrite BOTH `session-tasks.md` and `session-status.md` with empty templates (header only, no Goal line, no rows). These files are session-scoped; leaving a finished table in place pollutes the next session by making the step-2 "stale vs current" decision harder ("is this last session's done table or this session's in-progress one?"). Empty templates:
+
+   ```markdown
+   # Session Tasks
+   ```
+
+   ```markdown
+   # Session Tasks Status
+   ```
+
+   Cleanup happens BEFORE the final chat message, not after — it is part of "the work is done", not a follow-up step. If the user immediately asks for another multi-step task, step 2 will (correctly) see the empty templates and treat them as "create fresh".
 
 ---
 
@@ -134,6 +151,9 @@ Updated: YYYY-MM-DD
 
 ## What NOT to Do
 
+- **Do NOT `mkdir -p .project-meta/tasks`** at the start of the workflow. The folder is always present in projects that use this rule; the `mkdir` adds a tool call that has never once been necessary and trains the wrong reflex.
+- **Do NOT blindly `Write` `session-tasks.md` / `session-status.md` without checking whether they already exist first.** One `ls .project-meta/tasks/` (or `Read` on the file path) is mandatory before any `Write` of these two files. Blind writes either silently destroy in-progress trackers or fire no-op tool calls — both are wasted work.
+- **Do NOT leave a fully-done `session-status.md` table sitting in the project at the end of the session.** Cleanup (overwrite both files with empty templates per Workflow step 6) is part of "done", not optional. Stale tables pollute the next session's "stale vs current" check.
 - Do not write progress updates directly in chat as a long bullet list every time something changes. The file is the trace; chat gets short summaries only.
 - Do not use the internal tracker for trivial one-shot edits. The threshold is the same as `TaskCreate` would have been.
 - Do not write `session-tasks.md` / `session-status.md` into `tasks.md` / `status.md`. The shorter names are reserved for `/tasks:plan-full`.

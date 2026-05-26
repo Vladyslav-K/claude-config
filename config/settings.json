@@ -163,6 +163,7 @@
   "tui": "default",
   "autoMemoryEnabled": false,
   "showThinkingSummaries": true,
+  "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "editorMode": "normal",
   "preferredNotifChannel": "terminal_bell",
@@ -211,5 +212,5 @@
   "feedbackSurveyState": {
     "lastShownTime": 1754036467609
   },
-  "skipDangerousModePermissionPrompt": true
+  "awaySummaryEnabled": false
 }

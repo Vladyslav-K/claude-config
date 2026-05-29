@@ -127,16 +127,6 @@
     ]
   },
   "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "{{CLAUDE_HOME}}/scripts/prompt-inject.sh"
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "hooks": [

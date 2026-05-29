@@ -1,6 +1,7 @@
 ---
 name: sync-swagger
 description: Sync project API types, services, and hooks with swagger.json. Updates existing APIs, adds new ones (types/services/hooks only), and fixes usage where APIs changed.
+disable-model-invocation: true
 ---
 
 # Sync Swagger

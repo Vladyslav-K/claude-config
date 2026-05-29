@@ -1,6 +1,8 @@
 ---
 name: sync-swagger-diff
 description: Sync project API layer using diff between two swagger snapshots (swagger-old.json vs swagger.json). Detects exact changes between versions and applies only those changes to types, services, hooks, and usage sites.
+disable-model-invocation: true
+allowed-tools: Bash(python3 *)
 ---
 
 # Sync Swagger Diff
@@ -68,170 +70,41 @@ Do this independently for both specs — do NOT merge yet.
 
 Compare `swagger-old.json` (baseline) vs `swagger.json` (new). **This is the heart of this command.** The diff itself — not the project code — is the source of truth for what needs to change.
 
-**⚡ Use these Python scripts via Bash tool** — swagger files are too large for Read tool (~300KB+), so always compute the diff programmatically.
+**⚡ Run the bundled Python scripts via the Bash tool** — swagger files are too large for the Read tool (~300KB+), so always compute the diff programmatically. The scripts live in the `scripts/` directory next to this `SKILL.md` and take the swagger paths as command-line arguments — there is nothing to edit inside the scripts.
+
+> **Resolving the scripts path.** This skill is installed at `~/.claude/skills/sync-swagger-diff/`, so its scripts are at `~/.claude/skills/sync-swagger-diff/scripts/`. If the skill lives somewhere else (e.g. a project-local `.claude/skills/`), use that location's absolute path instead. Below, `<scripts>` stands for the absolute path to this skill's `scripts/` directory.
 
 #### Script 1: Compare endpoints (new / removed / changed)
 
 ```bash
-python3 -c "
-import json, sys
-
-OLD_PATH = '<path-to-swagger-old.json>'
-NEW_PATH = '<path-to-swagger.json>'
-
-with open(OLD_PATH) as f:
-    old = json.load(f)
-with open(NEW_PATH) as f:
-    new = json.load(f)
-
-def get_endpoints(spec):
-    endpoints = {}
-    for path, methods in spec.get('paths', {}).items():
-        for method, details in methods.items():
-            if method in ('get', 'post', 'put', 'patch', 'delete', 'options', 'head'):
-                key = f'{method.upper()} {path}'
-                endpoints[key] = details
-    return endpoints
-
-old_eps = get_endpoints(old)
-new_eps = get_endpoints(new)
-old_keys = set(old_eps.keys())
-new_keys = set(new_eps.keys())
-
-added = sorted(new_keys - old_keys)
-removed = sorted(old_keys - new_keys)
-common = sorted(old_keys & new_keys)
-
-print('=== NEW ENDPOINTS ===')
-for ep in added:
-    tags = new_eps[ep].get('tags', [])
-    op_id = new_eps[ep].get('operationId', 'N/A')
-    print(f'  {ep} | tags={tags} | operationId={op_id}')
-
-print()
-print('=== REMOVED ENDPOINTS ===')
-for ep in removed:
-    tags = old_eps[ep].get('tags', [])
-    op_id = old_eps[ep].get('operationId', 'N/A')
-    print(f'  {ep} | tags={tags} | operationId={op_id}')
-
-print()
-print(f'=== COMMON ENDPOINTS: {len(common)} ===')
-changed = []
-for ep in common:
-    if json.dumps(old_eps[ep], sort_keys=True) != json.dumps(new_eps[ep], sort_keys=True):
-        changed.append(ep)
-
-print(f'Changed: {len(changed)}')
-for ep in changed:
-    print(f'  {ep}')
-"
+python3 <scripts>/diff-endpoints.py <path-to-swagger-old.json> <path-to-swagger.json>
 ```
 
 #### Script 2: Compare schemas (new / removed / changed)
 
 ```bash
-python3 -c "
-import json
-
-OLD_PATH = '<path-to-swagger-old.json>'
-NEW_PATH = '<path-to-swagger.json>'
-
-with open(OLD_PATH) as f:
-    old = json.load(f)
-with open(NEW_PATH) as f:
-    new = json.load(f)
-
-old_schemas = set(old.get('components', {}).get('schemas', {}).keys())
-new_schemas = set(new.get('components', {}).get('schemas', {}).keys())
-
-added = sorted(new_schemas - old_schemas)
-removed = sorted(old_schemas - new_schemas)
-common = sorted(old_schemas & new_schemas)
-
-print('=== NEW SCHEMAS ===')
-for s in added:
-    print(f'  {s}')
-
-print()
-print('=== REMOVED SCHEMAS ===')
-for s in removed:
-    print(f'  {s}')
-
-print()
-print(f'=== COMMON SCHEMAS: {len(common)} ===')
-changed = []
-for s in common:
-    if json.dumps(old['components']['schemas'][s], sort_keys=True) != json.dumps(new['components']['schemas'][s], sort_keys=True):
-        changed.append(s)
-
-print(f'Changed: {len(changed)}')
-for s in changed:
-    print(f'  {s}')
-"
+python3 <scripts>/diff-schemas.py <path-to-swagger-old.json> <path-to-swagger.json>
 ```
 
 #### Script 3: Show detailed diff for a specific endpoint
 
-Use this AFTER scripts 1-2 identify changed endpoints. Replace `METHOD` and `/path` accordingly:
+Use this AFTER scripts 1-2 identify changed endpoints. Pass the target path and HTTP method as the 3rd and 4th arguments:
 
 ```bash
-python3 -c "
-import json
-
-OLD_PATH = '<path-to-swagger-old.json>'
-NEW_PATH = '<path-to-swagger.json>'
-# Change these to the target endpoint:
-TARGET_PATH = '/api/companies'
-TARGET_METHOD = 'get'
-
-with open(OLD_PATH) as f:
-    old = json.load(f)
-with open(NEW_PATH) as f:
-    new = json.load(f)
-
-old_ep = old['paths'][TARGET_PATH][TARGET_METHOD]
-new_ep = new['paths'][TARGET_PATH][TARGET_METHOD]
-
-print('=== OLD ===')
-print(json.dumps(old_ep, indent=2))
-print()
-print('=== NEW ===')
-print(json.dumps(new_ep, indent=2))
-"
+python3 <scripts>/show-endpoint.py <path-to-swagger-old.json> <path-to-swagger.json> /api/companies get
 ```
 
 #### Script 4: Show detailed diff for a specific schema
 
-Use this AFTER script 2 identifies changed schemas:
+Use this AFTER script 2 identifies changed schemas. Pass the schema name as the 3rd argument:
 
 ```bash
-python3 -c "
-import json
-
-OLD_PATH = '<path-to-swagger-old.json>'
-NEW_PATH = '<path-to-swagger.json>'
-SCHEMA_NAME = 'UserDto'  # Change to target schema
-
-with open(OLD_PATH) as f:
-    old = json.load(f)
-with open(NEW_PATH) as f:
-    new = json.load(f)
-
-old_s = old['components']['schemas'].get(SCHEMA_NAME, {})
-new_s = new['components']['schemas'].get(SCHEMA_NAME, {})
-
-print('=== OLD ===')
-print(json.dumps(old_s, indent=2))
-print()
-print('=== NEW ===')
-print(json.dumps(new_s, indent=2))
-"
+python3 <scripts>/show-schema.py <path-to-swagger-old.json> <path-to-swagger.json> UserDto
 ```
 
 **Execution order:** Run Script 1 + Script 2 in parallel → then Script 3/4 only for items that changed.
 
-**Replace `<path-to-swagger-old.json>` and `<path-to-swagger.json>`** with actual paths found in step 0.
+**Replace** `<scripts>` with the absolute path to this skill's `scripts/` directory, and `<path-to-swagger-old.json>` / `<path-to-swagger.json>` with the actual paths found in step 0.
 
 ---
 

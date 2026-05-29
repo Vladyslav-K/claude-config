@@ -160,7 +160,8 @@
   "language": "Ukrainian",
   "alwaysThinkingEnabled": true,
   "effortLevel": "xhigh",
-  "tui": "default",
+  "awaySummaryEnabled": false,
+  "tui": "fullscreen",
   "autoMemoryEnabled": false,
   "showThinkingSummaries": true,
   "skipDangerousModePermissionPrompt": true,
@@ -211,6 +212,5 @@
   },
   "feedbackSurveyState": {
     "lastShownTime": 1754036467609
-  },
-  "awaySummaryEnabled": false
+  }
 }

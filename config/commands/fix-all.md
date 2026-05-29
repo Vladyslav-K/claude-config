@@ -1,6 +1,6 @@
 ---
 name: fix-all
-description: Run format-and-check, lint, typecheck — find and fix ALL errors AND warnings across the project.
+description: Run check-errors, lint, typecheck — find and fix ALL errors AND warnings across the project.
 ---
 
 # Fix All (Errors + Warnings)
@@ -21,18 +21,18 @@ Find and fix **all errors AND warnings** in the project by running format, lint,
 
 1. Read `package.json` in the project root
 2. Identify the package manager: check for `bun.lockb` → bun, `pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, else → npm
-3. Find available scripts: `format-and-check`, `format`, `lint`, `typecheck` (or similar names like `type-check`, `tsc`, `check-types`)
+3. Find available scripts: `check-errors`, `format`, `lint`, `typecheck` (or similar names like `type-check`, `tsc`, `check-types`)
 4. Determine the run command (`bun run`, `pnpm run`, `yarn`, `npm run`)
 
 ### 2. Run Checks (Sequential)
 
 Run each available script **one at a time** and capture the output:
 
-1. **format-and-check** (or `format` if no combined script) — run first, fix formatting issues
+1. **check-errors** (or `format` if no combined script) — run first, fix formatting issues
 2. **lint** — capture all errors AND warnings
 3. **typecheck** — capture all errors AND warnings
 
-If `format-and-check` combines all three — run it once, then re-run individual scripts to isolate remaining issues.
+If `check-errors` combines all three — run it once, then re-run individual scripts to isolate remaining issues.
 
 ### 3. Parse All Issues
 

@@ -40,7 +40,7 @@ If no tasks are available → report to user and stop.
 2. **Research:** Read design docs, screenshots, codebase (per task-execution.md steps)
 3. **Plan (visual/complex):** Present plan, wait for approval. Simple code tasks → skip
 4. Update status.md → `running`
-5. **Implement** → **Self-review** → **format-and-check**
+5. **Implement** → **Self-review** → **check-errors**
 6. Update status.md → `done`, update progress %
 
 ## Step 4: Report and Enter Testing Mode (MANDATORY)
@@ -74,7 +74,7 @@ End with:
 2. **After the task is done — you are in TESTING & FIXING MODE:**
    - If the user reports issues → fix them immediately
    - If the user asks for changes → implement them
-   - Run format-and-check after every fix
+   - Run check-errors after every fix
    - Stay on this task until the user is satisfied
 3. **NEVER auto-continue** to the next task — the user must explicitly run `/tasks:run-once` again
 4. **This command = one task cycle.** Each invocation handles one task, period.

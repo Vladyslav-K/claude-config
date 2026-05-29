@@ -36,7 +36,7 @@ Count: total, done, pending, blocked
 2. **Research:** Read design docs, screenshots, codebase (per task-execution.md steps)
 3. **Plan (visual/complex):** Present plan, wait for approval. Simple code tasks → skip
 4. Update status.md → `running`
-5. **Implement** → **Self-review** → **format-and-check**
+5. **Implement** → **Self-review** → **check-errors**
 6. Update status.md → `done`, update progress %, report to user
 
 Then check for newly unblocked tasks → pick next → repeat.
@@ -46,7 +46,7 @@ Then check for newly unblocked tasks → pick next → repeat.
 ## Step 4: Final Summary
 
 After ALL tasks:
-1. Final format-and-check
+1. Final check-errors
 2. Report: all tasks done, all files created/modified
 3. If blocked tasks remain → create `.project-meta/tasks/blocked-report.md`
 

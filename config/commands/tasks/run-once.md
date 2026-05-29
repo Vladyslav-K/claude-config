@@ -9,7 +9,8 @@ description: Execute the next available task from .project-meta/tasks/tasks.md, 
 $ARGUMENTS
 
 ## Purpose
-Execute **exactly ONE task** from `.project-meta/tasks/tasks.md` — the next available one. Follow the general workflow from `.claude/rules/task-execution.md`. After completing the task — STOP, report, and enter **testing & fixing mode**. Do NOT proceed to the next task.
+Execute **exactly ONE task** from `.project-meta/tasks/tasks.md` — the next available one.
+After completing the task — STOP, report, and enter **testing & fixing mode**. Do NOT proceed to the next task.
 
 ---
 
@@ -35,7 +36,6 @@ If no tasks are available → report to user and stop.
 
 ## Step 3: Execute the Task
 
-For the selected task, follow the execution flow from `task-execution.md`:
 1. Update status.md → `research`
 2. **Research:** Read design docs, screenshots, codebase (per task-execution.md steps)
 3. **Plan (visual/complex):** Present plan, wait for approval. Simple code tasks → skip

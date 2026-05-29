@@ -9,7 +9,7 @@ description: Execute tasks from .project-meta/tasks/tasks.md sequentially. Resea
 $ARGUMENTS
 
 ## Purpose
-Execute tasks from `.project-meta/tasks/tasks.md` sequentially. Follow the general workflow from `.claude/rules/task-execution.md` for each task.
+Execute tasks from `.project-meta/tasks/tasks.md` sequentially.
 
 ---
 
@@ -32,7 +32,6 @@ Count: total, done, pending, blocked
 
 ## Step 3: Execute Tasks Sequentially
 
-For EACH available task, follow the execution flow from `task-execution.md`:
 1. Update status.md → `research`
 2. **Research:** Read design docs, screenshots, codebase (per task-execution.md steps)
 3. **Plan (visual/complex):** Present plan, wait for approval. Simple code tasks → skip
@@ -84,8 +83,7 @@ Generated: YYYY-MM-DD HH:mm
 ## Rules
 
 1. **Execute SEQUENTIALLY** — one task at a time, fully complete before next
-2. **Follow `task-execution.md`** for research/plan/implement/review cycle
-3. **Update status.md after EACH state change**
-4. **NEVER modify tasks.md** — read-only after planning
-5. **Continue through autocompact** — status.md persists on disk
-6. **When in doubt about complexity → present a plan**
+2. **Update status.md after EACH state change**
+3. **NEVER modify tasks.md** — read-only after planning
+4. **Continue through autocompact** — status.md persists on disk
+5. **When in doubt about complexity → present a plan**

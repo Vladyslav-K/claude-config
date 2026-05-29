@@ -38,7 +38,6 @@ Use Explore agent / Glob / Grep to answer:
    - Query key pattern (factory? string arrays? constants?)
 6. **What is the HTTP client?** — axios, fetch, ky, ofetch, etc. Understand how requests are configured (base URL, interceptors, auth headers).
 7. **What is the data-fetching library?** — React Query (TanStack Query), SWR, RTK Query, Apollo, or custom.
-8. **Read project memory** — Check `.project-meta/memory/persistent.md` if it exists.
 
 **Store all findings as your "Project API Conventions" reference for all subsequent steps.**
 
@@ -136,7 +135,7 @@ For each new endpoint, add ONLY infrastructure — do NOT integrate into UI:
 
 ### 6. Verify
 
-Run `format-and-check` script from `package.json` (typically combines format + lint + typecheck). Fix ALL issues until it passes clean.
+Run `format` (Prettier), then `check-errors` (lint + tsc) from `package.json` — with the **full, unmodified output** (no `tail`/`head`, no output-limiting flags). Fix ALL issues until both pass clean. If these scripts don't exist but can be created → add them; if the project is too specific → use available equivalents (`prettier --write`, `eslint`, `tsc --noEmit`).
 
 ---
 
@@ -179,7 +178,7 @@ After ALL work is done, present a single summary. **The report MUST be written i
 6. **ALWAYS follow THIS PROJECT's conventions** for naming, file structure, patterns — match existing code exactly
 7. **Swagger field names → match project convention** (if project uses camelCase, convert; if project keeps snake_case, keep)
 8. **Preserve existing comments/docs** on types if present
-9. **Run `format-and-check`** after all changes — fix until clean
+9. **Run `format`, then `check-errors`** after all changes (full output, no truncation) — fix until clean
 10. **Map swagger schemas to TypeScript types correctly:**
     - `string` → `string` (check `format`: date-time → `string` or `Date` depending on project convention)
     - `number` / `integer` → `number`

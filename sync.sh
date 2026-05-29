@@ -45,9 +45,6 @@ log_error() {
 SYNC_ITEMS=(
     "CLAUDE.md"
     "settings.json"
-    "rules"
-    "agents"
-    "commands"
     "scripts"
     "skills"
 )

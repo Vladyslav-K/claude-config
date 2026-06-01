@@ -118,8 +118,6 @@
     ],
     "ask": [
       "Bash(rm:*)",
-      "Bash(python3:*)",
-      "Bash(python:*)",
       "Read(./.env)",
       "Read(./.env.*)"
     ]

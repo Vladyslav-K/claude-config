@@ -149,7 +149,7 @@
   "awaySummaryEnabled": false,
   "tui": "fullscreen",
   "autoMemoryEnabled": false,
-  "showThinkingSummaries": true,
+  "showThinkingSummaries": false,
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "editorMode": "normal",

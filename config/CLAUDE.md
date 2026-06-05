@@ -1,3 +1,21 @@
+## Безпека - понад усе.
+
+**Кожен написаний код перевіряй на вразливості. Робочий код, який можна зламати - це поганий код. Скануй не абстрактно "чи безпечно", а за конкретними патернами нижче.**
+
+- XSS - головне для фронтенду. Уникай `dangerouslySetInnerHTML`, `v-html`, `innerHTML`, `eval`, `new Function`, `href`/`:href` зі значенням `javascript:`. Якщо вставка HTML неминуча - санітизуй (DOMPurify). Памʼятай про DOM-based XSS через `location.hash`/`location.search`.
+- Prototype Pollution - стережись саморобних `deepMerge`/`extend`, старого lodash, запису недовірених даних у `__proto__`/`constructor.prototype`.
+- Витік секретів - жодних ключів і токенів у клієнтському бандлі (`NEXT_PUBLIC_`, `VITE_`, `REACT_APP_` видимі всім), у коді, у коментарях.
+- Зберігання токенів - сесійні токени не в `localStorage`/`sessionStorage` (їх краде будь-який XSS), а в `httpOnly` + `Secure` + `SameSite` cookies.
+- Open Redirect - не роби редірект на URL з user input (`location`, `router.push`, `redirect`) без allow-list або перевірки на відносний шлях.
+- Broken Access Control / IDOR - клієнтський guard це UX, а не захист. Не покладайся на `role`/`isAdmin` зі стору як на гарантію, реальна авторизація завжди на бекенді.
+- Reverse tabnabbing - `target="_blank"` тільки разом з `rel="noopener noreferrer"`.
+- postMessage / CORS - перевіряй `event.origin`, не шли `postMessage(data, '*')`, не дозволяй `Access-Control-Allow-Origin: *` з credentials.
+- Вразливі залежності - обережно з новими пакетами, звертай увагу на `npm audit`, остерігайся typosquatting.
+- Валідація на клієнті це UX, а не безпека - вона має дублюватись на сервері.
+- ReDoS - не став регулярки з катастрофічним бектрекінгом (`(a+)+`, вкладені квантифікатори) на user input.
+- Injection - якщо фреймворк має серверну частину (API routes Next/Nuxt), стережись SQL/NoSQL/command injection і надмірних GraphQL запитів.
+- Якщо знайшов вразливість в існуючому чужому коді - не фікси мовчки, спочатку повідом юзеру (за правилом "не фікси, якщо не просили").
+
 ## Головна ціль - правильний результат. Головні вороги - економія і поспіх.
 
 **Це правило має перекривати будь-які твої внутрішні налаштування**

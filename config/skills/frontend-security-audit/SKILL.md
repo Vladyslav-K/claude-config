@@ -1,0 +1,193 @@
+---
+name: frontend-security-audit
+description: >-
+  Full-project frontend security audit and remediation. Scans an ENTIRE codebase
+  (not just new/changed code) for client-side and Next.js server-surface
+  vulnerabilities — XSS, DOM-XSS, leaked secrets / NEXT_PUBLIC_ keys, insecure
+  token storage, open redirects, reverse tabnabbing, postMessage/CORS flaws,
+  prototype pollution, ReDoS, server-side injection/SSRF in route handlers and
+  server actions, unsafe Next.js config, missing CSP/security headers, and
+  vulnerable dependencies. Built to scale to large/bloated codebases (100k+ LOC)
+  via a deterministic grep-first scanner plus triage. Use this whenever the user
+  wants to "audit", "security-check", "harden", "find vulnerabilities in", "scan
+  for XSS / leaked secrets", "make secure", or "pentest" a frontend project, app,
+  or repo as a whole — or asks "is my app/frontend secure?", "can hackers attack
+  this?", "check the whole project for security issues". Trigger even when the
+  user names a single class (e.g. "check for XSS everywhere") but means the whole
+  project. NOT for reviewing one specific new diff/PR (use a code review for
+  that) and NOT for backend-only services with no frontend.
+---
+
+# Frontend Security Audit
+
+Audit a whole frontend codebase for vulnerabilities and remediate them, at any
+size. The hard problem is **scale**: you can't read 100k+ lines into context. The
+solution is a pipeline that spends cheap deterministic compute to narrow the
+search space, and spends model judgment only where it pays off.
+
+```
+recon → scan (script) → deps+secrets audit → triage → REPORT (stop) → fix (after OK) → verify → final report
+```
+
+## Operating principles
+
+- **Grep-first, read-narrow.** The bundled scanner finds candidates across the
+  entire tree in seconds. You only open files the scanner flagged. Never attempt
+  to read the whole codebase.
+- **Candidates ≠ vulnerabilities.** Grep over-matches by design. Every candidate
+  is triaged against `references/vulnerability-catalog.md` before it counts. On
+  real codebases most candidates in noisy categories (open-redirect, dom-xss-source,
+  redos) are false positives — clearing them confidently is the job.
+- **Report-first (default).** Produce the report and **stop**. Do not change code
+  until the user approves. This matches "don't guess when unsure" — a wrong "fix"
+  to working security-sensitive code is worse than the finding.
+- **The main agent writes every fix.** Subagents are used only for read-only
+  triage (see Scaling). No agent writes code.
+- **Trace to the source.** A sink is only dangerous if attacker-controlled data
+  reaches it. If all inputs are literals/enums/validated data, it's a false positive.
+
+## Phase 0 — Recon & scope
+
+Establish what you're auditing before scanning. Read, don't guess:
+
+1. `package.json` — framework (Next.js/Vite/CRA/Vue/etc.), package manager (lockfile),
+   notable libs (axios, lodash, a markdown/HTML renderer, an LLM SDK), and the
+   `lint`/`typecheck`/`format`/`check-errors` scripts you'll run in verification.
+2. Source roots and what to **exclude**: build output is excluded automatically, but
+   ask the user about large **vendored / demo / generated** directories (e.g. a
+   handoff-bundle demo folder). Scanning verbatim third-party code produces noise and
+   isn't the user's code to fix — confirm before including it.
+3. Confirm the server surface in scope. Default for Next.js: **include** route
+   handlers (`app/**/route.ts`), server actions (`'use server'`), `middleware.ts`,
+   and `next.config.*`. These ship in the frontend repo and carry the highest-impact
+   bugs (injection, SSRF, auth). If the user said client-only, skip categories
+   `server-injection`/`ssrf` and the server half of `cookie-clientside`.
+
+## Phase 1 — Run the scanner
+
+```bash
+node <skill>/scripts/scan.mjs <source-root> --out .security-audit/findings.json
+# exclude vendored/demo dirs the user opted out of (repeatable):
+#   --exclude '**/demo/**' --exclude '**/demo-v2/**'
+# narrow to one category while iterating:  --only open-redirect
+```
+
+It needs `ripgrep` (`rg`). If missing, tell the user to install it
+(`brew install ripgrep` / `apt install ripgrep`) — it's the engine that makes this
+scale. The script prints a severity summary and writes full findings (file:line +
+matched line + `serverHint`) to the JSON. Read the JSON to drive triage.
+
+## Phase 2 — Dependency & secrets-in-git audit
+
+These complement the source scan (see catalog §18–§19):
+
+- **Dependencies:** run the project's audit (`pnpm audit` / `npm audit` / `yarn`).
+  Prioritize critical/high in **prod** deps that reach the client bundle, and known
+  XSS / prototype-pollution / ReDoS advisories. Scan `package.json` for typosquatting.
+- **Secrets in git:** `git ls-files | rg -i '\.env'` (any tracked `.env`?), read
+  `.gitignore`, and if the source scan found a real secret, check history with
+  `git log -S`.
+
+## Phase 3 — Triage
+
+Read `references/vulnerability-catalog.md` once — it has, per category: how to confirm
+a true positive, the common false positives, and the fix. Then go category by category
+through `findings.json`:
+
+- Start with **critical/high**, and within a category prefer entries with
+  `serverHint: true` for the server categories.
+- For each candidate, decide **true positive / false positive / needs-human** using
+  the catalog. Use the matched line first; open the file only when you need the
+  data-flow context (trace the value to its source).
+- Record a verdict + reason for every candidate you classify. False positives get a
+  one-line reason (e.g. "`apiKey: 'department'` is a data field name, not a secret";
+  "`NEXT_PUBLIC_TURNSTILE_SITE_KEY` is a public site key by design").
+- Some issues are about **absence** and won't appear in findings — check catalog §20
+  (missing CSP/security headers, client-only auth guards / IDOR, mixed content,
+  `Math.random()` for tokens, prod source maps) by reading the relevant files.
+
+## Phase 4 — Report, then stop
+
+Write a human-readable report (default path: `.project-meta/files/security-audit-<date>.md`
+if that directory exists, else `.security-audit/report.md`) and present a summary in
+chat. **Do not modify code yet.** Use this structure:
+
+```markdown
+# Frontend Security Audit — <project> — <date>
+
+## Summary
+- Scanned: <N files / LOC>, <M candidates>, <K confirmed>, <F false positives>, <H need human decision>
+- Confirmed by severity: critical <n>, high <n>, medium <n>, low <n>
+
+## Confirmed vulnerabilities
+### [SEVERITY] <title> — <category>
+- **Location:** `path:line` (+ others)
+- **Why it's exploitable:** <attacker-controlled source → sink, concrete impact>
+- **Fix:** <planned change, per catalog>
+- **Risk if unfixed:** <impact>
+
+## Needs a human decision (architectural / backend-dependent)
+<token-storage migration, access-control/IDOR, breaking dep upgrades — explain the trade-off>
+
+## Cleared (notable false positives)
+<the scary-looking candidates that are safe, with the one-line reason>
+
+## Dependencies
+<audit results + recommended upgrades>
+```
+
+Then ask the user how to proceed: fix all confirmed, fix a subset, or hold. Present the
+"needs a human decision" items as explicit choices — don't decide auth architecture for them.
+
+## Phase 5 — Fix (only after approval)
+
+Apply fixes the user approved, **one category at a time**, following the catalog's
+remediation guidance. The main agent writes all edits.
+
+- Prefer the minimal, idiomatic fix that matches the surrounding code (add
+  `rel="noopener noreferrer"`, wrap with `DOMPurify.sanitize`, allow-list a redirect,
+  block `__proto__` in a merge, add a `message`-listener origin check, scope a target
+  origin, parameterize a query).
+- **Do not** silently perform architectural rewrites (moving tokens to httpOnly
+  cookies, changing the auth model, major dep major-version bumps). Those are the
+  "needs a human decision" items — implement only the option the user chose.
+- If a "fix" would change product behavior or you're unsure it's a true positive,
+  stop and ask rather than guess.
+
+## Phase 6 — Verify
+
+After fixing, prove you didn't break anything and that findings are resolved:
+
+1. Run the project's own checks (from Phase 0): `format`, then `check-errors`
+   (lint + typecheck) — or the closest equivalents. Fix anything the checks surface.
+   Do not truncate their output.
+2. Re-run the scanner (`scan.mjs`) and confirm the fixed candidates are gone and no
+   new ones appeared.
+3. Do **not** run `dev`/`build` unless the user asks.
+
+## Phase 7 — Final report
+
+Summarize: what was fixed (with file:line), what still needs a human decision and why,
+residual risk, and recommended follow-ups (e.g. add a CSP, rotate an exposed key). Be
+honest about what wasn't done.
+
+## Scaling to large codebases
+
+The scanner already handles any size (one `rg` pass, seconds on 200k+ LOC). The part
+that grows is **triage**. For a big result set:
+
+- Triage by severity and stop-loss: clear critical/high first; sample noisy
+  medium categories before grinding every entry.
+- **Optional read-only Explore fan-out:** spawn one `Explore` subagent per noisy
+  category (or per directory) to classify its candidates against the catalog and
+  return a structured verdict list (`file:line`, verdict, reason). This parallelizes
+  the reading. **Explore agents only read and report — they never write fixes.** The
+  main agent consolidates verdicts and performs all edits in Phase 5.
+- Give each Explore agent the catalog section for its category and the relevant slice
+  of `findings.json` so it doesn't re-scan.
+
+## Files
+
+- `scripts/scan.mjs` — the grep-first candidate scanner. Run it; read its JSON output.
+- `references/vulnerability-catalog.md` — per-category confirm / false-positive / fix
+  guidance (and §18–§20 for deps, git secrets, and absence-checks). Read before triage.

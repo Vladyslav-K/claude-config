@@ -75,11 +75,22 @@ node <skill>/scripts/scan.mjs <source-root> --out .security-audit/findings.json
 It needs `ripgrep` (`rg`). If missing, tell the user to install it
 (`brew install ripgrep` / `apt install ripgrep`) — it's the engine that makes this
 scale. The script prints a severity summary and writes full findings (file:line +
-matched line + `serverHint`) to the JSON. Read the JSON to drive triage.
+matched line + which pattern hit + `serverHint`) to the JSON, plus a
+`categories/<id>.json` slice per non-empty category — triage from the slices, not
+the full JSON, on big result sets.
+
+Scanner behavior worth knowing:
+
+- It deliberately **ignores `.gitignore`** (`--no-ignore-vcs`): a gitignored `.env`
+  still feeds `NEXT_PUBLIC_*` into the bundle and gitignored generated code still
+  ships. Build artifacts are excluded by built-in globs; exclude project-specific
+  generated dirs with `--exclude`.
+- Its output quotes vulnerable lines (and any found secrets) **verbatim** — make
+  sure `.security-audit/` is gitignored and never committed.
 
 ## Phase 2 — Dependency & secrets-in-git audit
 
-These complement the source scan (see catalog §18–§19):
+These complement the source scan (see catalog §19–§20):
 
 - **Dependencies:** run the project's audit (`pnpm audit` / `npm audit` / `yarn`).
   Prioritize critical/high in **prod** deps that reach the client bundle, and known
@@ -102,9 +113,10 @@ through `findings.json`:
 - Record a verdict + reason for every candidate you classify. False positives get a
   one-line reason (e.g. "`apiKey: 'department'` is a data field name, not a secret";
   "`NEXT_PUBLIC_TURNSTILE_SITE_KEY` is a public site key by design").
-- Some issues are about **absence** and won't appear in findings — check catalog §20
-  (missing CSP/security headers, client-only auth guards / IDOR, mixed content,
-  `Math.random()` for tokens, prod source maps) by reading the relevant files.
+- Some issues are about **absence** and won't appear in findings — check catalog §21
+  (missing CSP/security headers and CSP quality, CSRF on cookie-auth route handlers,
+  client-only auth guards / IDOR, mixed content, `Math.random()` for tokens, missing
+  SRI on CDN scripts, prod source maps) by reading the relevant files.
 
 ## Phase 4 — Report, then stop
 
@@ -183,11 +195,14 @@ that grows is **triage**. For a big result set:
   return a structured verdict list (`file:line`, verdict, reason). This parallelizes
   the reading. **Explore agents only read and report — they never write fixes.** The
   main agent consolidates verdicts and performs all edits in Phase 5.
-- Give each Explore agent the catalog section for its category and the relevant slice
-  of `findings.json` so it doesn't re-scan.
+- Give each Explore agent the catalog section for its category and the path to its
+  `categories/<id>.json` slice so it doesn't re-scan or read the full findings file.
 
 ## Files
 
 - `scripts/scan.mjs` — the grep-first candidate scanner. Run it; read its JSON output.
 - `references/vulnerability-catalog.md` — per-category confirm / false-positive / fix
-  guidance (and §18–§20 for deps, git secrets, and absence-checks). Read before triage.
+  guidance (and §19–§21 for deps, git secrets, and absence-checks). Read before triage.
+- `evals/fixture/` — intentionally-vulnerable mini-project with planted findings and
+  decoys; `evals/expected-findings.md` lists what a scan of it must (and must not)
+  report. Re-run it after any change to the scanner's patterns.

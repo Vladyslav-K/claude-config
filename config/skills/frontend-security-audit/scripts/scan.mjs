@@ -18,7 +18,7 @@
 // Requires: ripgrep (`rg`) on PATH. Install: `brew install ripgrep` / `apt install ripgrep`.
 
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 
 // Each category is a cluster of related patterns plus a default severity and a one-line
@@ -36,6 +36,8 @@ const CATEGORIES = [
       'insertAdjacentHTML\\s*\\(',
       'document\\.write(ln)?\\s*\\(',
       '\\sv-html\\s*=',
+      '\\{@html\\b',
+      '\\[innerHTML\\]\\s*=',
     ],
   },
   {
@@ -94,6 +96,11 @@ const CATEGORIES = [
       'gho_[0-9A-Za-z]{36}',
       'xox[abprs]-[0-9A-Za-z-]{10,}',
       '(sk|rk)_live_[0-9A-Za-z]{16,}',
+      '\\bsk-(proj|ant|or)-[A-Za-z0-9_-]{20,}',
+      '\\bsk-[A-Za-z0-9]{40,}',
+      'github_pat_[0-9A-Za-z_]{20,}',
+      'glpat-[0-9A-Za-z_-]{20,}',
+      'npm_[A-Za-z0-9]{30,}',
       '-----BEGIN [A-Z ]*PRIVATE KEY-----',
       'eyJ[A-Za-z0-9_-]{8,}\\.eyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}',
       '(?i)(api[_-]?key|apikey|secret|client[_-]?secret|password|passwd|access[_-]?token|auth[_-]?token|private[_-]?key)\\s*[:=]\\s*[\'"][^\'"\\s$]{8,}[\'"]',
@@ -163,10 +170,12 @@ const CATEGORIES = [
     id: 'redos',
     severity: 'medium',
     why: 'Nested/overlapping quantifiers on user input can hang the thread (catastrophic backtracking).',
+    // Anchored to regex literals /…/ and new RegExp('…') so plain arithmetic like
+    // `(a + 1) * b` doesn't flood triage. Dynamically-assembled RegExp is out of reach.
     patterns: [
-      '\\([^)]*[+*][^)]*\\)\\s*[+*]',
-      '\\(\\.\\*\\)[+*]',
-      '\\([^)]+\\|[^)]+\\)[+*]',
+      '/[^/\\n\\t ]*\\([^)]*[+*][^)]*\\)[+*][^/\\n]*/',
+      '/[^/\\n\\t ]*\\([^)|]+\\|[^)]+\\)[+*][^/\\n]*/',
+      'new\\s+RegExp\\s*\\(\\s*[\'"`][^\'"`]*\\([^)]*[+*][^)]*\\)[+*]',
     ],
   },
   {
@@ -202,6 +211,9 @@ const CATEGORIES = [
       'ignoreDuringBuilds\\s*:\\s*true',
       'dangerouslyAllowSVG\\s*:\\s*true',
       'unoptimized\\s*:\\s*true',
+      // remotePatterns entries are multi-line objects; match the wildcard hostname
+      // line itself rather than trying to span lines from "remotePatterns".
+      'hostname\\s*:\\s*[\'"`]\\*\\*?[\'"`]',
       'remotePatterns[\\s\\S]{0,40}[\'"`]\\*\\*?[\'"`]',
     ],
   },
@@ -211,13 +223,28 @@ const CATEGORIES = [
     why: 'Cookies set via document.cookie cannot be httpOnly. Server Set-Cookie must carry HttpOnly/Secure/SameSite.',
     patterns: [
       'document\\.cookie\\s*=',
+      // js-cookie and similar wrappers write document.cookie under the hood.
+      '(?i)\\bCookies\\.set\\s*\\(\\s*[\'"`][^\'"`]*(token|auth|jwt|session|refresh|secret)',
       '(?i)set-cookie',
+    ],
+  },
+  {
+    id: 'graphql-server',
+    severity: 'medium',
+    why: 'GraphQL server surface: introspection in prod exposes the schema; missing depth/complexity limits invite abusive queries.',
+    patterns: [
+      'new\\s+ApolloServer\\s*\\(',
+      'createYoga\\s*\\(',
+      'graphqlHTTP\\s*\\(',
+      'introspection\\s*:\\s*true',
     ],
   },
 ];
 
 // Paths that strongly hint server-side execution (where injection/SSRF actually bite).
-const SERVER_HINT = /(\/route\.(t|j)sx?$|\/api\/|middleware\.(t|j)sx?$|\.server\.|actions?\/|\/server\/)/i;
+// Deliberately no bare `actions/` segment — it matches Redux/Vuex client code; Next.js
+// server actions are detected by their 'use server' directive instead (see below).
+const SERVER_HINT = /(\/route\.(t|j)sx?$|\/api\/|\/middleware\.(t|j)sx?$|\.server\.|\/server\/)/i;
 
 const DEFAULT_EXCLUDES = [
   '**/node_modules/**',
@@ -228,6 +255,19 @@ const DEFAULT_EXCLUDES = [
   '**/out/**',
   '**/coverage/**',
   '**/.turbo/**',
+  // The scanner's own output quotes matched vulnerable lines verbatim — re-scanning it
+  // would resurrect every old candidate as a phantom finding on the Phase-6 re-run.
+  '**/.security-audit/**',
+  '**/.vercel/**',
+  '**/.netlify/**',
+  '**/.svelte-kit/**',
+  '**/.nuxt/**',
+  '**/.output/**',
+  '**/.astro/**',
+  '**/.cache/**',
+  '**/storybook-static/**',
+  '**/playwright-report/**',
+  '**/test-results/**',
   '**/*.min.*',
   '**/*.map',
   '**/pnpm-lock.yaml',
@@ -257,6 +297,17 @@ function parseArgs(argv) {
   return opts;
 }
 
+// Files carrying a 'use server' directive are server actions regardless of their path.
+function collectUseServerFiles(root, excludes) {
+  const args = ['--files-with-matches', '--hidden', '--no-ignore-vcs', '--no-messages'];
+  for (const g of INCLUDE_GLOBS) args.push('-g', g);
+  for (const g of [...DEFAULT_EXCLUDES, ...excludes]) args.push('-g', `!${g}`);
+  args.push('-e', '^\\s*[\'"`]use server[\'"`]', '--', root);
+  const res = spawnSync('rg', args, { encoding: 'utf8', maxBuffer: 1024 * 1024 * 64 });
+  if (res.status === 2 || !res.stdout) return new Set();
+  return new Set(res.stdout.split('\n').filter(Boolean));
+}
+
 function ensureRg() {
   const probe = spawnSync('rg', ['--version'], { encoding: 'utf8' });
   if (probe.error || probe.status !== 0) {
@@ -268,8 +319,12 @@ function ensureRg() {
   }
 }
 
-function runCategory(cat, root, excludes) {
-  const args = ['--json', '--hidden', '--no-messages'];
+function runCategory(cat, root, excludes, useServerFiles) {
+  // --no-ignore-vcs pins the semantics across ripgrep versions: since rg 14 a positive
+  // -g glob already overrides .gitignore, older versions skip ignored files. We always
+  // want gitignored files scanned — a gitignored .env still feeds NEXT_PUBLIC_* into the
+  // bundle and gitignored generated code still ships. Build dirs are excluded explicitly.
+  const args = ['--json', '--hidden', '--no-ignore-vcs', '--no-messages'];
   for (const g of INCLUDE_GLOBS) args.push('-g', g);
   for (const g of [...DEFAULT_EXCLUDES, ...excludes]) args.push('-g', `!${g}`);
   for (const p of cat.patterns) args.push('-e', p);
@@ -301,11 +356,14 @@ function runCategory(cat, root, excludes) {
     if (seen.has(key)) continue;
     seen.add(key);
     const raw = (obj.data.lines?.text ?? '').replace(/\s+/g, ' ').trim();
+    const matched = (obj.data.submatches?.[0]?.match?.text ?? '').replace(/\s+/g, ' ').trim();
     findings.push({
       file,
       line: lineNo,
       text: raw.length > 240 ? `${raw.slice(0, 240)}…` : raw,
-      serverHint: SERVER_HINT.test(file),
+      // Which pattern hit, to speed up triage of multi-pattern categories.
+      match: matched.length > 80 ? `${matched.slice(0, 80)}…` : matched,
+      serverHint: SERVER_HINT.test(file.replace(/\\/g, '/')) || useServerFiles.has(file),
     });
   }
   return findings;
@@ -330,12 +388,14 @@ function main() {
     process.exit(2);
   }
 
+  const useServerFiles = collectUseServerFiles(root, opts.excludes);
+
   const categories = [];
   const bySeverity = { critical: 0, high: 0, medium: 0, low: 0 };
   let total = 0;
 
   for (const cat of selected) {
-    const findings = runCategory(cat, root, opts.excludes);
+    const findings = runCategory(cat, root, opts.excludes, useServerFiles);
     total += findings.length;
     bySeverity[cat.severity] += findings.length;
     categories.push({
@@ -363,6 +423,15 @@ function main() {
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, JSON.stringify(report, null, 2));
 
+  // One file per non-empty category, so triage (and Explore fan-out) can read a
+  // small slice instead of the full findings.json on large result sets.
+  const catDir = join(dirname(outPath), 'categories');
+  rmSync(catDir, { recursive: true, force: true });
+  mkdirSync(catDir, { recursive: true });
+  for (const c of categories) {
+    if (c.count > 0) writeFileSync(join(catDir, `${c.category}.json`), JSON.stringify(c, null, 2));
+  }
+
   if (!opts.quiet) {
     const order = { critical: 0, high: 1, medium: 2, low: 3 };
     const sorted = [...categories].sort(
@@ -378,6 +447,7 @@ function main() {
     }
     console.log('—'.repeat(64));
     console.log(`Full findings written to: ${outPath}`);
+    console.log(`Per-category slices:      ${catDir}/<category>.json`);
     console.log('Next: triage each category against the vulnerability catalog. Candidates ≠ vulnerabilities.\n');
   }
 }

@@ -45,7 +45,31 @@ def extract_app_code(html_path):
     return inline[-1] if inline else ''
 
 
-def port_page(html_path, persona, slug, kits, skip_names, route_prefix, out_path, components_root, components_import_root, pages_subroot):
+def esc_template_literal(s):
+    """Escape a CSS string so it is safe inside a JS template literal."""
+    return s.replace('\\', '\\\\').replace('`', '\\`').replace('${', '\\${')
+
+
+def default_export_block(per_page_css):
+    """Emit the DemoPage default export. When the page has page-unique CSS, wrap <App/>
+    in a fragment carrying an inline <style> — this covers every render state of App
+    (early returns, sub-views) with one definition, the same shape used by edit-company."""
+    if per_page_css and per_page_css.strip():
+        css = esc_template_literal(per_page_css.strip())
+        return (
+            "\n\nexport default function DemoPage() {\n"
+            "  return (\n"
+            "    <>\n"
+            "      <style>{`\n" + css + "\n`}</style>\n"
+            "      <App />\n"
+            "    </>\n"
+            "  );\n"
+            "}\n"
+        )
+    return "\n\nexport default function DemoPage() { return <App/>; }\n"
+
+
+def port_page(html_path, persona, slug, kits, skip_names, route_prefix, out_path, components_root, components_import_root, pages_subroot, per_page_css=''):
     code = extract_app_code(html_path)
     if not code:
         return f'SKIP {html_path}: no code'
@@ -137,8 +161,11 @@ def port_page(html_path, persona, slug, kits, skip_names, route_prefix, out_path
     code = re.sub(r"ReactDOM\.render\(<App\s*/>,\s*[^)]+\);\s*", "", code)
     code = re.sub(r'^\s*const\s*\{\s*[^}]+\s*\}\s*=\s*React\s*;\s*$', '', code, flags=re.M)
 
+    warn = ''
     if re.search(r'\bfunction\s+App\s*\(', code):
-        code += "\n\nexport default function DemoPage() { return <App/>; }\n"
+        code += default_export_block(per_page_css)
+    elif per_page_css and per_page_css.strip():
+        warn = ' [WARN: page-unique CSS not injected — no `function App`; add the <style> manually]'
 
     parts = [
         "'use client';",
@@ -156,7 +183,7 @@ def port_page(html_path, persona, slug, kits, skip_names, route_prefix, out_path
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, 'w') as f:
         f.write('\n'.join(parts))
-    return f'OK {out_path}'
+    return f'OK {out_path}{warn}'
 
 
 def main():
@@ -169,7 +196,14 @@ def main():
     ap.add_argument('--out-root', required=True, help='target src/app/<demo>/')
     ap.add_argument('--route-prefix', default='/demo/', help='URL prefix (default /demo/)')
     ap.add_argument('--skip-names', nargs='*', default=['TweaksPanel','TweakSection','TweakSlider','TweakText','TweakRow','TweakColor','TweakNumber','TweakRadio','TweakSelect','TweakButton','TweakToggle','useTweaks'])
+    ap.add_argument('--per-page-css', default=None, help='JSON produced by transform_css.py --per-page-out: page-unique CSS keyed by html rel-path. Each page gets its rules injected as an inline <style>.')
     args = ap.parse_args()
+
+    per_page_css = {}
+    if args.per_page_css:
+        with open(args.per_page_css) as f:
+            per_page_css = json.load(f)
+        print(f'Loaded page-unique CSS for {len(per_page_css)} pages\n')
 
     # Index kit exports
     kit_files = sorted(set(
@@ -190,7 +224,8 @@ def main():
         out_path = os.path.join(args.out_root.rstrip('/'), persona, slug, 'page.tsx')
         msg = port_page(html, persona, slug, kits, set(args.skip_names),
                         args.route_prefix, out_path, args.components,
-                        args.components_import_root, args.pages_subroot.strip('/'))
+                        args.components_import_root, args.pages_subroot.strip('/'),
+                        per_page_css.get(rel, ''))
         print(f'  {msg}')
 
 

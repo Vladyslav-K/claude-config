@@ -62,6 +62,19 @@ Establish what you're auditing before scanning. Read, don't guess:
    and `next.config.*`. These ship in the frontend repo and carry the highest-impact
    bugs (injection, SSRF, auth). If the user said client-only, skip categories
    `server-injection`/`ssrf` and the server half of `cookie-clientside`.
+4. **Monorepo / separate-backend topology.** If a separate backend app sits next to the
+   frontend (`apps/api` beside `apps/web`, a NestJS/Express service, any non-Next server),
+   that backend is **out of scope** for a *frontend* audit — note it and scan only the web
+   app. The consequence: with the real server elsewhere, a client-heavy Next app often has
+   **no** route handlers / `middleware.ts` / `'use server'` files, so `server-injection` and
+   `ssrf` candidates inside it are all-false-positive (a browser `fetch` is not SSRF). Confirm
+   with `find <web> -name 'route.ts' -o -name 'middleware.ts'` plus the scanner's `'use server'`
+   set before spending triage budget on server categories.
+5. **Read the high-value files during recon, regardless of scanner hits.** Some findings come
+   from *configuration and architecture*, not a grep sink: read `next.config.*` (headers/CSP,
+   image config, rewrites), the auth/token layer (axios/fetch client, interceptors, where the
+   token lives), and `.env*`. Two of the most impactful findings — **missing security headers**
+   and **token-in-localStorage** — surface from reading these, not from a candidate line.
 
 ## Phase 1 — Run the scanner
 
@@ -86,7 +99,9 @@ Scanner behavior worth knowing:
   ships. Build artifacts are excluded by built-in globs; exclude project-specific
   generated dirs with `--exclude`.
 - Its output quotes vulnerable lines (and any found secrets) **verbatim** — make
-  sure `.security-audit/` is gitignored and never committed.
+  sure `.security-audit/` is gitignored and never committed. If you can't guarantee that
+  (the repo must stay untouched, or `.security-audit/` isn't in `.gitignore`), point `--out`
+  **outside the repo tree** (a temp dir) so the verbatim dump can never be committed.
 
 ## Phase 2 — Dependency & secrets-in-git audit
 
@@ -95,6 +110,11 @@ These complement the source scan (see catalog §19–§20):
 - **Dependencies:** run the project's audit (`pnpm audit` / `npm audit` / `yarn`).
   Prioritize critical/high in **prod** deps that reach the client bundle, and known
   XSS / prototype-pollution / ReDoS advisories. Scan `package.json` for typosquatting.
+  When a version looks "wrong" (typosquat suspect, or suspiciously newer than you recall),
+  **verify it against the registry before flagging** — `npm view <pkg> dist-tags.latest` and
+  `npm view <pkg>@<ver> version`. Your memory of "the latest version" is frozen at the model's
+  training cutoff; the registry is the source of truth, and a real, current release is not a
+  finding. Only a version the registry lacks (or a name that isn't the real package) is one.
 - **Secrets in git:** `git ls-files | rg -i '\.env'` (any tracked `.env`?), read
   `.gitignore`, and if the source scan found a real secret, check history with
   `git log -S`.
@@ -107,6 +127,11 @@ through `findings.json`:
 
 - Start with **critical/high**, and within a category prefer entries with
   `serverHint: true` for the server categories.
+- Let the scanner pre-sort the noisy navigation category: `open-redirect` candidates carry an
+  `argKind` (`dynamic`/`template`/`literal`) and the summary prints the breakdown. Review the
+  **`dynamic`** entries (and any untagged multi-line calls) first; constant and
+  template-internal-route destinations are the bulk and almost always false positives. The same
+  literal-vs-variable reasoning clears most `ssrf` and `dom-xss-source` noise by hand.
 - For each candidate, decide **true positive / false positive / needs-human** using
   the catalog. Use the matched line first; open the file only when you need the
   data-flow context (trace the value to its source).
@@ -115,8 +140,13 @@ through `findings.json`:
   "`NEXT_PUBLIC_TURNSTILE_SITE_KEY` is a public site key by design").
 - Some issues are about **absence** and won't appear in findings — check catalog §21
   (missing CSP/security headers and CSP quality, CSRF on cookie-auth route handlers,
-  client-only auth guards / IDOR, mixed content, `Math.random()` for tokens, missing
-  SRI on CDN scripts, prod source maps) by reading the relevant files.
+  client-only auth guards / IDOR, dynamic `href`/`src` URL bindings, mixed content,
+  `Math.random()` for tokens, missing SRI on CDN scripts, prod source maps) by reading
+  the relevant files.
+- **Think in chains, not just per-category.** A finding's severity isn't only its isolated
+  category: a token in `localStorage` (a "needs-human" item) **plus** any XSS = token
+  exfiltration → account takeover. When a low/medium finding amplifies a high one, say so and
+  rate the combined impact.
 
 ## Phase 4 — Report, then stop
 

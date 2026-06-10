@@ -37,11 +37,16 @@ python3 ${SKILL_DIR}/scripts/inventory.py --bundle-root ${BUNDLE_ROOT}
 # === Phase 1a — fonts (optional; usually skip in favor of production fonts) ===
 # python3 ${SKILL_DIR}/scripts/extract_fonts.py --bundle-root ${BUNDLE_ROOT} --out ${OUT_ROOT}/_fonts/
 
-# === Phase 1b — CSS scope ===
+# === Phase 1b — CSS scope (split global vs per-page) ===
 python3 ${SKILL_DIR}/scripts/transform_css.py \
   --bundle-root ${BUNDLE_ROOT} \
+  --pages-subroot ${PAGES_SUBROOT} \
   --scope ${WRAPPER_CLASS} \
-  --out ${OUT_ROOT}/_styles/demo.css
+  --out ${OUT_ROOT}/_styles/demo.css \
+  --per-page-out ${OUT_ROOT}/_styles/per_page_css.json
+# Scans <style> across ALL pages. Shared rules -> demo.css; page-unique rules ->
+# per_page_css.json (injected per page in Phase 3). Do NOT drop --per-page-out, or
+# generic class names from different pages collide in the global scope.
 
 # Manual: swap font literals to production CSS variables — names depend on the project
 # e.g. sed -i.bak "s/'Archivo', /var(--font-archivo), /g" ${OUT_ROOT}/_styles/demo.css
@@ -74,12 +79,15 @@ python3 ${SKILL_DIR}/scripts/fix_crossref.py        --components ${OUT_ROOT}/_co
 # === Phase 3 — pages ===
 python3 ${SKILL_DIR}/scripts/port_all_pages.py \
   --bundle-root ${BUNDLE_ROOT} \
+  --pages-subroot ${PAGES_SUBROOT} \
   --components ${OUT_ROOT}/_components/ \
   --components-import-root ${COMPONENTS_IMPORT} \
   --out-root ${OUT_ROOT} \
   --route-prefix ${ROUTE_PREFIX} \
+  --per-page-css ${OUT_ROOT}/_styles/per_page_css.json \
   --skip-names TweaksPanel TweakSection TweakSlider TweakText useTweaks
-  # Adjust --skip-names based on what the bundle ships and what should be hidden
+  # --per-page-css injects each page's unique rules as an inline <style> on its
+  # DemoPage wrapper. Adjust --skip-names based on what the bundle ships.
 
 # === Phase 4 — sitemap (if the bundle has one) ===
 python3 ${SKILL_DIR}/scripts/build_sitemap.py \
@@ -92,6 +100,9 @@ python3 ${SKILL_DIR}/scripts/build_sitemap.py \
 # rm -rf ${BUNDLE_ROOT}                               # delete handoff source
 
 # === Phase 6 — verify ===
+# Static CSS audit FIRST — catches lost per-page CSS that tsc/eslint never see
+python3 ${SKILL_DIR}/scripts/verify_css.py --root ${OUT_ROOT}
+
 # Start dev server (whatever the project uses)
 pnpm run dev &
 sleep 5
@@ -103,6 +114,7 @@ pnpm run format-and-check
 
 ## Important notes
 
+- **CSS is split, then verified.** `transform_css.py` (Phase 1b) emits `per_page_css.json` alongside `demo.css`; `port_all_pages.py` (Phase 3) consumes it via `--per-page-css`. Use the same `--pages-subroot` for both so the per-page keys line up. Always finish with `verify_css.py` (Phase 6) — it fails if any `className`/`animation` resolves to nothing, which is the signature of dropped per-page CSS. If it flags an animation whose `@keyframes` isn't in any ported page, grep the whole bundle (it may live in a non-ported file) and add it by hand.
 - **Order matters.** `fix_crossref.py` requires `_components/` to already exist with named exports — run it after `transform_kits.py` and after the manual rename step.
 - **Manual renaming step is non-optional.** `transform_kits.py` writes files named `kit-<hash>.tsx` because it doesn't know what each kit semantically is. After running, read `mapping.json` and rename to meaningful names. Subsequent scripts depend on import paths looking right.
 - **Idempotency caveat.** Most scripts are safe to re-run, but `patch_window.py` is NOT — wrapping already-wrapped lines may produce malformed output. When iterating: `git checkout ${OUT_ROOT}/_components/` and start the chain again.

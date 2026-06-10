@@ -31,6 +31,7 @@ CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 # ============================================
 TRANSCRIPT_CACHE_FILE="$CLAUDE_DIR/.transcript-cache"
 CONTEXT_CACHE_FILE="$CLAUDE_DIR/.context-cache"
+CONTEXT_TOKENS_CACHE_FILE="$CLAUDE_DIR/.context-tokens-cache"
 
 # Check if this is a new chat (transcript changed or empty)
 CACHED_TRANSCRIPT=""
@@ -40,7 +41,7 @@ fi
 
 # If transcript is empty or different from cached - reset cache
 if [[ -z "$TRANSCRIPT" ]] || [[ "$TRANSCRIPT" != "$CACHED_TRANSCRIPT" ]]; then
-    rm -f "$CONTEXT_CACHE_FILE" 2>/dev/null
+    rm -f "$CONTEXT_CACHE_FILE" "$CONTEXT_TOKENS_CACHE_FILE" 2>/dev/null
     if [[ -n "$TRANSCRIPT" ]]; then
         echo "$TRANSCRIPT" > "$TRANSCRIPT_CACHE_FILE"
     else
@@ -79,26 +80,21 @@ else
     MODEL="?"
 fi
 
-TOTAL_TOKENS=0
-if [[ -n "$TRANSCRIPT" ]] && [[ -f "$TRANSCRIPT" ]]; then
-    TOTAL_TOKENS=$(grep -oE '"(input_tokens|output_tokens|cache_read_input_tokens|cache_creation_input_tokens)":[0-9]+' "$TRANSCRIPT" 2>/dev/null | \
-        grep -oE '[0-9]+$' | \
-        awk '{sum+=$1} END {print sum+0}')
-fi
+# Context tokens (same number as the token counter in the UI)
+CTX_TOKENS_RAW=$(echo "$INPUT" | jq -r '(.context_window.total_input_tokens // 0) + (.context_window.total_output_tokens // 0)')
 
-if [[ $TOTAL_TOKENS -ge 1000000 ]]; then
-    MILLIONS=$((TOTAL_TOKENS / 1000000))
-    REMAINDER=$(( (TOTAL_TOKENS % 1000000) / 100000 ))
-    FORMATTED_TOKENS="${MILLIONS}.${REMAINDER}M"
-elif [[ $TOTAL_TOKENS -ge 1000 ]]; then
-    THOUSANDS=$((TOTAL_TOKENS / 1000))
-    REMAINDER=$(( (TOTAL_TOKENS % 1000) / 100 ))
-    FORMATTED_TOKENS="${THOUSANDS}.${REMAINDER}K"
+if [[ -z "$CTX_TOKENS_RAW" ]] || [[ "$CTX_TOKENS_RAW" == "0" ]]; then
+    if [[ -f "$CONTEXT_TOKENS_CACHE_FILE" ]]; then
+        CTX_TOKENS=$(cat "$CONTEXT_TOKENS_CACHE_FILE")
+    else
+        CTX_TOKENS="?"
+    fi
 else
-    FORMATTED_TOKENS="$TOTAL_TOKENS"
+    CTX_TOKENS="$CTX_TOKENS_RAW"
+    echo "$CTX_TOKENS" > "$CONTEXT_TOKENS_CACHE_FILE"
 fi
 
-LINE3="${MAGENTA}${MODEL} | v${VERSION} | Tokens: ${FORMATTED_TOKENS}${RESET}"
+LINE3="${MAGENTA}${MODEL} | v${VERSION} | Tokens: ${CTX_TOKENS}${RESET}"
 
 # ============================================
 # LINE 4: Context | Cost

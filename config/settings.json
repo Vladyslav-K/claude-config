@@ -128,6 +128,7 @@
       "Read(./.env.*)"
     ]
   },
+  "model": "claude-fable-5[1M]",
   "hooks": {
     "Stop": [
       {
@@ -140,6 +141,7 @@
       }
     ]
   },
+  "workflowKeywordTriggerEnabled": false,
   "statusLine": {
     "type": "command",
     "command": "{{CLAUDE_HOME}}/scripts/statusline.sh",
@@ -159,6 +161,7 @@
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "editorMode": "normal",
+  "verbose": false,
   "preferredNotifChannel": "terminal_bell",
   "autoCompactEnabled": false,
   "terminalProgressBarEnabled": false,
@@ -204,6 +207,5 @@
   },
   "feedbackSurveyState": {
     "lastShownTime": 1754036467609
-  },
-  "model": "claude-fable-5[1M]"
+  }
 }

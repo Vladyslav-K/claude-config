@@ -244,7 +244,30 @@ const CATEGORIES = [
 // Paths that strongly hint server-side execution (where injection/SSRF actually bite).
 // Deliberately no bare `actions/` segment — it matches Redux/Vuex client code; Next.js
 // server actions are detected by their 'use server' directive instead (see below).
-const SERVER_HINT = /(\/route\.(t|j)sx?$|\/api\/|\/middleware\.(t|j)sx?$|\.server\.|\/server\/)/i;
+// `/pages/api/`, NOT a bare `/api/`: App-Router handlers are already caught by `/route.`
+// and pages-router endpoints by `/pages/api/`, whereas a bare `/api/` wrongly tags the very
+// common CLIENT api layer (`src/api/…` axios services/config) as server code — that false
+// serverHint misleads triage into treating client localStorage/fetch as a server surface.
+const SERVER_HINT = /(\/route\.(t|j)sx?$|\/pages\/api\/|\/middleware\.(t|j)sx?$|\.server\.|\/server\/)/i;
+
+// Classify a navigation/redirect candidate by what its destination argument is, so triage
+// can skip the (overwhelmingly safe) constant-destination calls and focus on dynamic ones:
+//   'literal'  — a string literal, or a template literal with NO ${…} interpolation
+//   'template' — a template literal WITH ${…} (usually an internal route + an id)
+//   'dynamic'  — a variable / expression (`router.push(next)`) — the entries worth reviewing
+// Heuristic over the matched source line; returns null when no nav call is recognizable.
+function classifyNavArg(line) {
+  const m = line.match(
+    /(?:router\.(?:push|replace)|location\.(?:assign|replace)|window\.location\.href|window\.location|location\.href|\bredirect)\s*[=(]\s*/,
+  );
+  if (!m) return null;
+  const rest = line.slice(m.index + m[0].length);
+  const c = rest[0];
+  if (c === undefined) return null;
+  if (c === "'" || c === '"') return 'literal';
+  if (c === '`') return rest.includes('${') ? 'template' : 'literal';
+  return 'dynamic';
+}
 
 const DEFAULT_EXCLUDES = [
   '**/node_modules/**',
@@ -357,14 +380,21 @@ function runCategory(cat, root, excludes, useServerFiles) {
     seen.add(key);
     const raw = (obj.data.lines?.text ?? '').replace(/\s+/g, ' ').trim();
     const matched = (obj.data.submatches?.[0]?.match?.text ?? '').replace(/\s+/g, ' ').trim();
-    findings.push({
+    const finding = {
       file,
       line: lineNo,
       text: raw.length > 240 ? `${raw.slice(0, 240)}…` : raw,
       // Which pattern hit, to speed up triage of multi-pattern categories.
       match: matched.length > 80 ? `${matched.slice(0, 80)}…` : matched,
       serverHint: SERVER_HINT.test(file.replace(/\\/g, '/')) || useServerFiles.has(file),
-    });
+    };
+    // open-redirect is the noisiest category — tag the destination kind so triage can jump
+    // straight to the `dynamic` entries (constant/template internal routes are ~always safe).
+    if (cat.id === 'open-redirect') {
+      const argKind = classifyNavArg(raw);
+      if (argKind) finding.argKind = argKind;
+    }
+    findings.push(finding);
   }
   return findings;
 }
@@ -398,14 +428,24 @@ function main() {
     const findings = runCategory(cat, root, opts.excludes, useServerFiles);
     total += findings.length;
     bySeverity[cat.severity] += findings.length;
-    categories.push({
+    const entry = {
       category: cat.id,
       severity: cat.severity,
       why: cat.why,
       count: findings.length,
       serverHits: findings.filter((f) => f.serverHint).length,
       findings,
-    });
+    };
+    // Surface the destination breakdown so a 150-candidate open-redirect category reads as
+    // "N dynamic worth reviewing" instead of an undifferentiated wall.
+    if (cat.id === 'open-redirect') {
+      entry.argKinds = {
+        dynamic: findings.filter((f) => f.argKind === 'dynamic').length,
+        template: findings.filter((f) => f.argKind === 'template').length,
+        literal: findings.filter((f) => f.argKind === 'literal').length,
+      };
+    }
+    categories.push(entry);
   }
 
   const report = {
@@ -442,8 +482,11 @@ function main() {
     console.log('—'.repeat(64));
     for (const c of sorted) {
       if (c.count === 0) continue;
-      const server = c.serverHits ? `  [${c.serverHits} in server paths]` : '';
-      console.log(`  ${c.severity.toUpperCase().padEnd(8)} ${c.category.padEnd(22)} ${String(c.count).padStart(5)}${server}`);
+      let tags = c.serverHits ? `  [${c.serverHits} in server paths]` : '';
+      if (c.argKinds) {
+        tags += `  [${c.argKinds.dynamic} dynamic, ${c.argKinds.template} template, ${c.argKinds.literal} literal]`;
+      }
+      console.log(`  ${c.severity.toUpperCase().padEnd(8)} ${c.category.padEnd(22)} ${String(c.count).padStart(5)}${tags}`);
     }
     console.log('—'.repeat(64));
     console.log(`Full findings written to: ${outPath}`);

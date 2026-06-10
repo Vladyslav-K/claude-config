@@ -25,7 +25,7 @@ description: Port self-contained HTML handoff bundles into native React pages. U
 The handoff bundle is **not** a black box. Inside each `.html` file, despite the base64-shuffled appearance, lies:
 
 1. Plain JSX/JS in a `<script type="text/babel">` block — the page's `App` component + its data
-2. The full design-system CSS in `<style>` tags — tokens, typography, responsive rules
+2. CSS in `<style>` tags — in two layers: the **shared design system** (tokens, typography, resets, common component classes), duplicated into every page, **plus per-page rules** unique to that page (its modal, form, special layout, its own `@keyframes`). Both must survive the port; the per-page layer is the one easily lost (see Pattern 10)
 3. Cross-page shared components in additional `<script type="text/babel" src="UUID">` blocks. Sources live in `__bundler/manifest` as base64-gzip-encoded blobs
 4. Fonts (woff2) and images (PNG/SVG) in the same manifest, also base64-encoded
 
@@ -130,15 +130,22 @@ python3 ${SKILL_DIR}/scripts/extract_fonts.py --bundle-root ${BUNDLE_ROOT} --out
 ```bash
 python3 ${SKILL_DIR}/scripts/transform_css.py \
   --bundle-root ${BUNDLE_ROOT} \
+  --pages-subroot ${PAGES_SUBROOT} \
   --scope ${WRAPPER_CLASS} \
-  --out ${OUT_ROOT}/_styles/demo.css
+  --out ${OUT_ROOT}/_styles/demo.css \
+  --per-page-out ${OUT_ROOT}/_styles/per_page_css.json
 ```
 
 The script:
-- Parses every `<style>` block from one sample HTML
+- Scans `<style>` blocks across **every** page (not one sample), unwrapping React-style `<style>{'...'}</style>` literals where present
+- Counts how many pages each rule appears in, then **splits** them:
+  - rules present in ≥ 2 pages (the shared design system) → `demo.css`, scoped once under `${WRAPPER_CLASS}`
+  - rules unique to a single page (its modal/form/special layout, its own `@keyframes`) → `per_page_css.json`, keyed by the page's html path. Phase 3 injects these per page.
 - Drops `@font-face` blocks (use production fonts via cascade)
 - Scopes every rule under `${WRAPPER_CLASS}` (and rules inside `@media`)
 - Appends a Tailwind-preflight counteraction (see Pattern 8 below)
+
+**Why the split matters (do not skip `--per-page-out`):** earlier versions parsed `<style>` from `pages[0]` only, on the assumption that all CSS is one shared design system. It is not — each self-contained page also carries its own per-page rules. Taking one sample silently dropped every other page's per-page CSS (`.ml-prov`, `.wz`, `@keyframes mlStepIn`, …), so pages rendered against undefined classes and visibly broke (a flex list collapsing into one row is the classic symptom). The split keeps `demo.css` to the shared system and routes each page's unique rules back to that page. If you omit `--per-page-out`, the script merges everything into `demo.css` (nothing is lost, but generic class names from different pages then share one global scope — prefer the split).
 
 **After:** swap font literals in `--font-heading` / `--font-body` to your production CSS variables.
 
@@ -197,6 +204,7 @@ python3 ${SKILL_DIR}/scripts/port_all_pages.py \
   --components-import-root ${COMPONENTS_IMPORT} \
   --out-root ${OUT_ROOT} \
   --route-prefix ${ROUTE_PREFIX} \
+  --per-page-css ${OUT_ROOT}/_styles/per_page_css.json \
   --skip-names TweaksPanel TweakSection TweakSlider TweakText useTweaks  # adjust list
 ```
 
@@ -207,6 +215,7 @@ For each HTML:
 4. Rewrites internal `.html` links to Next routes
 5. Strips `ReactDOM.createRoot(...).render(<App/>);`, replaces with default export
 6. Injects noop stubs for skipped names
+7. If `--per-page-css` has CSS for this page, wraps the default export as `<><style>{`…`}</style><App/></>` — one inline `<style>` that covers every render state of `App` (early returns, sub-views). CSS is escaped for the template literal. Pages whose code has no `function App` are flagged with a `[WARN …]` so you inject their `<style>` manually.
 
 ### Phase 4 — Sitemap
 
@@ -227,12 +236,17 @@ python3 ${SKILL_DIR}/scripts/build_sitemap.py \
 ### Phase 6 — Verify
 
 ```bash
+# Static CSS audit — catches lost per-page CSS that tsc/eslint can't see
+python3 ${SKILL_DIR}/scripts/verify_css.py --root ${OUT_ROOT}
+
 # Whatever the project uses — adapt to its package.json scripts:
 pnpm run format-and-check   # or: pnpm format && pnpm lint && pnpm typecheck
 
 # Smoke test all routes
 python3 ${SKILL_DIR}/scripts/smoke_test.py --base-url http://localhost:3000 --pages-root ${OUT_ROOT}
 ```
+
+`verify_css.py` diffs what the ported code **uses** (`className="…"`, `animation: '…'`) against what the CSS **defines** (`.class` selectors and `@keyframes` in `*.css` + inline `<style>`). Anything used-but-undefined is a lost-CSS defect — exactly the failure mode tsc and eslint stay silent on. **Run it and resolve every finding before reporting done.** A finding usually means either (a) `--per-page-out`/`--per-page-css` wasn't wired through Phases 1b/3, or (b) the keyframe lives only in a non-ported file (see Pattern 10).
 
 ## SSR troubleshooting playbook
 
@@ -314,6 +328,16 @@ Original docs may say `<code>/pages/{role}/</code>`. After `class=` → `classNa
 
 **Fix:** replace `{role}` → `[role]` (or wrap as `{'{role}'}` string literal). Handled by `scripts/build_sitemap.py` for known patterns; for custom ones, audit the generated `page.tsx`.
 
+### Pattern 10: Lost per-page CSS — page renders against undefined classes
+
+The most invisible failure of the whole port. The JSX is valid, tokens resolve, `tsc` and `eslint` are green — but a page looks structurally broken because a `className` or `animation` it uses points at a CSS rule that never made it into the output. The browser silently ignores the unknown class, so a `display:flex` row list collapses into inline text, a form loses its borders, a keyframe never animates.
+
+**Root cause:** each handoff HTML is self-contained and carries the full design system **plus** its own per-page rules in `<style>`. If CSS is taken from one sample page (the old bug), or `--per-page-out`/`--per-page-css` aren't wired through, every other page's per-page rules are dropped.
+
+**Fix:** the Phase 1b → Phase 3 split handles this automatically — `transform_css.py --per-page-out` captures page-unique rules, `port_all_pages.py --per-page-css` injects them. Always run `verify_css.py` (Phase 6) to confirm nothing is undefined.
+
+**Sub-case — keyframe defined only in a non-ported file.** A page may reference an animation (e.g. `fadeIn`) whose `@keyframes` lives **only** in a bundle file you don't port (e.g. the bundle's own `demo.html` sitemap-navigator that has a non-standard structure). The split can't find it in any ported page's `<style>`, so it won't be injected — and `verify_css.py` will flag it as an undefined animation. Resolve manually: grep the **whole** bundle for `@keyframes <name>`, copy the body into the using page's inline `<style>` (or into `demo.css` if several pages use it). This is the one per-page case automation can't close on its own — that's exactly why the Phase 6 audit exists.
+
 ## Decision log
 
 1. **Reuse production fonts via cascade; don't decode subset woff2.** Bundle woff2 files are non-variable subsets — declaring them for weights 500/600/700 in `next/font/local` makes the browser render those weights with the 400 glyphs (no faux-bold), creating a visually different result from a variable font. Production usually ships proper variable fonts.
@@ -326,11 +350,14 @@ Original docs may say `<code>/pages/{role}/</code>`. After `class=` → `classNa
 
 5. **Verbatim port first; refactor never.** Do not deduplicate or simplify any demo JSX. If the client ships an update, you re-port — refactors die instantly. Demo is a snapshot, not a codebase.
 
+6. **CSS is global-shared + per-page-unique, not one sample.** A self-contained bundle duplicates the design system into every page and adds page-specific rules on top. Treating CSS as "one shared sheet, sample any page" drops every page's unique rules. The model: rules in ≥2 pages → `demo.css` (one copy); rules in exactly one page → that page's inline `<style>` via `per_page_css.json`. Per-page `<style>` goes on the `DemoPage` wrapper so it covers all of `App`'s render states. This mirrors how the original bundle worked (each page shipped its own `<style>`) and avoids generic-class collisions in the global scope. `verify_css.py` is the backstop that proves nothing was dropped.
+
 ## Self-review checklist before reporting done
 
-1. Smoke test: every page route returns HTTP 200
-2. No `ReferenceError: window is not defined` in dev server logs
-3. No `Hydration failed` warnings — open one page in browser, check console
+1. `verify_css.py --root ${OUT_ROOT}` is clean — no undefined classes or animations (lost per-page CSS)
+2. Smoke test: every page route returns HTTP 200
+3. No `ReferenceError: window is not defined` in dev server logs
+4. No `Hydration failed` warnings — open one page in browser, check console
 4. Visual spot-check three pages: sidebar font, hero heading line breaks, sample chart. Compare to original handoff iframe (if still accessible) at a known good URL
 5. `tsconfig` and `eslint` excludes for demo paths are in place
 6. Production code does not import anything from the demo output folder
@@ -346,15 +373,16 @@ All scripts in `${SKILL_DIR}/scripts/`. Each is self-contained Python stdlib; ea
 |---|---|---|
 | `inventory.py` | 0 | Count unique babel scripts by content hash; list asset UUIDs |
 | `extract_fonts.py` | 1a | Decode woff2 from manifest, save to disk |
-| `transform_css.py` | 1b | Parse + scope CSS under wrapper class; inject Tailwind preflight counteraction |
+| `transform_css.py` | 1b | Scan CSS across all pages; split global (→demo.css) vs per-page-unique (→per_page_css.json); scope under wrapper; inject Tailwind preflight counteraction |
 | `transform_kits.py` | 2 | Convert each unique babel script to a TSX kit module |
 | `patch_routes.py` | 2 | Rewrite `_routePrefix`, `_buildRoutes`, `readPersona`, `withPersona` for Next.js routing |
 | `patch_window.py` | 2 | Wrap `Object.assign(window, ...)` and `window.X = ...` in SSR guards; replace `window.APP_ASSETS` |
 | `fix_mangled_hooks.py` | 2 | Fix `useState2`/`useEffect2`/etc → `useState`/`useEffect` |
 | `fix_ssr.py` | 2 | Fix `useState(window.innerWidth)` and localStorage-in-initializer patterns |
 | `fix_crossref.py` | 2 | Auto-add cross-kit imports for symbols referenced via JSX/call |
-| `port_all_pages.py` | 3 | For every `.html`, extract App, resolve imports, rewrite links, emit `page.tsx` |
+| `port_all_pages.py` | 3 | For every `.html`, extract App, resolve imports, rewrite links, inject per-page `<style>`, emit `page.tsx` |
 | `build_sitemap.py` | 4 | Port `sitemap.html` to a React `page.tsx` with scoped CSS |
+| `verify_css.py` | 6 | Static audit: every `className`/`animation` used must resolve to a CSS rule/`@keyframes` (catches lost per-page CSS) |
 | `smoke_test.py` | 6 | Curl every `page.tsx` route, report HTTP status |
 
 ## Quick start for the agent

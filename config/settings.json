@@ -128,7 +128,7 @@
       "Read(./.env.*)"
     ]
   },
-  "model": "claude-fable-5[1M]",
+  "model": "claude-fable-5[1m]",
   "hooks": {
     "Stop": [
       {
@@ -141,6 +141,7 @@
       }
     ]
   },
+  "enableWorkflows": false,
   "workflowKeywordTriggerEnabled": false,
   "statusLine": {
     "type": "command",
@@ -165,7 +166,6 @@
   "preferredNotifChannel": "terminal_bell",
   "autoCompactEnabled": false,
   "terminalProgressBarEnabled": false,
-  "teammateMode": "auto",
   "remoteControlAtStartup": false,
   "skipAutoPermissionPrompt": true,
   "useAutoModeDuringPlan": false,

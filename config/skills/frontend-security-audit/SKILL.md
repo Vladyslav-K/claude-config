@@ -102,6 +102,16 @@ Scanner behavior worth knowing:
   sure `.security-audit/` is gitignored and never committed. If you can't guarantee that
   (the repo must stay untouched, or `.security-audit/` isn't in `.gitignore`), point `--out`
   **outside the repo tree** (a temp dir) so the verbatim dump can never be committed.
+  The scanner prints a `[warn]` when the dump lands in a git repo without a covering
+  `.gitignore` entry — treat that warning as a hard stop and move the output.
+- Two **deterministic project checks** run alongside the grep categories and land in the
+  same output: `headers-missing` (a next.config with no `headers()`) and `env-tracked`
+  (`.env*` files tracked in git). They cover the auto-checkable slice of catalog §20–§21;
+  CSP quality, CSRF, IDOR and the other absence checks remain manual reading.
+- **Triage accelerators in the JSON:** `argKind` on open-redirect entries;
+  `likelyFalsePositive` on `secrets-hardcoded` entries whose value is a plain low-entropy
+  word (`apiKey: 'department'`) — confirm with a glance and clear those in bulk; `alsoIn`
+  when the same line tripped several categories — triage the line once, not per category.
 
 ## Phase 2 — Dependency & secrets-in-git audit
 
@@ -109,15 +119,19 @@ These complement the source scan (see catalog §19–§20):
 
 - **Dependencies:** run the project's audit (`pnpm audit` / `npm audit` / `yarn`).
   Prioritize critical/high in **prod** deps that reach the client bundle, and known
-  XSS / prototype-pollution / ReDoS advisories. Scan `package.json` for typosquatting.
+  XSS / prototype-pollution / ReDoS advisories. Judge impact by **where the code runs,
+  not which package.json section it sits in** — build tools (`@svgr/webpack`, PostCSS
+  plugins) often live in `dependencies`, and a build-time-only advisory that processes
+  your own files is low practical impact. Scan `package.json` for typosquatting.
   When a version looks "wrong" (typosquat suspect, or suspiciously newer than you recall),
   **verify it against the registry before flagging** — `npm view <pkg> dist-tags.latest` and
   `npm view <pkg>@<ver> version`. Your memory of "the latest version" is frozen at the model's
   training cutoff; the registry is the source of truth, and a real, current release is not a
   finding. Only a version the registry lacks (or a name that isn't the real package) is one.
-- **Secrets in git:** `git ls-files | rg -i '\.env'` (any tracked `.env`?), read
-  `.gitignore`, and if the source scan found a real secret, check history with
-  `git log -S`.
+- **Secrets in git:** the scanner pre-emits tracked env files as `env-tracked` findings
+  (git repos only). On top of that: read `.gitignore`, and if the source scan found a
+  real secret, check whether it was ever committed with `git log -S` — and what the
+  tracked env files contained **historically** (`git show <commit>:<file>`), not just now.
 
 ## Phase 3 — Triage
 
@@ -138,11 +152,11 @@ through `findings.json`:
 - Record a verdict + reason for every candidate you classify. False positives get a
   one-line reason (e.g. "`apiKey: 'department'` is a data field name, not a secret";
   "`NEXT_PUBLIC_TURNSTILE_SITE_KEY` is a public site key by design").
-- Some issues are about **absence** and won't appear in findings — check catalog §21
-  (missing CSP/security headers and CSP quality, CSRF on cookie-auth route handlers,
-  client-only auth guards / IDOR, dynamic `href`/`src` URL bindings, mixed content,
-  `Math.random()` for tokens, missing SRI on CDN scripts, prod source maps) by reading
-  the relevant files.
+- Some issues are about **absence** and won't appear as grep findings — the scanner
+  auto-emits two of them (`headers-missing`, `env-tracked`); check the rest of catalog §21
+  (CSP **quality**, CSRF on cookie-auth route handlers, client-only auth guards / IDOR,
+  dynamic `href`/`src` URL bindings, tokens in URLs, mixed content, `Math.random()` for
+  tokens, missing SRI on CDN scripts, prod source maps) by reading the relevant files.
 - **Think in chains, not just per-category.** A finding's severity isn't only its isolated
   category: a token in `localStorage` (a "needs-human" item) **plus** any XSS = token
   exfiltration → account takeover. When a low/medium finding amplifies a high one, say so and
@@ -152,14 +166,28 @@ through `findings.json`:
 
 Write a human-readable report (default path: `.project-meta/files/security-audit-<date>.md`
 if that directory exists, else `.security-audit/report.md`) and present a summary in
-chat. **Do not modify code yet.** Use this structure:
+chat. **Do not modify code yet.**
+
+The report (and the chat summary) must **open with an at-a-glance severity table** —
+confirmed counts per severity at the very top, before any prose, so the reader answers
+"how bad is it?" in one glance. Detail comes after. Use this structure:
 
 ```markdown
 # Frontend Security Audit — <project> — <date>
 
-## Summary
-- Scanned: <N files / LOC>, <M candidates>, <K confirmed>, <F false positives>, <H need human decision>
-- Confirmed by severity: critical <n>, high <n>, medium <n>, low <n>
+## At a glance
+
+| Severity  | Confirmed |
+| --------- | --------- |
+| Critical  | <n>       |
+| High      | <n>       |
+| Medium    | <n>       |
+| Low       | <n>       |
+| Info      | <n>       |
+| **Total** | **<n>**   |
+
+Scanned <N files / LOC> — <M> candidates → <K> confirmed, <F> false positives,
+<H> need a human decision.
 
 ## Confirmed vulnerabilities
 ### [SEVERITY] <title> — <category>
@@ -211,7 +239,10 @@ After fixing, prove you didn't break anything and that findings are resolved:
 
 Summarize: what was fixed (with file:line), what still needs a human decision and why,
 residual risk, and recommended follow-ups (e.g. add a CSP, rotate an exposed key). Be
-honest about what wasn't done.
+honest about what wasn't done. Open with the same at-a-glance severity table as Phase 4,
+updated with a "Fixed" column. Finally, clean up after yourself: delete the scanner dump
+(or say exactly where it lives) — `findings.json` quotes vulnerable lines and any found
+secrets verbatim and shouldn't outlive the audit unnoticed.
 
 ## Scaling to large codebases
 

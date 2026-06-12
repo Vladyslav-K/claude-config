@@ -16,10 +16,15 @@
 //
 // Defaults: root = "." , out = "<root>/.security-audit/findings.json"
 // Requires: ripgrep (`rg`) on PATH. Install: `brew install ripgrep` / `apt install ripgrep`.
+//
+// Besides the rg categories it runs deterministic project checks for "absence" findings
+// (headers-missing, env-tracked) and tags findings with triage accelerators: `argKind` on
+// open-redirect, `likelyFalsePositive` on low-entropy secrets, `alsoIn` when one line trips
+// several categories.
 
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, resolve, join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { basename, dirname, resolve, join } from 'node:path';
 
 // Each category is a cluster of related patterns plus a default severity and a one-line
 // rationale. Patterns use Rust regex syntax (ripgrep) — NO lookahead/lookbehind/backrefs.
@@ -119,6 +124,9 @@ const CATEGORIES = [
     patterns: [
       '(?i)(local|session)Storage\\.setItem\\s*\\(\\s*[\'"`][^\'"`]*(token|auth|jwt|session|secret|credential|refresh|password)',
       '(?i)(local|session)Storage\\.getItem\\s*\\(\\s*[\'"`][^\'"`]*(token|auth|jwt|session|refresh)',
+      // Key passed as an identifier, not a literal: localStorage.setItem(ACCESS_TOKEN_KEY, …).
+      // Real-world miss: the token-ish word lives in the constant's NAME, one line away.
+      '(?i)(local|session)Storage\\.(getItem|setItem|removeItem)\\s*\\(\\s*[A-Za-z_$][A-Za-z0-9_$]*(token|auth|jwt|session|refresh|secret|credential)',
     ],
   },
   {
@@ -266,7 +274,104 @@ function classifyNavArg(line) {
   if (c === undefined) return null;
   if (c === "'" || c === '"') return 'literal';
   if (c === '`') return rest.includes('${') ? 'template' : 'literal';
+  // A ternary of two plain string literals is a constant destination, not a dynamic one.
+  if (/^[A-Za-z_$][\w.$]*\s*\?\s*(['"])[^'"]*\1\s*:\s*(['"])[^'"]*\2\s*[),]/.test(rest)) {
+    return 'literal';
+  }
+  // Bare `pathname` (the usePathname/usePathname-style current internal path) — review-lite.
+  if (/^pathname\s*[),]/.test(rest)) return 'template';
   return 'dynamic';
+}
+
+// Deterministic project-level checks for "absence" findings grep can't express. They emit
+// the same finding shape as the rg categories, so slices, summaries and triage treat them
+// uniformly. Catalog guidance: §21 (security headers), §20 (secrets in git).
+const PROJECT_CHECKS = [
+  {
+    id: 'headers-missing',
+    severity: 'medium',
+    why: 'No security headers configured: a frontend app without CSP/X-Frame-Options/nosniff is missing its strongest XSS and clickjacking mitigations.',
+    run: checkHeadersMissing,
+  },
+  {
+    id: 'env-tracked',
+    severity: 'low',
+    why: 'Env files tracked in git: even if current values are public, the first real secret added to the file gets committed forever.',
+    run: checkEnvTracked,
+  },
+];
+
+// The scanned root is often a subdir (src/); accept a parent as the project dir only when
+// it actually holds package.json, so the walk never drifts into unrelated directories.
+function findProjectDir(root) {
+  let dir = root;
+  for (let i = 0; i < 3; i++) {
+    if (existsSync(join(dir, 'package.json'))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return root;
+}
+
+function checkHeadersMissing(root) {
+  const names = ['next.config.ts', 'next.config.js', 'next.config.mjs', 'next.config.cjs'];
+  const projectDir = findProjectDir(root);
+  const dirs = projectDir === root ? [root] : [root, projectDir];
+  let configPath = null;
+  for (const dir of dirs) {
+    const hit = names.map((n) => join(dir, n)).find((p) => existsSync(p));
+    if (hit) {
+      configPath = hit;
+      break;
+    }
+  }
+  if (!configPath) return []; // not a Next.js app — nothing to assert
+  let src = '';
+  try {
+    src = readFileSync(configPath, 'utf8');
+  } catch {
+    return [];
+  }
+  if (/\bheaders\s*[(:]/.test(src)) return [];
+  const configDir = dirname(configPath);
+  const hasMiddleware = [
+    'middleware.ts',
+    'middleware.js',
+    join('src', 'middleware.ts'),
+    join('src', 'middleware.js'),
+  ].some((n) => existsSync(join(configDir, n)));
+  return [
+    {
+      file: configPath,
+      line: 1,
+      text: hasMiddleware
+        ? 'next.config has no headers() — middleware exists; verify whether it sets CSP/security headers'
+        : 'next.config has no headers() and there is no middleware — no CSP, X-Frame-Options, nosniff or Referrer-Policy is set at the app level',
+      match: 'headers() absent',
+      serverHint: false,
+    },
+  ];
+}
+
+function checkEnvTracked(root) {
+  const projectDir = findProjectDir(root);
+  const res = spawnSync('git', ['ls-files'], {
+    cwd: projectDir,
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024 * 64,
+  });
+  if (res.error || res.status !== 0 || !res.stdout) return []; // not a git repo — skip
+  return res.stdout
+    .split('\n')
+    .filter((f) => /(^|\/)\.env[^/]*$/.test(f) && !/\.(example|sample|template)$/i.test(f))
+    .map((f) => ({
+      file: join(projectDir, f),
+      line: 1,
+      text: `${f} is tracked in git — env files belong in .gitignore (only *.example variants should be committed)`,
+      match: f,
+      serverHint: false,
+    }));
 }
 
 const DEFAULT_EXCLUDES = [
@@ -394,6 +499,24 @@ function runCategory(cat, root, excludes, useServerFiles) {
       const argKind = classifyNavArg(raw);
       if (argKind) finding.argKind = argKind;
     }
+    // Generic key/secret assignments whose value is an identifier-like word are field names
+    // ("apiKey: 'department'", "apiKey: 'jobLevel'"), not credentials — pre-tag so triage
+    // clears them in bulk. Real credentials virtually always carry digits/symbols/length.
+    // Provider-format matches (sk_live_…, AKIA…) never carry [:=]'…' in the matched text.
+    // For password/secret keywords only the strict lowercase-words rule applies — a plain
+    // dictionary password is weak but real, so it must stay untagged for triage.
+    if (cat.id === 'secrets-hardcoded') {
+      const kv = matched.match(/^([A-Za-z_-]+)\s*[:=]\s*['"]([^'"]+)['"]$/);
+      if (kv) {
+        const [, key, value] = kv;
+        const plainWords = /^[a-z]+([_-][a-z]+)*$/.test(value);
+        const identifierWord = /^[a-z][A-Za-z]*$/.test(value);
+        const sensitiveKey = /pass|secret/i.test(key);
+        if (value.length < 24 && (plainWords || (identifierWord && !sensitiveKey))) {
+          finding.likelyFalsePositive = 'low-entropy value (identifier-like word, no digits)';
+        }
+      }
+    }
     findings.push(finding);
   }
   return findings;
@@ -412,11 +535,15 @@ function main() {
   const root = resolve(opts.root);
   const outPath = opts.out ? resolve(opts.out) : join(root, '.security-audit', 'findings.json');
 
-  const selected = opts.only ? CATEGORIES.filter((c) => c.id === opts.only) : CATEGORIES;
-  if (selected.length === 0) {
-    console.error(`Unknown category "${opts.only}". Known: ${CATEGORIES.map((c) => c.id).join(', ')}`);
+  const knownIds = [...CATEGORIES, ...PROJECT_CHECKS].map((c) => c.id);
+  if (opts.only && !knownIds.includes(opts.only)) {
+    console.error(`Unknown category "${opts.only}". Known: ${knownIds.join(', ')}`);
     process.exit(2);
   }
+  const selected = opts.only ? CATEGORIES.filter((c) => c.id === opts.only) : CATEGORIES;
+  const selectedChecks = opts.only
+    ? PROJECT_CHECKS.filter((c) => c.id === opts.only)
+    : PROJECT_CHECKS;
 
   const useServerFiles = collectUseServerFiles(root, opts.excludes);
 
@@ -436,6 +563,8 @@ function main() {
       serverHits: findings.filter((f) => f.serverHint).length,
       findings,
     };
+    const likelyFalsePositives = findings.filter((f) => f.likelyFalsePositive).length;
+    if (likelyFalsePositives > 0) entry.likelyFalsePositives = likelyFalsePositives;
     // Surface the destination breakdown so a 150-candidate open-redirect category reads as
     // "N dynamic worth reviewing" instead of an undifferentiated wall.
     if (cat.id === 'open-redirect') {
@@ -446,6 +575,37 @@ function main() {
       };
     }
     categories.push(entry);
+  }
+
+  for (const check of selectedChecks) {
+    const findings = check.run(root);
+    total += findings.length;
+    bySeverity[check.severity] += findings.length;
+    categories.push({
+      category: check.id,
+      severity: check.severity,
+      why: check.why,
+      count: findings.length,
+      serverHits: 0,
+      findings,
+    });
+  }
+
+  // One source line can trip several categories (document.cookie → dom-xss-source AND
+  // cookie-clientside). Cross-reference them so triage handles the line once.
+  const byLocation = new Map();
+  for (const c of categories) {
+    for (const f of c.findings) {
+      const key = `${f.file}:${f.line}`;
+      if (!byLocation.has(key)) byLocation.set(key, []);
+      byLocation.get(key).push({ category: c.category, finding: f });
+    }
+  }
+  for (const group of byLocation.values()) {
+    if (group.length < 2) continue;
+    for (const { category, finding } of group) {
+      finding.alsoIn = group.filter((g) => g.category !== category).map((g) => g.category);
+    }
   }
 
   const report = {
@@ -463,6 +623,20 @@ function main() {
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, JSON.stringify(report, null, 2));
 
+  // The dump quotes vulnerable lines (and any found secrets) verbatim — never let it slip
+  // into VCS silently. `git check-ignore` honors every .gitignore in the repo: exit 0 =
+  // ignored (fine), 1 = inside a repo and NOT ignored (warn), 128/error = not a repo (fine).
+  const ignoreProbe = spawnSync('git', ['check-ignore', '-q', outPath], {
+    cwd: dirname(outPath),
+    encoding: 'utf8',
+  });
+  if (!ignoreProbe.error && ignoreProbe.status === 1) {
+    console.error(
+      `[warn] findings were written inside a git repo and "${basename(dirname(outPath))}/" is not gitignored — ` +
+        'the dump quotes vulnerable lines verbatim. Point --out outside the repo (e.g. a temp dir) or gitignore it.',
+    );
+  }
+
   // One file per non-empty category, so triage (and Explore fan-out) can read a
   // small slice instead of the full findings.json on large result sets.
   const catDir = join(dirname(outPath), 'categories');
@@ -478,13 +652,16 @@ function main() {
       (a, b) => order[a.severity] - order[b.severity] || b.count - a.count,
     );
     console.log(`\nFrontend security scan — ${root}`);
-    console.log(`Candidates: ${total}  (critical ${bySeverity.critical}, high ${bySeverity.high}, medium ${bySeverity.medium})`);
+    console.log(`Candidates: ${total}  (critical ${bySeverity.critical}, high ${bySeverity.high}, medium ${bySeverity.medium}, low ${bySeverity.low})`);
     console.log('—'.repeat(64));
     for (const c of sorted) {
       if (c.count === 0) continue;
       let tags = c.serverHits ? `  [${c.serverHits} in server paths]` : '';
       if (c.argKinds) {
         tags += `  [${c.argKinds.dynamic} dynamic, ${c.argKinds.template} template, ${c.argKinds.literal} literal]`;
+      }
+      if (c.likelyFalsePositives) {
+        tags += `  [${c.likelyFalsePositives} likely-FP: low-entropy]`;
       }
       console.log(`  ${c.severity.toUpperCase().padEnd(8)} ${c.category.padEnd(22)} ${String(c.count).padStart(5)}${tags}`);
     }

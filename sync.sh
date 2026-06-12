@@ -47,6 +47,7 @@ SYNC_ITEMS=(
     "settings.json"
     "scripts"
     "skills"
+    "agents"
 )
 
 # Files to exclude from sync

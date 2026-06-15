@@ -236,8 +236,11 @@ python3 ${SKILL_DIR}/scripts/build_sitemap.py \
 ### Phase 6 — Verify
 
 ```bash
-# Static CSS audit — catches lost per-page CSS that tsc/eslint can't see
-python3 ${SKILL_DIR}/scripts/verify_css.py --root ${OUT_ROOT}
+# Static CSS audit — catches lost per-page CSS that tsc/eslint can't see.
+# ALWAYS pass --per-page-css: without it the audit is blind to page-level
+# body/html/:root rules (background, text color, min-height, flex) — see Pattern 10.
+python3 ${SKILL_DIR}/scripts/verify_css.py --root ${OUT_ROOT} \
+  --per-page-css ${OUT_ROOT}/_styles/per_page_css.json
 
 # Whatever the project uses — adapt to its package.json scripts:
 pnpm run format-and-check   # or: pnpm format && pnpm lint && pnpm typecheck
@@ -246,7 +249,7 @@ pnpm run format-and-check   # or: pnpm format && pnpm lint && pnpm typecheck
 python3 ${SKILL_DIR}/scripts/smoke_test.py --base-url http://localhost:3000 --pages-root ${OUT_ROOT}
 ```
 
-`verify_css.py` diffs what the ported code **uses** (`className="…"`, `animation: '…'`) against what the CSS **defines** (`.class` selectors and `@keyframes` in `*.css` + inline `<style>`). Anything used-but-undefined is a lost-CSS defect — exactly the failure mode tsc and eslint stay silent on. **Run it and resolve every finding before reporting done.** A finding usually means either (a) `--per-page-out`/`--per-page-css` wasn't wired through Phases 1b/3, or (b) the keyframe lives only in a non-ported file (see Pattern 10).
+`verify_css.py` does two things. First it diffs what the ported code **uses** (`className="…"`, `animation: '…'`) against what the CSS **defines** (`.class` selectors and `@keyframes` in `*.css` + inline `<style>`). Anything used-but-undefined is a lost-CSS defect — exactly the failure mode tsc and eslint stay silent on. Second, with `--per-page-css`, it confirms every page-unique rule transform_css.py emitted was actually **injected** into its page's `page.tsx` `<style>`. That second check is the only thing that catches a dropped **page-level** rule — a page's `body`/`html`/`:root` background / text-color / min-height / flex, scoped to the wrapper (`.demo-app { background: navy; color:#fff }`). Those rules carry no `className` and no `animation`, so the first diff can never see them; a dark full-screen page once shipped invisible (white text on a light surface) for exactly this reason (see Pattern 10). **Run it with `--per-page-css` and resolve every finding before reporting done.** A finding usually means either (a) `--per-page-out`/`--per-page-css` wasn't wired through Phases 1b/3, (b) the per-page-CSS key didn't line up with the ported page path at inject time, or (c) the keyframe lives only in a non-ported file (see Pattern 10).
 
 ## SSR troubleshooting playbook
 
@@ -338,6 +341,8 @@ The most invisible failure of the whole port. The JSX is valid, tokens resolve, 
 
 **Sub-case — keyframe defined only in a non-ported file.** A page may reference an animation (e.g. `fadeIn`) whose `@keyframes` lives **only** in a bundle file you don't port (e.g. the bundle's own `demo.html` sitemap-navigator that has a non-standard structure). The split can't find it in any ported page's `<style>`, so it won't be injected — and `verify_css.py` will flag it as an undefined animation. Resolve manually: grep the **whole** bundle for `@keyframes <name>`, copy the body into the using page's inline `<style>` (or into `demo.css` if several pages use it). This is the one per-page case automation can't close on its own — that's exactly why the Phase 6 audit exists.
 
+**Sub-case — page-level rule dropped (the invisible page).** The most dangerous variant, because nothing in the JSX *references* it. A page's own background, text color, full-height/centred layout often live in **per-page `body` / `html` / `:root` rules** — e.g. a dark full-screen onboarding ships `html, body { background: var(--navy) }` and `body { color: #fff; min-height: 100vh; display: flex; flex-direction: column }` on top of the shared (light) design system. `transform_css.py` scopes these to the wrapper (`html`/`body`/`:root` → `${WRAPPER_CLASS}`) and routes the page-unique ones to `per_page_css.json`; `port_all_pages.py` injects them into that page's `<style>`. If any link in that chain breaks — an older transform_css that didn't map `body`→wrapper, a per-page-CSS key that didn't line up with the ported page path, a flat per-persona invocation with a different `--pages-subroot` — the rule is silently dropped. The page then renders with its **content styled for a background that isn't there**: white text on a light surface (looks blank), or content stuck top-left instead of centred full-height. Because there is no `className` and no `animation` involved, the class/keyframe diff is blind to it and `tsc`/`eslint` are green. **Only `verify_css.py --per-page-css` catches it** — it checks that each page-unique rule actually landed in its `page.tsx`. Always pass `--per-page-css` in Phase 6. If flagged, confirm the page's wrapper-scoped background/color/layout rules are present in its injected `<style>` (or, equivalently, wrap that page's content in a local element carrying those styles).
+
 ## Decision log
 
 1. **Reuse production fonts via cascade; don't decode subset woff2.** Bundle woff2 files are non-variable subsets — declaring them for weights 500/600/700 in `next/font/local` makes the browser render those weights with the 400 glyphs (no faux-bold), creating a visually different result from a variable font. Production usually ships proper variable fonts.
@@ -350,11 +355,11 @@ The most invisible failure of the whole port. The JSX is valid, tokens resolve, 
 
 5. **Verbatim port first; refactor never.** Do not deduplicate or simplify any demo JSX. If the client ships an update, you re-port — refactors die instantly. Demo is a snapshot, not a codebase.
 
-6. **CSS is global-shared + per-page-unique, not one sample.** A self-contained bundle duplicates the design system into every page and adds page-specific rules on top. Treating CSS as "one shared sheet, sample any page" drops every page's unique rules. The model: rules in ≥2 pages → `demo.css` (one copy); rules in exactly one page → that page's inline `<style>` via `per_page_css.json`. Per-page `<style>` goes on the `DemoPage` wrapper so it covers all of `App`'s render states. This mirrors how the original bundle worked (each page shipped its own `<style>`) and avoids generic-class collisions in the global scope. `verify_css.py` is the backstop that proves nothing was dropped.
+6. **CSS is global-shared + per-page-unique, not one sample.** A self-contained bundle duplicates the design system into every page and adds page-specific rules on top. Treating CSS as "one shared sheet, sample any page" drops every page's unique rules. The model: rules in ≥2 pages → `demo.css` (one copy); rules in exactly one page → that page's inline `<style>` via `per_page_css.json`. Per-page `<style>` goes on the `DemoPage` wrapper so it covers all of `App`'s render states. This mirrors how the original bundle worked (each page shipped its own `<style>`) and avoids generic-class collisions in the global scope. Note this layer also carries **page-level** rules (a page's own `body`/`html`/`:root` background, text color, min-height, flex) scoped to the wrapper — and those are the easiest to lose invisibly, since no `className`/`animation` points at them. `verify_css.py --per-page-css` is the backstop that proves nothing was dropped — run it *with* that flag, or page-level rules go unchecked.
 
 ## Self-review checklist before reporting done
 
-1. `verify_css.py --root ${OUT_ROOT}` is clean — no undefined classes or animations (lost per-page CSS)
+1. `verify_css.py --root ${OUT_ROOT} --per-page-css ${OUT_ROOT}/_styles/per_page_css.json` is clean — no undefined classes/animations AND every page-unique rule (incl. page-level `body`/`html`/`:root` background/color/layout) was injected into its page (lost per-page CSS, including the "invisible page")
 2. Smoke test: every page route returns HTTP 200
 3. No `ReferenceError: window is not defined` in dev server logs
 4. No `Hydration failed` warnings — open one page in browser, check console
@@ -382,7 +387,7 @@ All scripts in `${SKILL_DIR}/scripts/`. Each is self-contained Python stdlib; ea
 | `fix_crossref.py` | 2 | Auto-add cross-kit imports for symbols referenced via JSX/call |
 | `port_all_pages.py` | 3 | For every `.html`, extract App, resolve imports, rewrite links, inject per-page `<style>`, emit `page.tsx` |
 | `build_sitemap.py` | 4 | Port `sitemap.html` to a React `page.tsx` with scoped CSS |
-| `verify_css.py` | 6 | Static audit: every `className`/`animation` used must resolve to a CSS rule/`@keyframes` (catches lost per-page CSS) |
+| `verify_css.py` | 6 | Static audit: every `className`/`animation` used must resolve to a CSS rule/`@keyframes`; with `--per-page-css`, also verifies every page-unique rule (incl. page-level `body`/`html`/`:root` background/color/layout) was injected into its `page.tsx` (catches lost per-page CSS, including the "invisible page") |
 | `smoke_test.py` | 6 | Curl every `page.tsx` route, report HTTP status |
 
 ## Quick start for the agent

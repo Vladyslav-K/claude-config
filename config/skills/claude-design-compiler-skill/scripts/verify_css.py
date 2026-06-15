@@ -16,8 +16,25 @@ It scans the output tree (--root) and collects:
 
 Anything used but not defined is reported. Exit code 1 if findings (so it can gate CI).
 
+It also has a BLIND SPOT by construction: page-level rules — a page's background,
+text color, min-height, flex layout — come from the bundle's per-page `body`/`html`/
+`:root` rules, which transform_css.py scopes to the wrapper (e.g. `.demo-app { background:
+navy; color:#fff; min-height:100vh }`) and port_all_pages.py injects per page. Those
+rules carry NO className and NO animation, so the class/keyframe diff above can never
+see them. If such a rule is dropped (e.g. an older transform_css that didn't map
+body→wrapper, or a per-page-CSS key that didn't line up at inject time), the page
+renders invisibly — white text on a light surface, content not full-height/centred —
+while tsc, eslint AND the class/keyframe audit all stay green. That is exactly how a
+dark full-screen onboarding page shipped broken once.
+
+To close that blind spot, pass --per-page-css (the JSON transform_css.py wrote with
+--per-page-out). For every page that has page-unique CSS, this verifies the rules were
+actually injected into that page's page.tsx <style>. A page-unique rule present in the
+JSON but absent from the ported page = a silent page-level drop — reported, exit 1.
+
 Usage:
   python3 verify_css.py --root src/app/demo/
+  python3 verify_css.py --root src/app/demo/ --per-page-css src/app/demo/_styles/per_page_css.json
 
 Notes:
   * Demo output is style-isolated, so it must not rely on production CSS — an undefined
@@ -25,7 +42,7 @@ Notes:
   * Dynamic `className={...}` is not statically analyzable and is skipped (reported as a
     count so you know coverage isn't total).
 """
-import argparse, re, glob, os
+import argparse, re, glob, os, json
 
 # animation sub-values that are keywords, not keyframe names
 ANIM_KEYWORDS = {
@@ -70,9 +87,57 @@ def used_in(tsx):
     return classes, anims, dynamic
 
 
+def top_level_rules(css):
+    """Split CSS into top-level units (selector{...}, @media{...}, @keyframes{...}),
+    brace-aware so nested at-rules stay whole."""
+    rules, i, n, depth, start = [], 0, len(css), 0, 0
+    while i < n:
+        c = css[i]
+        if c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0:
+                rules.append(css[start:i + 1])
+                start = i + 1
+        i += 1
+    return [r.strip() for r in rules if r.strip()]
+
+
+def norm_css(s):
+    return re.sub(r'\s+', ' ', s).strip()
+
+
+def check_per_page_injection(root, per_page_path):
+    """For each page that has page-unique CSS in transform_css.py's --per-page-out JSON,
+    confirm those rules actually landed in the ported page's inline <style>. This is the
+    one check that catches dropped page-level body/html/:root rules (background, color,
+    min-height, flex) — the class/keyframe audit is blind to them because they carry no
+    className/animation. port_all_pages.py injects per-page CSS verbatim, so a coarse
+    normalized-substring match per top-level rule is enough and false-positive-safe.
+    Returns [(rel, [missing_rule_signature, ...]), ...]."""
+    with open(per_page_path) as f:
+        per_page = json.load(f)
+    findings = []
+    for rel, css in sorted(per_page.items()):
+        if not css or not css.strip():
+            continue
+        page = os.path.join(root, rel, 'page.tsx')
+        if not os.path.exists(page):
+            findings.append((rel, ['page.tsx not found — page-unique CSS had nowhere to go']))
+            continue
+        with open(page) as f:
+            injected = norm_css('\n'.join(style_blocks(f.read())))
+        missing = [norm_css(r)[:70] for r in top_level_rules(css) if norm_css(r) not in injected]
+        if missing:
+            findings.append((rel, missing))
+    return findings
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--root', required=True, help='output tree, e.g. src/app/demo/')
+    ap.add_argument('--per-page-css', default=None, help="transform_css.py's --per-page-out JSON. When given, verify every page-unique rule (incl. page-level body/html/:root background/color/layout) was actually injected into its page.tsx — the one drop the className/keyframe audit cannot see.")
     args = ap.parse_args()
 
     root = args.root.rstrip('/')
@@ -110,11 +175,30 @@ def main():
             print(f'  {rel}: {" ".join(a)}')
         print()
 
-    total = len(missing_classes) + len(missing_anims)
+    not_injected = []
+    if args.per_page_css:
+        if not os.path.exists(args.per_page_css):
+            raise SystemExit(f'--per-page-css not found: {args.per_page_css}')
+        not_injected = check_per_page_injection(root, args.per_page_css)
+        if not_injected:
+            print('=== Page-unique CSS NOT injected into the ported page (silent page-level drop) ===')
+            for rel, rules in not_injected:
+                print(f'  {rel}:')
+                for r in rules:
+                    print(f'      - {r}')
+            print()
+        else:
+            print('Per-page injection: every page-unique rule is present in its page.tsx.\n')
+
+    total = len(missing_classes) + len(missing_anims) + len(not_injected)
     if total == 0:
-        print('OK — every className and animation resolves to a definition.')
+        print('OK — every className and animation resolves, and all page-unique CSS was injected.'
+              if args.per_page_css else
+              'OK — every className and animation resolves to a definition.')
     else:
-        print(f'FOUND {total} file(s) with undefined references — likely lost per-page CSS.')
+        print(f'FOUND {total} file(s) with undefined references or un-injected page-unique CSS — likely lost CSS.')
+    if not args.per_page_css:
+        print('(note: page-level body/html/:root rules are NOT covered without --per-page-css)')
     if dynamic_total:
         print(f'(note: {dynamic_total} dynamic className={{...}} sites not statically checked)')
 

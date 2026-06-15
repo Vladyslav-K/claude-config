@@ -100,8 +100,11 @@ python3 ${SKILL_DIR}/scripts/build_sitemap.py \
 # rm -rf ${BUNDLE_ROOT}                               # delete handoff source
 
 # === Phase 6 — verify ===
-# Static CSS audit FIRST — catches lost per-page CSS that tsc/eslint never see
-python3 ${SKILL_DIR}/scripts/verify_css.py --root ${OUT_ROOT}
+# Static CSS audit FIRST — catches lost per-page CSS that tsc/eslint never see.
+# --per-page-css is REQUIRED to cover page-level body/html/:root rules (background,
+# color, min-height, flex) — without it those drops are invisible (the "invisible page").
+python3 ${SKILL_DIR}/scripts/verify_css.py --root ${OUT_ROOT} \
+  --per-page-css ${OUT_ROOT}/_styles/per_page_css.json
 
 # Start dev server (whatever the project uses)
 pnpm run dev &
@@ -114,7 +117,7 @@ pnpm run format-and-check
 
 ## Important notes
 
-- **CSS is split, then verified.** `transform_css.py` (Phase 1b) emits `per_page_css.json` alongside `demo.css`; `port_all_pages.py` (Phase 3) consumes it via `--per-page-css`. Use the same `--pages-subroot` for both so the per-page keys line up. Always finish with `verify_css.py` (Phase 6) — it fails if any `className`/`animation` resolves to nothing, which is the signature of dropped per-page CSS. If it flags an animation whose `@keyframes` isn't in any ported page, grep the whole bundle (it may live in a non-ported file) and add it by hand.
+- **CSS is split, then verified.** `transform_css.py` (Phase 1b) emits `per_page_css.json` alongside `demo.css`; `port_all_pages.py` (Phase 3) consumes it via `--per-page-css`. Use the same `--pages-subroot` for both so the per-page keys line up. Always finish with `verify_css.py --per-page-css …` (Phase 6) — it fails if any `className`/`animation` resolves to nothing, AND (with `--per-page-css`) if any page-unique rule wasn't injected into its page. The latter is the only guard for **page-level** `body`/`html`/`:root` rules (a page's background, text color, min-height, flex): they carry no `className`/`animation`, so a drop renders the page invisible (white text on a light surface) while every other check stays green. If it flags an animation whose `@keyframes` isn't in any ported page, grep the whole bundle (it may live in a non-ported file) and add it by hand.
 - **Order matters.** `fix_crossref.py` requires `_components/` to already exist with named exports — run it after `transform_kits.py` and after the manual rename step.
 - **Manual renaming step is non-optional.** `transform_kits.py` writes files named `kit-<hash>.tsx` because it doesn't know what each kit semantically is. After running, read `mapping.json` and rename to meaningful names. Subsequent scripts depend on import paths looking right.
 - **Idempotency caveat.** Most scripts are safe to re-run, but `patch_window.py` is NOT — wrapping already-wrapped lines may produce malformed output. When iterating: `git checkout ${OUT_ROOT}/_components/` and start the chain again.

@@ -26,7 +26,7 @@ solution is a pipeline that spends cheap deterministic compute to narrow the
 search space, and spends model judgment only where it pays off.
 
 ```
-recon → scan (script) → deps+secrets audit → triage → REPORT (stop) → fix (after OK) → verify → final report
+recon → scan (script) → deps+secrets audit → triage → baseline report (stop) → fix (after OK) → verify → separate final report
 ```
 
 ## Operating principles
@@ -162,11 +162,16 @@ through `findings.json`:
   exfiltration → account takeover. When a low/medium finding amplifies a high one, say so and
   rate the combined impact.
 
-## Phase 4 — Report, then stop
+## Phase 4 — Baseline report, then stop
 
-Write a human-readable report (default path: `.project-meta/files/security-audit-<date>.md`
-if that directory exists, else `.security-audit/report.md`) and present a summary in
-chat. **Do not modify code yet.**
+Write a human-readable report (default path:
+`.project-meta/files/security-audit-<date>-initial.md` if that directory exists, else
+`.security-audit/report-initial.md`) and present a summary in chat. **Do not modify code yet.**
+
+This is the **baseline report**: it captures the state *before* any fix. Once written,
+**never edit or overwrite it** — not during the fix phase, not for the final report. The
+user relies on it as the permanent pre-fix record of what was wrong. The Phase 7 final
+report is always a **separate file** (see below); the two reports must coexist.
 
 The report (and the chat summary) must **open with an at-a-glance severity table** —
 confirmed counts per severity at the very top, before any prose, so the reader answers
@@ -235,7 +240,14 @@ After fixing, prove you didn't break anything and that findings are resolved:
    new ones appeared.
 3. Do **not** run `dev`/`build` unless the user asks.
 
-## Phase 7 — Final report
+## Phase 7 — Final report (a new, separate file)
+
+Write the final report to a **new file, separate from the Phase 4 baseline** — never edit
+or overwrite the baseline. Default path:
+`.project-meta/files/security-audit-<date>-final.md` if that directory exists, else
+`.security-audit/report-final.md`. If a file with that name already exists, add a counter
+(`-final-2.md`) rather than overwriting. The end state is two files side by side: the
+baseline (`-initial`, pre-fix) and this final report (`-final`, post-fix).
 
 Summarize: what was fixed (with file:line), what still needs a human decision and why,
 residual risk, and recommended follow-ups (e.g. add a CSP, rotate an exposed key). Be

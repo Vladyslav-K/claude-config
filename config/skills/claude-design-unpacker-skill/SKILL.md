@@ -1,15 +1,16 @@
 ---
-name: handoff-bundle-port
-description: Port self-contained HTML handoff bundles into native React pages. Use when a client or designer delivers a folder of standalone HTML files where each file is a base64-packed React+CSS+fonts bundle with an inline bundler script (typically rendered today inside an iframe), and the deliverable is native Next.js App Router pages with isolated styles, scoped CSS, shared component kits extracted into TSX modules, and rewritten internal links. Triggers on phrases like "port handoff bundle", "convert iframe demo to React", "extract this design HTML into pages", "rebuild demo as React", "the client sent HTML mockups and I need them as real pages", "design files are self-contained HTML — port them", or "we have demo HTML, make them real routes".
+name: claude-design-unpacker-skill
+description: Unpack self-contained HTML bundles exported by Claude Design into native React pages. Use when Claude Design (or a similar handoff) delivers a folder of standalone HTML files where each file is a base64-packed React+CSS+fonts bundle with an inline bundler script (typically rendered today inside an iframe), and the deliverable is native Next.js App Router pages with isolated styles, scoped CSS, shared component kits extracted into TSX modules, and rewritten internal links. Triggers on phrases like "unpack Claude Design files", "port Claude Design export to React", "turn Claude Design HTML into real pages", "port handoff bundle", "convert iframe demo to React", "extract this design HTML into pages", "rebuild demo as React", "the client sent HTML mockups and I need them as real pages", "design files are self-contained HTML — port them", or "we have demo HTML, make them real routes".
 ---
 
-# Skill: Port a self-contained HTML handoff bundle into native React pages
+# Skill: Unpack a self-contained Claude Design HTML bundle into native React pages
 
 **Origin:** distilled from a session that ported 41 handoff HTML bundles (~60 MB) into 41 native Next.js pages with shared component kits, isolated CSS scope, and full SSR safety.
 
 ## When to use this skill
 
 **YES — use this when:**
+- The files come from Claude Design — its HTML export / handoff bundle
 - The user shows you a folder of HTML files where each file is ~1 MB+ and looks base64-encoded inside
 - Each HTML has a `<script type="__bundler/template">` block and a `<script type="__bundler/manifest">` block
 - Each HTML self-contains React + CSS + fonts (no external assets) and unpacks at runtime via an inline bundler script
@@ -42,8 +43,8 @@ Two non-negotiable principles:
 
 This skill ships scripts under `scripts/` alongside this `SKILL.md`. The skill itself may live in any of:
 
-- `~/.claude/skills/handoff-bundle-port/` — user-global skill folder
-- `<plugin-dir>/skills/handoff-bundle-port/` — installed as part of a plugin
+- `~/.claude/skills/claude-design-unpacker-skill/` — user-global skill folder
+- `<plugin-dir>/skills/claude-design-unpacker-skill/` — installed as part of a plugin
 - Anywhere inside the current project (e.g. when iterating on the skill itself)
 
 **Resolve `SKILL_DIR` at the start of the session** — it's the directory that contains this `SKILL.md`. All script invocations below use `${SKILL_DIR}/scripts/<name>.py`. Don't hardcode it.
@@ -70,7 +71,7 @@ Capture these as variables. Throughout this document, the placeholders are:
 
 | Placeholder | Meaning | Examples |
 |---|---|---|
-| `${SKILL_DIR}` | Absolute path to this skill's folder | `~/.claude/skills/handoff-bundle-port` |
+| `${SKILL_DIR}` | Absolute path to this skill's folder | `~/.claude/skills/claude-design-unpacker-skill` |
 | `${BUNDLE_ROOT}` | Bundle source folder | `public/demo-handoff/`, `/Users/me/client-bundles/v2/` |
 | `${PAGES_SUBROOT}` | Sub-path inside bundle for pages | `pages/`, `` (empty if flat) |
 | `${OUT_ROOT}` | App folder for ported page.tsx files | `src/app/demo/`, `app/(internal)/preview/` |

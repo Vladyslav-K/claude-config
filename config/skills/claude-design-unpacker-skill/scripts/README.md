@@ -1,4 +1,4 @@
-# Scripts for the handoff-bundle-port skill
+# Scripts for the claude-design-unpacker-skill skill
 
 These scripts implement the 6 phases described in `../SKILL.md`. Each is a standalone Python script using only the stdlib (no `pip install`). All accept CLI args — run any with `-h` for usage.
 
@@ -8,7 +8,7 @@ The scripts make no assumptions about where you call them from or where your pro
 
 | Variable | Meaning |
 |---|---|
-| `SKILL_DIR` | Absolute path to this skill's folder (the parent of `scripts/`). Resolve from where this `SKILL.md` lives — could be `~/.claude/skills/handoff-bundle-port/`, a plugin path, or a project-local path. |
+| `SKILL_DIR` | Absolute path to this skill's folder (the parent of `scripts/`). Resolve from where this `SKILL.md` lives — could be `~/.claude/skills/claude-design-unpacker-skill/`, a plugin path, or a project-local path. |
 | `BUNDLE_ROOT` | Source folder containing the handoff HTML files. Anywhere — `public/...`, `docs/...`, an absolute path outside the repo. |
 | `PAGES_SUBROOT` | Sub-path inside `BUNDLE_ROOT` where the per-persona HTMLs live (often `pages/`, sometimes empty). |
 | `OUT_ROOT` | Target folder for ported `page.tsx` files — `src/app/<some-name>/` or `app/(group)/<some-name>/`. |
@@ -23,7 +23,7 @@ Example — adapt every variable to your project. **Do NOT copy this verbatim** 
 
 ```bash
 # === Set per-session ===
-SKILL_DIR=/path/to/handoff-bundle-port           # wherever this skill lives
+SKILL_DIR=/path/to/claude-design-unpacker-skill           # wherever this skill lives
 BUNDLE_ROOT=/path/to/handoff/bundle              # ask the user
 OUT_ROOT=src/app/demo                            # ask the user
 ROUTE_PREFIX=/demo/                              # ask the user

@@ -1,6 +1,7 @@
 // INTENTIONALLY VULNERABLE — test fixture for scan.mjs. Never copy into a real app.
 'use client';
 
+import DOMPurify from 'dompurify';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 const OPENAI_KEY = 'sk-proj-FAKE000000000000000000000000000000000000';
@@ -31,6 +32,9 @@ export default function Page() {
   return (
     <main>
       <div dangerouslySetInnerHTML={{ __html: html }} />
+      {/* decoy: sanitized at the point of insertion — must carry likelySanitized */}
+      <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }} />
+      <iframe srcDoc={html} title="preview" />
       <a href="javascript:void(0)">legacy</a>
       <a href="https://example.com" target="_blank">
         external

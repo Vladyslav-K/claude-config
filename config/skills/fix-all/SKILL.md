@@ -1,7 +1,6 @@
 ---
 name: fix-all
 description: Run format then check-errors — find and fix ALL errors AND warnings across the project.
-disable-model-invocation: true
 ---
 
 # Fix All (Errors + Warnings)

@@ -1,7 +1,6 @@
 ---
 name: project-meta-init
 description: Initialize project folder structure for task management, estimation, and swagger sync. Creates .project-meta/ with all required subfolders.
-disable-model-invocation: true
 ---
 
 # Project Meta Initialization

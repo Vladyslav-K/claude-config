@@ -1,7 +1,6 @@
 ---
 name: estimate
 description: Estimate frontend tasks from .project-meta/estimation/. Read task files, screenshots, and codebase to produce time estimates.
-disable-model-invocation: true
 ---
 
 # Task Estimation

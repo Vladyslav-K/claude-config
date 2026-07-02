@@ -1,7 +1,6 @@
 ---
 name: sync-swagger
 description: Sync the project API layer (types, services, hooks) with swagger. Auto-detects mode — if a non-empty swagger-old.json baseline exists, apply only the precise swagger-to-swagger diff; otherwise do a full sync against swagger.json. Updates existing APIs, adds new ones (types/services/hooks only), and fixes usage where APIs changed.
-disable-model-invocation: true
 allowed-tools: Bash(python3 *)
 ---
 

@@ -1,7 +1,6 @@
 ---
 name: tasks-plan
 description: Deep task planning with full codebase research, API analysis, component inventory, and blocker detection. Produces a detailed implementation plan.
-disable-model-invocation: true
 ---
 
 # Task Planning

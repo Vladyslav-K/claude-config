@@ -127,7 +127,8 @@
       "Read(./.env.*)"
     ]
   },
-  "model": "opus[1m]",
+  "model": "claude-fable-5",
+  "disableClaudeAiConnectors": true,
   "hooks": {
     "Stop": [
       {

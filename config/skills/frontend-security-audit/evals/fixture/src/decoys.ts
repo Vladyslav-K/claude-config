@@ -16,6 +16,16 @@ export function reload(router: { push: (p: string) => void }, pathname: string) 
   router.push(pathname);
 }
 
+// must classify as argKind 'literal': object form with a literal internal pathname
+export function goToCheckout(router: { push: (o: object) => void }, step: string) {
+  router.push({ pathname: '/checkout', query: { step } });
+}
+
+// must classify as argKind 'literal': react-router navigate to a static internal path
+export function goToDashboard(navigate: (to: string) => void) {
+  navigate('/dashboard');
+}
+
 // must NOT be flagged at all: callback-form timers are safe
 export function defer(fn: () => void) {
   setTimeout(fn, 300);

@@ -65,7 +65,8 @@ Establish what you're auditing before scanning. Read, don't guess:
 4. **Monorepo / separate-backend topology.** If a separate backend app sits next to the
    frontend (`apps/api` beside `apps/web`, a NestJS/Express service, any non-Next server),
    that backend is **out of scope** for a *frontend* audit — note it and scan only the web
-   app. The consequence: with the real server elsewhere, a client-heavy Next app often has
+   app. If **several** frontend apps live in the monorepo (`apps/web` + `apps/admin`),
+   confirm with the user which to audit — or scan each with its own findings dump. The consequence: with the real server elsewhere, a client-heavy Next app often has
    **no** route handlers / `middleware.ts` / `'use server'` files, so `server-injection` and
    `ssrf` candidates inside it are all-false-positive (a browser `fetch` is not SSRF). Confirm
    with `find <web> -name 'route.ts' -o -name 'middleware.ts'` plus the scanner's `'use server'`
@@ -110,14 +111,19 @@ Scanner behavior worth knowing:
   CSP quality, CSRF, IDOR and the other absence checks remain manual reading.
 - **Triage accelerators in the JSON:** `argKind` on open-redirect entries;
   `likelyFalsePositive` on `secrets-hardcoded` entries whose value is a plain low-entropy
-  word (`apiKey: 'department'`) — confirm with a glance and clear those in bulk; `alsoIn`
+  word (`apiKey: 'department'`) — confirm with a glance and clear those in bulk;
+  `likelySanitized` on `xss-dangerous-html` entries with a `sanitize*()` call on the same
+  line — confirm the call wraps the sink value and is a real sanitizer, then clear; `alsoIn`
   when the same line tripped several categories — triage the line once, not per category.
+  `totals.filesScanned` in the JSON feeds the report's "Scanned N files" line.
 
 ## Phase 2 — Dependency & secrets-in-git audit
 
 These complement the source scan (see catalog §19–§20):
 
-- **Dependencies:** run the project's audit (`pnpm audit` / `npm audit` / `yarn`).
+- **Dependencies:** run the project's audit (`pnpm audit` / `npm audit` / `yarn`). If it
+  can't run (offline, private registry), record "audit: not run — <reason>" in the report
+  rather than skipping silently.
   Prioritize critical/high in **prod** deps that reach the client bundle, and known
   XSS / prototype-pollution / ReDoS advisories. Judge impact by **where the code runs,
   not which package.json section it sits in** — build tools (`@svgr/webpack`, PostCSS
@@ -191,8 +197,8 @@ confirmed counts per severity at the very top, before any prose, so the reader a
 | Info      | <n>       |
 | **Total** | **<n>**   |
 
-Scanned <N files / LOC> — <M> candidates → <K> confirmed, <F> false positives,
-<H> need a human decision.
+Scanned <N files — from the scanner's totals.filesScanned> — <M> candidates → <K> confirmed,
+<F> false positives, <H> need a human decision.
 
 ## Confirmed vulnerabilities
 ### [SEVERITY] <title> — <category>

@@ -19,8 +19,8 @@
 //
 // Besides the rg categories it runs deterministic project checks for "absence" findings
 // (headers-missing, env-tracked) and tags findings with triage accelerators: `argKind` on
-// open-redirect, `likelyFalsePositive` on low-entropy secrets, `alsoIn` when one line trips
-// several categories.
+// open-redirect, `likelyFalsePositive` on low-entropy secrets, `likelySanitized` on HTML
+// sinks with a same-line sanitizer call, `alsoIn` when one line trips several categories.
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -43,6 +43,11 @@ const CATEGORIES = [
       '\\sv-html\\s*=',
       '\\{@html\\b',
       '\\[innerHTML\\]\\s*=',
+      // iframe srcdoc/srcDoc renders the given string as a full HTML document.
+      '(?i)srcdoc\\s*[=:]',
+      // Angular's DomSanitizer escape hatch — plain [innerHTML] is auto-sanitized by
+      // Angular, so the bypass calls are where Angular XSS actually lives.
+      'bypassSecurityTrust',
     ],
   },
   {
@@ -136,9 +141,14 @@ const CATEGORIES = [
     patterns: [
       'window\\.location\\s*=',
       'window\\.location\\.href\\s*=',
+      'document\\.location\\s*=',
       'location\\.href\\s*=',
       'location\\.(assign|replace)\\s*\\(',
       'router\\.(push|replace)\\s*\\(',
+      // react-router: v6 useNavigate()'s navigate(…) and v5 history.push/replace(…).
+      // \bnavigate also catches Angular's router.navigate(…).
+      '\\bnavigate\\s*\\(',
+      'history\\.(push|replace)\\s*\\(',
       '\\bredirect\\s*\\(',
     ],
   },
@@ -266,7 +276,7 @@ const SERVER_HINT = /(\/route\.(t|j)sx?$|\/pages\/api\/|\/middleware\.(t|j)sx?$|
 // Heuristic over the matched source line; returns null when no nav call is recognizable.
 function classifyNavArg(line) {
   const m = line.match(
-    /(?:router\.(?:push|replace)|location\.(?:assign|replace)|window\.location\.href|window\.location|location\.href|\bredirect)\s*[=(]\s*/,
+    /(?:router\.(?:push|replace)|history\.(?:push|replace)|location\.(?:assign|replace)|window\.location\.href|window\.location|document\.location|location\.href|\bredirect|\bnavigate)\s*[=(]\s*/,
   );
   if (!m) return null;
   const rest = line.slice(m.index + m[0].length);
@@ -274,6 +284,15 @@ function classifyNavArg(line) {
   if (c === undefined) return null;
   if (c === "'" || c === '"') return 'literal';
   if (c === '`') return rest.includes('${') ? 'template' : 'literal';
+  // Object form (router.push({ pathname: '/x', query: {…} })): the destination is the
+  // pathname value — query params are URL-encoded and can't change the target origin.
+  if (c === '{') {
+    const pm = rest.match(/^\{\s*pathname\s*:\s*(.)/);
+    if (!pm) return 'dynamic';
+    if (pm[1] === "'" || pm[1] === '"') return 'literal';
+    if (pm[1] === '`') return rest.includes('${') ? 'template' : 'literal';
+    return 'dynamic';
+  }
   // A ternary of two plain string literals is a constant destination, not a dynamic one.
   if (/^[A-Za-z_$][\w.$]*\s*\?\s*(['"])[^'"]*\1\s*:\s*(['"])[^'"]*\2\s*[),]/.test(rest)) {
     return 'literal';
@@ -404,8 +423,9 @@ const DEFAULT_EXCLUDES = [
 ];
 
 // Only scan code/config/text where frontend vulns live (plus dotenv files for secrets).
+// mdx carries real JSX; mts/cts are TS module variants (next.config.mts, scripts).
 const INCLUDE_GLOBS = [
-  '*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,astro,html,htm,json,yml,yaml}',
+  '*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,vue,svelte,astro,mdx,html,htm,json,yml,yaml}',
   '.env*',
 ];
 
@@ -434,6 +454,17 @@ function collectUseServerFiles(root, excludes) {
   const res = spawnSync('rg', args, { encoding: 'utf8', maxBuffer: 1024 * 1024 * 64 });
   if (res.status === 2 || !res.stdout) return new Set();
   return new Set(res.stdout.split('\n').filter(Boolean));
+}
+
+// Feeds the report's "Scanned N files" line — one cheap extra rg pass over the same globs.
+function countScannedFiles(root, excludes) {
+  const args = ['--files', '--hidden', '--no-ignore-vcs', '--no-messages'];
+  for (const g of INCLUDE_GLOBS) args.push('-g', g);
+  for (const g of [...DEFAULT_EXCLUDES, ...excludes]) args.push('-g', `!${g}`);
+  args.push('--', root);
+  const res = spawnSync('rg', args, { encoding: 'utf8', maxBuffer: 1024 * 1024 * 64 });
+  if (res.error || res.status === 2 || !res.stdout) return null;
+  return res.stdout.split('\n').filter(Boolean).length;
 }
 
 function ensureRg() {
@@ -517,6 +548,13 @@ function runCategory(cat, root, excludes, useServerFiles) {
         }
       }
     }
+    // A sanitizer call sharing the line with the HTML sink usually means the value is
+    // cleaned at the point of insertion — pre-tag so triage confirms with a glance instead
+    // of a file read. A hint, not a verdict: a hand-rolled sanitize*() can be a bare regex.
+    if (cat.id === 'xss-dangerous-html' && /\bsanitiz\w*\s*\(/i.test(raw)) {
+      finding.likelySanitized =
+        'sanitizer call on the same line — confirm it wraps the sink value and is a real sanitizer (DOMPurify), not a regex replace';
+    }
     findings.push(finding);
   }
   return findings;
@@ -546,6 +584,7 @@ function main() {
     : PROJECT_CHECKS;
 
   const useServerFiles = collectUseServerFiles(root, opts.excludes);
+  const filesScanned = countScannedFiles(root, opts.excludes);
 
   const categories = [];
   const bySeverity = { critical: 0, high: 0, medium: 0, low: 0 };
@@ -565,6 +604,8 @@ function main() {
     };
     const likelyFalsePositives = findings.filter((f) => f.likelyFalsePositive).length;
     if (likelyFalsePositives > 0) entry.likelyFalsePositives = likelyFalsePositives;
+    const likelySanitized = findings.filter((f) => f.likelySanitized).length;
+    if (likelySanitized > 0) entry.likelySanitized = likelySanitized;
     // Surface the destination breakdown so a 150-candidate open-redirect category reads as
     // "N dynamic worth reviewing" instead of an undifferentiated wall.
     if (cat.id === 'open-redirect') {
@@ -613,6 +654,7 @@ function main() {
     generatedAt: new Date().toISOString(),
     note: 'Candidates only — every entry must be triaged against references/vulnerability-catalog.md before it counts as a vulnerability.',
     totals: {
+      filesScanned,
       findings: total,
       byCategory: Object.fromEntries(categories.map((c) => [c.category, c.count])),
       bySeverity,
@@ -652,7 +694,7 @@ function main() {
       (a, b) => order[a.severity] - order[b.severity] || b.count - a.count,
     );
     console.log(`\nFrontend security scan — ${root}`);
-    console.log(`Candidates: ${total}  (critical ${bySeverity.critical}, high ${bySeverity.high}, medium ${bySeverity.medium}, low ${bySeverity.low})`);
+    console.log(`Candidates: ${total} in ${filesScanned ?? '?'} scanned files  (critical ${bySeverity.critical}, high ${bySeverity.high}, medium ${bySeverity.medium}, low ${bySeverity.low})`);
     console.log('—'.repeat(64));
     for (const c of sorted) {
       if (c.count === 0) continue;
@@ -662,6 +704,9 @@ function main() {
       }
       if (c.likelyFalsePositives) {
         tags += `  [${c.likelyFalsePositives} likely-FP: low-entropy]`;
+      }
+      if (c.likelySanitized) {
+        tags += `  [${c.likelySanitized} likely-sanitized]`;
       }
       console.log(`  ${c.severity.toUpperCase().padEnd(8)} ${c.category.padEnd(22)} ${String(c.count).padStart(5)}${tags}`);
     }

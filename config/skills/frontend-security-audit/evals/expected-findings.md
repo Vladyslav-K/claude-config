@@ -5,20 +5,20 @@ patterns. The fixture is a deliberately-vulnerable mini-project; every file is p
 This document is the oracle: what the scan **must** report, what it **must not**, and which
 candidates are decoys that only triage (not the scanner) is expected to clear.
 
-The scan must be **stable across re-runs** — running it twice yields identical counts.
-(It excludes its own `.security-audit/` output; a second run that grows is the regression
-this fixture exists to catch.)
+The scan must be **stable across re-runs** — running it twice yields identical counts
+(46 candidates in 15 scanned files both times). It excludes its own `.security-audit/`
+output; a second run that grows is the regression this fixture exists to catch.
 
-## Expected candidate counts (36 total)
+## Expected candidate counts (46 total)
 
 | category | count | notes |
 |---|---|---|
-| open-redirect | 4 | one real (`?next=`, `dynamic`); decoys: `/home` (`literal`), ternary-of-literals (`literal`), bare `pathname` (`template`) |
+| open-redirect | 9 | real: `?next=` router.push, `navigate(params.get(…))`, `history.push(target)`, `document.location =` (all `dynamic`); decoys: `/home`, ternary-of-literals, object-form `{ pathname: '/checkout' }`, `navigate('/dashboard')` (all `literal`), bare `pathname` (`template`) |
+| xss-dangerous-html | 6 | `dangerouslySetInnerHTML` raw + sanitized decoy (tagged `likelySanitized`) + `.mdx` copy, `srcDoc`, Svelte `{@html}`, Angular `bypassSecurityTrustHtml` |
 | secrets-hardcoded | 3 | `sk_live_…`, `sk-proj-…`, plus the `apiKey: 'department'` decoy (tagged `likelyFalsePositive`) |
 | server-injection | 3 | all `serverHint: true` |
 | dom-xss-source | 3 | `document.cookie`, `location.hash`, `decodeURIComponent` |
 | secrets-env-public | 2 | real Stripe secret + Turnstile site-key decoy |
-| xss-dangerous-html | 2 | `dangerouslySetInnerHTML` **and** Svelte `{@html}` |
 | token-storage | 2 | literal key `'auth_token'` **and** identifier key `ACCESS_TOKEN_KEY` |
 | postmessage-cors | 2 | `postMessage(…, '*')` + `onmessage` without origin check |
 | ssrf | 2 | `fetch(target)`, `new URL(req.url)`; all `serverHint: true` |
@@ -30,6 +30,7 @@ this fixture exists to catch.)
 | prototype-pollution | 1 | unguarded `deepMerge` |
 | xss-url-protocol | 1 | `javascript:void(0)` decoy |
 | redos | 1 | the `/^([a-z0-9]+)+@…/` regex only |
+| sdk-browser-key | 1 | `dangerouslyAllowBrowser: true` in `src/llm-client.ts` |
 | headers-missing | 1 | project check: fixture `next.config.js` has no `headers()` and no middleware |
 
 `env-tracked` must be **absent**: the fixture is deliberately not a git repository, so the
@@ -38,7 +39,7 @@ per file (`.env.example`/`.sample`/`.template` excluded).
 
 ## Regression guards (the bugs these patterns were added to catch)
 
-- **No self-ingestion.** Two consecutive runs report 36 both times. If the second run is
+- **No self-ingestion.** Two consecutive runs report 46 both times. If the second run is
   larger, `.security-audit/` is being scanned again.
 - **`redos` = 1, not 3.** The plain arithmetic in `src/merge.js` `scale()`
   (`(i + 1) * 2`, `(factor + 1) * doubled`) must **not** be flagged — only the regex literal.
@@ -54,9 +55,26 @@ per file (`.env.example`/`.sample`/`.template` excluded).
 - **`token-storage` catches the identifier-key call** — `localStorage.setItem(ACCESS_TOKEN_KEY, …)`
   in `src/token-store.ts`, where the token-ish word lives only in the constant's **name**.
   This was a real-world miss: a whole auth token layer slipped past the literal-key patterns.
-- **`argKind` classification** (open-redirect breakdown must read `[1 dynamic, 1 template, 2 literal]`):
+- **react-router / bare-document sinks are caught** — `src/navigation.ts` plants
+  `navigate(params.get('redirect'))`, `history.push(target)` and `document.location = url`;
+  all three must appear in `open-redirect` **with** `argKind: 'dynamic'` (the classifier
+  recognizes the new sinks, they're not left untagged).
+- **`argKind` classification** (open-redirect breakdown must read `[4 dynamic, 1 template, 4 literal]`):
   a ternary of two plain string literals (`isAdmin ? '/admin' : '/profile'`) → `literal`;
-  bare `pathname` → `template`; `params.get('next') ?? '/'` stays `dynamic`.
+  bare `pathname` → `template`; `params.get('next') ?? '/'` stays `dynamic`; the object form
+  `router.push({ pathname: '/checkout', query: { step } })` → `literal` (destination is the
+  literal pathname; query params are URL-encoded); `navigate('/dashboard')` → `literal`.
+- **`xss-dangerous-html` new sinks:** `srcDoc={html}` in `app/page.tsx` and
+  `bypassSecurityTrustHtml` in `src/legacy-widget.ts` each yield exactly one finding.
+- **`.mdx` files are scanned** — `content/embed.mdx`'s `dangerouslySetInnerHTML` must appear;
+  if it's missing, the mdx glob regressed.
+- **`likelySanitized` tagging:** the `DOMPurify.sanitize(html)` line in `app/page.tsx`
+  carries the tag; the raw `{{ __html: html }}` line directly above it must **not**.
+  The console summary shows `[1 likely-sanitized]` on xss-dangerous-html.
+- **Comments must not trip patterns.** Fixture comments are worded to avoid matchable
+  text (e.g. "useNavigate sink", not the call form with a paren; "DomSanitizer bypass",
+  not the method name). A count bump after editing comments usually means the comment
+  itself matched — grep can't tell code from comments, by design.
 - **`likelyFalsePositive` tagging:** the `apiKey: 'department'` decoy carries the tag
   (low-entropy plain-word value); `sk_live_…` and `sk-proj-…` must **not** carry it.
   The console summary shows `[1 likely-FP: low-entropy]` on secrets-hardcoded.
@@ -65,6 +83,8 @@ per file (`.env.example`/`.sample`/`.template` excluded).
   `.env` Stripe line shared by `secrets-hardcoded` and `secrets-env-public`.
 - **`headers-missing` = 1** — emitted from reading the fixture's `next.config.js`, not from
   an rg pattern. If a `headers(` / `headers:` token is added to the config, it must disappear.
+- **`totals.filesScanned` = 15** and the console prints `46 in 15 scanned files` — the file
+  counter runs over the same include/exclude globs as the categories.
 
 ## Decoys — scanner flags them, triage must clear them
 
@@ -74,6 +94,10 @@ is exercised; the scanner is *supposed* to surface them, and a human/LLM triage 
 - `secrets-hardcoded` → `apiKey: 'department'` is a data field name (catalog §6); the scanner
   pre-tags it `likelyFalsePositive`, triage confirms with a glance.
 - `secrets-env-public` → `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is a public site key by design (§5).
-- `open-redirect` → `router.push('/home')`, the ternary-of-literals, and bare `pathname` are
+- `open-redirect` → `router.push('/home')`, the ternary-of-literals, the object-form
+  `{ pathname: '/checkout' }`, `navigate('/dashboard')`, and bare `pathname` are
   static/internal destinations (§9) — pre-sorted away from `dynamic` by `argKind`.
+- `xss-dangerous-html` → the `DOMPurify.sanitize(html)` render in `app/page.tsx` is sanitized
+  at the point of insertion (§1) — pre-tagged `likelySanitized`, triage confirms the call
+  actually wraps the sink value.
 - `xss-url-protocol` → `href="javascript:void(0)"` is a static no-op, not user-controlled (§3).

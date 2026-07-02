@@ -1,7 +1,6 @@
 ---
 name: tasks-run
 description: Execute the next available task from .project-meta/tasks/tasks.md, then enter testing/fixing mode. Does NOT continue to the next task.
-disable-model-invocation: true
 ---
 
 # Task Execution (Single Task Mode)

@@ -127,22 +127,58 @@ COST=$(echo "$INPUT" | jq -r '.cost.total_cost_usd // 0' | LC_ALL=C awk '{printf
 LINES_ADDED=$(echo "$INPUT" | jq -r '.cost.total_lines_added // 0')
 LINES_REMOVED=$(echo "$INPUT" | jq -r '.cost.total_lines_removed // 0')
 
-# Effort level & thinking state
+# Effort level
 EFFORT_LEVEL=$(echo "$INPUT" | jq -r '.effort.level // empty')
-THINKING_ENABLED=$(echo "$INPUT" | jq -r '.thinking.enabled')
+
+# Rate limits: real server data from stdin (Pro/Max only, absent until first
+# API response). Account-wide, so the cache survives new chats on purpose.
+RATE_LIMITS_CACHE_FILE="$CLAUDE_DIR/.rate-limits-cache"
+RATE_LIMITS_JSON=$(echo "$INPUT" | jq -c '.rate_limits // empty')
+if [[ -n "$RATE_LIMITS_JSON" ]]; then
+    echo "$RATE_LIMITS_JSON" > "$RATE_LIMITS_CACHE_FILE"
+elif [[ -f "$RATE_LIMITS_CACHE_FILE" ]]; then
+    RATE_LIMITS_JSON=$(cat "$RATE_LIMITS_CACHE_FILE")
+fi
+
+NOW_EPOCH=$(date +%s)
+LIMIT_5H="?"
+LIMIT_7D="?"
+if [[ -n "$RATE_LIMITS_JSON" ]]; then
+    FIVE_PCT=$(echo "$RATE_LIMITS_JSON" | jq -r '.five_hour.used_percentage // empty')
+    FIVE_RESET=$(echo "$RATE_LIMITS_JSON" | jq -r '.five_hour.resets_at // empty')
+    FIVE_RESET=${FIVE_RESET%%.*}
+    # Show only while the window is still running: a past resets_at means
+    # the cached percentage is stale and no longer true
+    if [[ -n "$FIVE_PCT" ]] && [[ -n "$FIVE_RESET" ]] && (( FIVE_RESET > NOW_EPOCH )); then
+        REMAIN_S=$((FIVE_RESET - NOW_EPOCH))
+        REMAIN_H=$((REMAIN_S / 3600))
+        REMAIN_M=$(( (REMAIN_S % 3600) / 60 ))
+        if (( REMAIN_H > 0 )); then
+            FIVE_LEFT=$(printf '%dh%02dm' "$REMAIN_H" "$REMAIN_M")
+        else
+            FIVE_LEFT="${REMAIN_M}m"
+        fi
+        LIMIT_5H="$(LC_ALL=C printf '%.0f' "$FIVE_PCT")% (${FIVE_LEFT})"
+    fi
+
+    SEVEN_PCT=$(echo "$RATE_LIMITS_JSON" | jq -r '.seven_day.used_percentage // empty')
+    SEVEN_RESET=$(echo "$RATE_LIMITS_JSON" | jq -r '.seven_day.resets_at // empty')
+    SEVEN_RESET=${SEVEN_RESET%%.*}
+    if [[ -n "$SEVEN_PCT" ]] && [[ -n "$SEVEN_RESET" ]] && (( SEVEN_RESET > NOW_EPOCH )); then
+        SEVEN_AT=$(LC_ALL=C date -r "$SEVEN_RESET" '+%a %H:%M')
+        LIMIT_7D="$(LC_ALL=C printf '%.0f' "$SEVEN_PCT")% (${SEVEN_AT})"
+    fi
+fi
 
 EXTRAS=""
 if [[ -n "$EFFORT_LEVEL" ]]; then
     EXTRAS="${EFFORT_LEVEL}"
 fi
-if [[ "$THINKING_ENABLED" == "true" ]] || [[ "$THINKING_ENABLED" == "false" ]]; then
-    THINK_DISPLAY="Not Thinking"
-    [[ "$THINKING_ENABLED" == "true" ]] && THINK_DISPLAY="Thinking"
-    if [[ -n "$EXTRAS" ]]; then
-        EXTRAS="${EXTRAS} | ${THINK_DISPLAY}"
-    else
-        EXTRAS="${THINK_DISPLAY}"
-    fi
+LIMITS_DISPLAY="5h: ${LIMIT_5H} | 7d: ${LIMIT_7D}"
+if [[ -n "$EXTRAS" ]]; then
+    EXTRAS="${EXTRAS} | ${LIMITS_DISPLAY}"
+else
+    EXTRAS="${LIMITS_DISPLAY}"
 fi
 
 SUFFIX=""

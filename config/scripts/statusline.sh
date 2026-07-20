@@ -31,7 +31,6 @@ CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 # ============================================
 TRANSCRIPT_CACHE_FILE="$CLAUDE_DIR/.transcript-cache"
 CONTEXT_CACHE_FILE="$CLAUDE_DIR/.context-cache"
-CONTEXT_TOKENS_CACHE_FILE="$CLAUDE_DIR/.context-tokens-cache"
 
 # Check if this is a new chat (transcript changed or empty)
 CACHED_TRANSCRIPT=""
@@ -41,7 +40,7 @@ fi
 
 # If transcript is empty or different from cached - reset cache
 if [[ -z "$TRANSCRIPT" ]] || [[ "$TRANSCRIPT" != "$CACHED_TRANSCRIPT" ]]; then
-    rm -f "$CONTEXT_CACHE_FILE" "$CONTEXT_TOKENS_CACHE_FILE" 2>/dev/null
+    rm -f "$CONTEXT_CACHE_FILE" 2>/dev/null
     if [[ -n "$TRANSCRIPT" ]]; then
         echo "$TRANSCRIPT" > "$TRANSCRIPT_CACHE_FILE"
     else
@@ -71,7 +70,7 @@ else
 fi
 
 # ============================================
-# LINE 3: Model | Version | Tokens
+# LINE 3: Model | Version | Lines | Cost | Effort
 # ============================================
 
 if [[ -n "$MODEL_NAME" ]]; then
@@ -80,24 +79,25 @@ else
     MODEL="?"
 fi
 
-# Context tokens (same number as the token counter in the UI)
-CTX_TOKENS_RAW=$(echo "$INPUT" | jq -r '(.context_window.total_input_tokens // 0) + (.context_window.total_output_tokens // 0)')
+# Lines changed
+LINES_ADDED=$(echo "$INPUT" | jq -r '.cost.total_lines_added // 0')
+LINES_REMOVED=$(echo "$INPUT" | jq -r '.cost.total_lines_removed // 0')
 
-if [[ -z "$CTX_TOKENS_RAW" ]] || [[ "$CTX_TOKENS_RAW" == "0" ]]; then
-    if [[ -f "$CONTEXT_TOKENS_CACHE_FILE" ]]; then
-        CTX_TOKENS=$(cat "$CONTEXT_TOKENS_CACHE_FILE")
-    else
-        CTX_TOKENS="?"
-    fi
-else
-    CTX_TOKENS="$CTX_TOKENS_RAW"
-    echo "$CTX_TOKENS" > "$CONTEXT_TOKENS_CACHE_FILE"
+# Cost (direct from API)
+# LC_ALL=C forces C locale for awk to use period as decimal separator
+COST=$(echo "$INPUT" | jq -r '.cost.total_cost_usd // 0' | LC_ALL=C awk '{printf "%.2f", $1}')
+
+# Effort level
+EFFORT_LEVEL=$(echo "$INPUT" | jq -r '.effort.level // empty')
+
+LINE3="${MAGENTA}${MODEL} | v${VERSION} | +${LINES_ADDED} -${LINES_REMOVED} | \$${COST}"
+if [[ -n "$EFFORT_LEVEL" ]]; then
+    LINE3="${LINE3} | ${EFFORT_LEVEL}"
 fi
-
-LINE3="${MAGENTA}${MODEL} | v${VERSION} | Tokens: ${CTX_TOKENS}${RESET}"
+LINE3="${LINE3}${RESET}"
 
 # ============================================
-# LINE 4: Context | Cost
+# LINE 4: Context | Rate limits
 # ============================================
 
 # Context
@@ -118,17 +118,6 @@ else
     }')
     echo "$CONTEXT_PCT" > "$CONTEXT_CACHE_FILE"
 fi
-
-# Cost (direct from API)
-# LC_ALL=C forces C locale for awk to use period as decimal separator
-COST=$(echo "$INPUT" | jq -r '.cost.total_cost_usd // 0' | LC_ALL=C awk '{printf "%.2f", $1}')
-
-# Lines changed
-LINES_ADDED=$(echo "$INPUT" | jq -r '.cost.total_lines_added // 0')
-LINES_REMOVED=$(echo "$INPUT" | jq -r '.cost.total_lines_removed // 0')
-
-# Effort level
-EFFORT_LEVEL=$(echo "$INPUT" | jq -r '.effort.level // empty')
 
 # Rate limits: real server data from stdin (Pro/Max only, absent until first
 # API response). Account-wide, so the cache survives new chats on purpose.
@@ -154,7 +143,7 @@ if [[ -n "$RATE_LIMITS_JSON" ]]; then
         REMAIN_H=$((REMAIN_S / 3600))
         REMAIN_M=$(( (REMAIN_S % 3600) / 60 ))
         if (( REMAIN_H > 0 )); then
-            FIVE_LEFT=$(printf '%dh%02dm' "$REMAIN_H" "$REMAIN_M")
+            FIVE_LEFT=$(printf '%dh %02dm' "$REMAIN_H" "$REMAIN_M")
         else
             FIVE_LEFT="${REMAIN_M}m"
         fi
@@ -165,26 +154,17 @@ if [[ -n "$RATE_LIMITS_JSON" ]]; then
     SEVEN_RESET=$(echo "$RATE_LIMITS_JSON" | jq -r '.seven_day.resets_at // empty')
     SEVEN_RESET=${SEVEN_RESET%%.*}
     if [[ -n "$SEVEN_PCT" ]] && [[ -n "$SEVEN_RESET" ]] && (( SEVEN_RESET > NOW_EPOCH )); then
-        SEVEN_AT=$(LC_ALL=C date -r "$SEVEN_RESET" '+%a %H:%M')
+        # BSD date (macOS) reads epoch via -r; GNU date (Linux/Docker) needs -d @epoch
+        if date --version >/dev/null 2>&1; then
+            SEVEN_AT=$(LC_ALL=C date -d "@$SEVEN_RESET" '+%a %H:%M')
+        else
+            SEVEN_AT=$(LC_ALL=C date -r "$SEVEN_RESET" '+%a %H:%M')
+        fi
         LIMIT_7D="$(LC_ALL=C printf '%.0f' "$SEVEN_PCT")% (${SEVEN_AT})"
     fi
 fi
 
-EXTRAS=""
-if [[ -n "$EFFORT_LEVEL" ]]; then
-    EXTRAS="${EFFORT_LEVEL}"
-fi
-LIMITS_DISPLAY="5h: ${LIMIT_5H} | 7d: ${LIMIT_7D}"
-if [[ -n "$EXTRAS" ]]; then
-    EXTRAS="${EXTRAS} | ${LIMITS_DISPLAY}"
-else
-    EXTRAS="${LIMITS_DISPLAY}"
-fi
-
-SUFFIX=""
-[[ -n "$EXTRAS" ]] && SUFFIX=" | ${EXTRAS}"
-
-LINE4="${YELLOW}Context: ${CONTEXT_PCT}% | +${LINES_ADDED} -${LINES_REMOVED} | \$${COST}${SUFFIX}${RESET}"
+LINE4="${YELLOW}Context: ${CONTEXT_PCT}% | 5h: ${LIMIT_5H} | 7d: ${LIMIT_7D}${RESET}"
 
 # ============================================
 # OUTPUT

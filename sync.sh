@@ -48,6 +48,7 @@ SYNC_ITEMS=(
     "scripts"
     "skills"
     "agents"
+    "rules"
 )
 
 # Files to exclude from sync

@@ -1,5 +1,5 @@
 ---
-name: tasks-plan
+name: plan-tasks
 description: Deep task planning with full codebase research, API analysis, component inventory, and blocker detection. Produces a detailed implementation plan.
 ---
 
@@ -9,15 +9,15 @@ description: Deep task planning with full codebase research, API analysis, compo
 $ARGUMENTS
 
 **How to use arguments:**
-- `/tasks-plan` — full deep analysis of all tasks
-- `/tasks-plan focus only on tasks 1-3` — limit scope
-- `/tasks-plan we use REST API at /api/v1, auth is JWT` — provide context
-- `/tasks-plan skip API research, backend is not ready yet` — adjust behavior
+- `/plan-tasks` — full deep analysis of all tasks
+- `/plan-tasks focus only on tasks 1-3` — limit scope
+- `/plan-tasks we use REST API at /api/v1, auth is JWT` — provide context
+- `/plan-tasks skip API research, backend is not ready yet` — adjust behavior
 
 ## Purpose
 Read task descriptions from `.project-meta/tasks/plan/`, perform **deep codebase research**, and create a comprehensive implementation plan with detailed analysis of each task — existing components, API endpoints, dependencies, blockers, and step-by-step implementation guidance.
 
-**KEY PRINCIPLE:** This is thorough planning. You research EVERYTHING now so that `/tasks-run` can execute with full context and minimal surprises.
+**KEY PRINCIPLE:** This is thorough planning. You research EVERYTHING now so that `/run-tasks` can execute with full context and minimal surprises.
 
 ## Input
 
@@ -114,6 +114,7 @@ For EACH task, compile:
 10. **Blockers** — anything that prevents implementation (if any)
 11. **Notes** — edge cases, gotchas, things to watch out for
 12. **Estimated complexity** — simple / standard / complex (based on research)
+13. **Commit** — a ready-to-use commit message for this task (see "Commit Message Rules" below)
 
 ### 6. Determine Task Order
 - Tasks with no deps first
@@ -156,6 +157,7 @@ Mode: full-analysis
 - **Complexity:** standard
 - **Design:** screenshots/list__design.md
 - **Screenshots:** screenshots/list.png
+- **Commit:** feat: add items list page with search and delete
 
 ### Existing Code to Reuse
 - `src/components/ui/data-table.tsx` — base table component with sorting/pagination
@@ -215,11 +217,37 @@ Updated: YYYY-MM-DD
 
 | # | Task | Type | Complexity | Status | Blocker |
 |---|------|------|------------|--------|---------|
-| 1 | Task title | visual | standard | pending | |
-| 2 | Another task | mixed | complex | pending | Missing API docs for /reports |
+| 1 | Task title (feat: add items list page with search and delete) | visual | standard | pending | |
+| 2 | Another task (fix: map api errors to form fields) | mixed | complex | pending | Missing API docs for /reports |
 ```
 
 **Status values:** `pending` -> `research` -> `running` -> `done` / `blocked`
+
+The Task cell ends with the task's commit message in parentheses — the same value as the `Commit` field in tasks.md, so the user can copy it straight from the status table.
+
+---
+
+## Commit Message Rules
+
+Every task gets one commit message, generated at planning time and written to both tasks.md (`Commit` field) and status.md (in parentheses after the title). It is a title line only, meant to be copied as is:
+
+- Conventional Commits format: `<type>: <summary>`. Types: `feat` (new behaviour), `fix` (bug fix), `refactor` (no behaviour change), `chore` (tooling, config, generated code), `test`, `docs`. Pick by what the task changes for the user or the codebase, not by task label.
+- English, imperative mood, lowercase, no trailing period, no task ID, no ticket link.
+- Short: one line, aim for 50 characters, never more than 72. Name the outcome, not the list of files or steps.
+- One message per task even if the task touches many areas — pick the main outcome; details belong to the PR description, not the commit title.
+
+**Examples:**
+
+Task: "T1.10 — login and second factor on the real API"
+Commit: `feat: connect auth flow and two-factor verification`
+
+Task: "T1.5a — generate contract types in packages/api-client"
+Commit: `chore: generate api-client types from contract`
+
+Task: "T1.19 — API error mapping, retry on forms, field validation"
+Commit: `feat: map api errors to forms with retry`
+
+Too long, do not write like this: `feat: implement login page, OTP verification step, session cookie refresh, useMe hook and error handling for the real API`
 
 ---
 

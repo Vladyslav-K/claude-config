@@ -1,5 +1,5 @@
 ---
-name: tasks-run
+name: run-tasks
 description: Execute the next available task from .project-meta/tasks/tasks.md, then enter testing/fixing mode. Does NOT continue to the next task.
 ---
 
@@ -66,7 +66,7 @@ Follow the **Task Execution Cycle** (section below). Update status.md as you mov
 
 ### Testing Mode Message
 End with:
-> 🧪 Задача виконана. Тестуй результат — якщо є зауваження чи баги, пиши, виправлю. Коли буде все ок — запусти `/tasks-run` для наступної задачі.
+> 🧪 Задача виконана. Тестуй результат — якщо є зауваження чи баги, пиши, виправлю. Коли буде все ок — запусти `/run-tasks` для наступної задачі.
 
 ---
 
@@ -113,7 +113,7 @@ The research → plan → implement → review → verify cycle for a single tas
    - If the user asks for changes → implement them
    - Run `format` then `check-errors` after every fix
    - Stay on this task until the user is satisfied
-3. **NEVER auto-continue** to the next task — the user must explicitly run `/tasks-run` again
+3. **NEVER auto-continue** to the next task — the user must explicitly run `/run-tasks` again
 4. **This command = one task cycle.** Each invocation handles one task, period.
 
 ---

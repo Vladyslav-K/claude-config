@@ -30,7 +30,7 @@ Estimate frontend tasks by reading task files, analyzing screenshots/design docu
 ```
 1. Glob: .project-meta/estimation/*.{md,xlsx,docx}
 2. Glob: .project-meta/estimation/screenshots/**/*
-3. Group screenshots/design docs by task name (same matching rules as /tasks-plan)
+3. Group screenshots/design docs by task name (same matching rules as /plan-tasks)
 4. Build map: { taskFile → [matched screenshot paths] }
 ```
 

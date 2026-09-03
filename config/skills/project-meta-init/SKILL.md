@@ -5,7 +5,7 @@ description: Initialize project folder structure for task management, estimation
 
 # Project Meta Initialization
 
-Create the folder structure used by `/tasks-plan`, `/tasks-run`, `/estimate`, `/sync-swagger`, and `/sync-swagger-diff`.
+Create the folder structure used by `/plan-tasks`, `/run-tasks`, `/estimate`, `/sync-swagger`, and `/sync-swagger-diff`.
 
 ## Structure
 
@@ -30,8 +30,8 @@ mkdir -p .project-meta/files
 ```
 
 After creating, report what was created and remind usage:
-- `/tasks-plan` — add .md files to `tasks/plan/`, screenshots to `tasks/plan/screenshots/`
-- `/tasks-run` — execute planned tasks step by step
+- `/plan-tasks` — add .md files to `tasks/plan/`, screenshots to `tasks/plan/screenshots/`
+- `/run-tasks` — execute planned tasks step by step
 - `/estimate` — add task files to `estimation/`, screenshots to `estimation/screenshots/`
 - `/sync-swagger`, `/sync-swagger-diff` — put `swagger.json` (and `swagger-old.json` for diff) into `swagger/`
 

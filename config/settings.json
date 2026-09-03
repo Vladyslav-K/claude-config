@@ -93,7 +93,6 @@
       "Bash(npx ctx7@latest:*)"
     ],
     "deny": [
-      "Read(./secrets/**)",
       "Bash(sudo:*)",
       "Bash(git reset:*)",
       "Bash(chmod 777:*)",
@@ -140,7 +139,7 @@
       "Bash(bun remove:*)"
     ]
   },
-  "model": "opus[1m]",
+  "model": "claude-fable-5-1",
   "disableClaudeAiConnectors": true,
   "hooks": {
     "Stop": [
@@ -165,6 +164,14 @@
   "language": "Ukrainian",
   "alwaysThinkingEnabled": true,
   "effortLevel": "high",
+  "modelSettings": {
+    "claude-opus-5": {
+      "effortLevel": "high"
+    },
+    "claude-fable-5-1": {
+      "effortLevel": "medium"
+    }
+  },
   "awaySummaryEnabled": false,
   "tui": "fullscreen",
   "autoMemoryEnabled": false,
@@ -176,6 +183,7 @@
   "preferredNotifChannel": "terminal_bell",
   "autoCompactEnabled": false,
   "terminalProgressBarEnabled": false,
+  "teammateMode": "tmux",
   "remoteControlAtStartup": false,
   "skipAutoPermissionPrompt": true,
   "useAutoModeDuringPlan": false,

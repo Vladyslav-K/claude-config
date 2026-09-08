@@ -5,7 +5,7 @@ description: Initialize project folder structure for task management, estimation
 
 # Project Meta Initialization
 
-Create the folder structure used by `/plan-tasks`, `/run-tasks`, `/estimate`, `/sync-swagger`, and `/sync-swagger-diff`.
+Create the folder structure used by `/plan-tasks`, `/run-tasks`, `/estimate` and `/sync-swagger`.
 
 ## Structure
 
@@ -16,7 +16,7 @@ Create the folder structure used by `/plan-tasks`, `/run-tasks`, `/estimate`, `/
 │       └── screenshots/     # Task descriptions + design documents + screenshots
 ├── estimation/
 │   └── screenshots/         # Task files + screenshots for estimation
-├── swagger/                 # swagger.json / swagger-old.json for /sync-swagger and /sync-swagger-diff
+├── swagger/                 # swagger.json (+ swagger-old.json baseline for diff mode) for /sync-swagger
 └── files/                   # Markdown reports
 ```
 
@@ -33,7 +33,7 @@ After creating, report what was created and remind usage:
 - `/plan-tasks` — add .md files to `tasks/plan/`, screenshots to `tasks/plan/screenshots/`
 - `/run-tasks` — execute planned tasks step by step
 - `/estimate` — add task files to `estimation/`, screenshots to `estimation/screenshots/`
-- `/sync-swagger`, `/sync-swagger-diff` — put `swagger.json` (and `swagger-old.json` for diff) into `swagger/`
+- `/sync-swagger` — put `swagger.json` into `swagger/`; add `swagger-old.json` (the previous, already synced snapshot) to switch the skill into diff mode
 
 ## Notes
 - Idempotent — safe to run multiple times

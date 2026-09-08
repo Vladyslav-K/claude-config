@@ -1,61 +1,63 @@
 #!/usr/bin/env python3
-"""Compare endpoints between two swagger snapshots: new / removed / changed."""
+"""Compare endpoints between two swagger snapshots: new / removed / changed (field-level) / doc-only."""
 
-import json
+import os
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from swagger_common import diff_values, endpoints, load_spec, operation_summary, same, strip_doc
 
 if len(sys.argv) != 3:
     print('Usage: python3 diff-endpoints.py <swagger-old.json> <swagger.json>', file=sys.stderr)
     sys.exit(1)
 
-OLD_PATH = sys.argv[1]
-NEW_PATH = sys.argv[2]
+old = load_spec(sys.argv[1])
+new = load_spec(sys.argv[2])
 
-with open(OLD_PATH) as f:
-    old = json.load(f)
-with open(NEW_PATH) as f:
-    new = json.load(f)
+old_eps = endpoints(old)
+new_eps = endpoints(new)
 
-
-def get_endpoints(spec):
-    endpoints = {}
-    for path, methods in spec.get('paths', {}).items():
-        for method, details in methods.items():
-            if method in ('get', 'post', 'put', 'patch', 'delete', 'options', 'head'):
-                key = f'{method.upper()} {path}'
-                endpoints[key] = details
-    return endpoints
+added = sorted(set(new_eps) - set(old_eps))
+removed = sorted(set(old_eps) - set(new_eps))
+common = sorted(set(old_eps) & set(new_eps))
 
 
-old_eps = get_endpoints(old)
-new_eps = get_endpoints(new)
-old_keys = set(old_eps.keys())
-new_keys = set(new_eps.keys())
+def describe(key, operation):
+    tags = ','.join(operation.get('tags', [])) or '-'
+    op_id = operation.get('operationId', '-')
+    return f'  {key} | tags={tags} | operationId={op_id} | {operation_summary(operation)}'
 
-added = sorted(new_keys - old_keys)
-removed = sorted(old_keys - new_keys)
-common = sorted(old_keys & new_keys)
 
-print('=== NEW ENDPOINTS ===')
-for ep in added:
-    tags = new_eps[ep].get('tags', [])
-    op_id = new_eps[ep].get('operationId', 'N/A')
-    print(f'  {ep} | tags={tags} | operationId={op_id}')
+print(f'=== NEW ENDPOINTS ({len(added)}) ===')
+for key in added:
+    print(describe(key, new_eps[key]))
 
 print()
-print('=== REMOVED ENDPOINTS ===')
-for ep in removed:
-    tags = old_eps[ep].get('tags', [])
-    op_id = old_eps[ep].get('operationId', 'N/A')
-    print(f'  {ep} | tags={tags} | operationId={op_id}')
+print(f'=== REMOVED ENDPOINTS ({len(removed)}) ===')
+for key in removed:
+    print(describe(key, old_eps[key]))
 
-print()
-print(f'=== COMMON ENDPOINTS: {len(common)} ===')
 changed = []
-for ep in common:
-    if json.dumps(old_eps[ep], sort_keys=True) != json.dumps(new_eps[ep], sort_keys=True):
-        changed.append(ep)
+doc_only = []
+for key in common:
+    if same(old_eps[key], new_eps[key]):
+        continue
+    if same(strip_doc(old_eps[key]), strip_doc(new_eps[key])):
+        doc_only.append(key)
+    else:
+        changed.append(key)
 
-print(f'Changed: {len(changed)}')
-for ep in changed:
-    print(f'  {ep}')
+print()
+print(f'=== CHANGED ENDPOINTS ({len(changed)} of {len(common)} common) ===')
+for key in changed:
+    print(f'  {key}')
+    for line in diff_values(strip_doc(old_eps[key]), strip_doc(new_eps[key])):
+        print(f'    {line}')
+
+print()
+print(f'=== DOC-ONLY CHANGES ({len(doc_only)}) === description/summary/example/tags only, no code impact')
+for key in doc_only:
+    print(f'  {key}')
+
+print()
+print('Note: an endpoint whose referenced schema changed is NOT listed here — see diff-schemas.py "used by".')

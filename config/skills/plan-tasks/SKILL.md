@@ -40,9 +40,23 @@ Read task descriptions from `.project-meta/tasks/plan/`, perform **deep codebase
 └── status.md         # Status tracking
 ```
 
+## Language
+
+The content of tasks.md and status.md is written in **Ukrainian**: task titles, `What`, implementation steps, notes, blockers, decisions, summary. The structural labels from the templates below (`What`, `Deps`, `Type`, section headings like `Existing Code to Reuse`, table headers) stay exactly as in the templates — `/run-tasks` parses them. Code identifiers, file paths, endpoints, package names and commit messages stay in English. The chat summary (step 9) is in Ukrainian as well.
+
 ---
 
 ## Execution Steps
+
+### 0. Check for an Existing Plan
+
+If `.project-meta/tasks/tasks.md` or `status.md` already exists, read both, then ask the user via AskUserQuestion before doing anything else:
+
+- **Add new tasks only** — keep existing tasks, their statuses and decisions untouched; plan only the source files that are not yet listed in `Sources`, append them with the next free IDs.
+- **Re-plan from scratch** — overwrite both files; all statuses reset to `pending`.
+- **Stop** — leave the files as they are.
+
+Never overwrite an existing plan silently — status.md holds the user's progress.
 
 ### 1. Read ALL Task Files
 Read every .md file from `.project-meta/tasks/plan/` root. Understand the full scope.
@@ -73,10 +87,8 @@ For each task that involves UI:
 - Find API base URL configuration, auth headers setup
 - If swagger/openapi spec exists — read it
 - Map which endpoints already exist vs which are needed
-- If NO API docs and tasks require API:
-  1. **ASK:** "What are the API endpoints for these tasks? Or should I plan with mock data?"
-  2. **WAIT for answer** before proceeding
-  3. **NEVER invent** endpoint URLs, field names, or response structures
+- If NO API docs and tasks require API — add a question to the batch (step 5): "What are the API endpoints for these tasks? Or should I plan with mock data?"
+- **NEVER invent** endpoint URLs, field names, or response structures
 
 #### 3d. Patterns and Conventions
 - Find 2-3 similar existing pages/features as reference
@@ -94,7 +106,17 @@ For EACH task, check:
 - **Technical blockers:** missing dependencies, incompatible library versions, unimplemented auth -> BLOCKER
 - **Missing translations:** i18n keys needed but translation files not set up -> NOTE
 
-### 5. Build Detailed Task Plan
+Collect everything that needs the user's input (missing API, unclear requirements, missing designs, conflicts with existing code) into one list. Do not ask anything mid-research.
+
+### 5. Ask the User Once
+
+Ask all collected questions in a **single AskUserQuestion call** (up to 4 questions per call; if there are more, group them by task and use consecutive calls). Every question is self-contained: state the task, the problem and the consequences of each option, because the user does not see your research.
+
+Record every answer **verbatim** in the task's `Decisions` section of tasks.md. If the user cannot answer something now — it stays a BLOCKER: the task gets `blocked` status in status.md with the blocker text in the `Blocker` column, and `/run-tasks` will skip it until the user unblocks it.
+
+If there is nothing to ask — skip this step.
+
+### 6. Build Detailed Task Plan
 
 For EACH task, compile:
 
@@ -113,27 +135,28 @@ For EACH task, compile:
 9. **Implementation steps** — ordered list of concrete steps to build this task
 10. **Blockers** — anything that prevents implementation (if any)
 11. **Notes** — edge cases, gotchas, things to watch out for
-12. **Estimated complexity** — simple / standard / complex (based on research)
-13. **Commit** — a ready-to-use commit message for this task (see "Commit Message Rules" below)
+12. **Decisions** — the user's answers from step 5 that concern this task, verbatim; `/run-tasks` treats them as requirements
+13. **Estimated complexity** — simple / standard / complex (based on research)
+14. **Commit** — a ready-to-use commit message for this task, written to status.md only (see "Commit Message Rules" below)
 
-### 6. Determine Task Order
+### 7. Determine Task Order
 - Tasks with no deps first
 - Then by dependency chain
 - Within same priority — simpler tasks first (build foundations before complex features)
 - Group related tasks when it makes sense
 
-### 7. Write tasks.md + status.md
-Write both files with the detailed format below.
+### 8. Write tasks.md + status.md
+Write both files with the detailed format below. Tasks that still have a BLOCKER get status `blocked`; everything else starts as `pending`.
 
-### 8. Show Comprehensive Summary
+### 9. Show Comprehensive Summary
 
-Report to user:
+Report to user (Ukrainian, as the final text of the turn — no tool calls after it):
 - Source files analyzed
 - Codebase areas researched
 - Design references matched
 - Tasks created (with complexity breakdown)
-- Blockers found (if any) — **highlight these prominently**
-- Questions for user (if any)
+- Blockers found (if any) — **highlight these prominently**, with what the user must provide to unblock each one
+- Decisions recorded from the user's answers (short list, so the user can spot a misunderstanding)
 - Recommended execution order explanation
 
 ---
@@ -146,7 +169,6 @@ Report to user:
 Goal: Overall goal
 Sources: file1.md, file2.md
 Created: YYYY-MM-DD
-Mode: full-analysis
 
 ---
 
@@ -157,7 +179,6 @@ Mode: full-analysis
 - **Complexity:** standard
 - **Design:** screenshots/list__design.md
 - **Screenshots:** screenshots/list.png
-- **Commit:** feat: add items list page with search and delete
 
 ### Existing Code to Reuse
 - `src/components/ui/data-table.tsx` — base table component with sorting/pagination
@@ -196,6 +217,10 @@ Mode: full-analysis
 - Design shows a "bulk delete" button — need to check if API supports bulk operations
 - Table has 6 columns — verify all fit on standard viewport
 
+### Decisions
+- (planning, YYYY-MM-DD) Q: Bulk delete — is there an API? A: "поки що ні, кнопку не робимо, буде в наступному спринті"
+- (planning, YYYY-MM-DD) Q: Search — server-side or client-side? A: "серверний, параметр search уже є"
+
 ---
 
 ## Task 2: Another title
@@ -217,19 +242,21 @@ Updated: YYYY-MM-DD
 
 | # | Task | Type | Complexity | Status | Blocker |
 |---|------|------|------------|--------|---------|
-| 1 | Task title (feat: add items list page with search and delete) | visual | standard | pending | |
-| 2 | Another task (fix: map api errors to form fields) | mixed | complex | pending | Missing API docs for /reports |
+| 1 | Task title feat: add items list page with search and delete | visual | standard | pending | |
+| 2 | Another task fix: map api errors to form fields | mixed | complex | blocked | Missing API docs for /reports |
 ```
 
 **Status values:** `pending` -> `research` -> `running` -> `done` / `blocked`
 
-The Task cell ends with the task's commit message in parentheses — the same value as the `Commit` field in tasks.md, so the user can copy it straight from the status table.
+A task with a non-empty `Blocker` column is always `blocked`, never `pending` — `/run-tasks` picks only `pending` tasks. When the user resolves a blocker, they (or you, on their instruction) clear the column and set the status back to `pending`.
+
+The Task cell ends with the task's commit message, appended after the title as plain text — no parentheses, brackets, backticks or other wrapping — so the user can select and copy it straight from the status table.
 
 ---
 
 ## Commit Message Rules
 
-Every task gets one commit message, generated at planning time and written to both tasks.md (`Commit` field) and status.md (in parentheses after the title). It is a title line only, meant to be copied as is:
+Every task gets one commit message, generated at planning time and written to status.md only — appended to the Task cell right after the title, without parentheses or any wrapping. It is not duplicated in tasks.md. It is a title line only, meant to be copied as is:
 
 - Conventional Commits format: `<type>: <summary>`. Types: `feat` (new behaviour), `fix` (bug fix), `refactor` (no behaviour change), `chore` (tooling, config, generated code), `test`, `docs`. Pick by what the task changes for the user or the codebase, not by task label.
 - English, imperative mood, lowercase, no trailing period, no task ID, no ticket link.
@@ -258,8 +285,10 @@ Too long, do not write like this: `feat: implement login page, OTP verification 
 3. **Every claim must be verified** — don't say "component exists" without finding it via Glob/Grep
 4. **Include exact file paths** — every referenced component/service must have its real path
 5. **One task per logical unit** — don't combine unrelated changes
-6. **Verify API exists** before planning API tasks — if not found, mark as BLOCKER
+6. **Verify API exists** before planning API tasks — if not found, ask in step 5; no answer -> BLOCKER
 7. **Highlight ALL blockers prominently** — user must see them immediately
 8. **Use Explore agents for broad searches** — save context for analysis
 9. **$ARGUMENTS from user are MANDATORY instructions** — apply them to the planning process
-10. **Ask questions if ambiguous** — better to ask than to guess wrong
+10. **Ask questions if ambiguous** — better to ask than to guess wrong; all questions in one batch (step 5), via AskUserQuestion, never as text in the chat
+11. **Record every user answer verbatim** in the task's `Decisions` section — answers that live only in the chat are lost for `/run-tasks`
+12. **Never overwrite an existing plan without asking** (step 0)

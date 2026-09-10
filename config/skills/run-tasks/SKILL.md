@@ -72,7 +72,7 @@ If the task turns out to be blocked at any point (missing API, missing design as
 > 🧪 Задача виконана. Тестуй результат — якщо є зауваження чи баги, пиши, виправлю. Коли буде все ок — запусти `/run-tasks` для наступної задачі.
 
 ### Commit Line (last thing in the message)
-The very last element of the report is the task's commit message taken from status.md (the text after the title in the Task cell), alone in a fenced code block so the user can copy it with one click:
+The very last element of the report is the task's commit message taken from status.md (the text after the `. \|` separator in the Task cell, without the separator itself), alone in a fenced code block so the user can copy it with one click:
 
 ```
 feat: add items list page with search and delete

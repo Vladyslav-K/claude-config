@@ -242,21 +242,23 @@ Updated: YYYY-MM-DD
 
 | # | Task | Type | Complexity | Status | Blocker |
 |---|------|------|------------|--------|---------|
-| 1 | Task title feat: add items list page with search and delete | visual | standard | pending | |
-| 2 | Another task fix: map api errors to form fields | mixed | complex | blocked | Missing API docs for /reports |
+| 1 | Task title. \| feat: add items list page with search and delete | visual | standard | pending | |
+| 2 | Another task. \| fix: map api errors to form fields | mixed | complex | blocked | Missing API docs for /reports |
 ```
 
 **Status values:** `pending` -> `research` -> `running` -> `done` / `blocked`
 
 A task with a non-empty `Blocker` column is always `blocked`, never `pending` — `/run-tasks` picks only `pending` tasks. When the user resolves a blocker, they (or you, on their instruction) clear the column and set the status back to `pending`.
 
-The Task cell ends with the task's commit message, appended after the title as plain text — no parentheses, brackets, backticks or other wrapping — so the user can select and copy it straight from the status table.
+The Task cell ends with the task's commit message, appended after the title as plain text — no parentheses, brackets, backticks or other wrapping — so the user can select and copy it straight from the status table. The title and the commit message are separated by a period and an escaped pipe: `<title>. \| <commit>` (the pipe must be written as `\|` so it does not break the markdown table column).
+
+Example: `Project і Trade Type на детальній WO (SCRUM-357). \| fix: resolve project and trade type names on work orders`
 
 ---
 
 ## Commit Message Rules
 
-Every task gets one commit message, generated at planning time and written to status.md only — appended to the Task cell right after the title, without parentheses or any wrapping. It is not duplicated in tasks.md. It is a title line only, meant to be copied as is:
+Every task gets one commit message, generated at planning time and written to status.md only — appended to the Task cell after the title, separated by `. \|` (period, space, escaped pipe), without parentheses or any wrapping. It is not duplicated in tasks.md. It is a title line only, meant to be copied as is:
 
 - Conventional Commits format: `<type>: <summary>`. Types: `feat` (new behaviour), `fix` (bug fix), `refactor` (no behaviour change), `chore` (tooling, config, generated code), `test`, `docs`. Pick by what the task changes for the user or the codebase, not by task label.
 - English, imperative mood, lowercase, no trailing period, no task ID, no ticket link.

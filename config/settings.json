@@ -142,6 +142,26 @@
   "model": "fable",
   "disableClaudeAiConnectors": true,
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{CLAUDE_HOME}}/scripts/orchestration-mode.sh"
+          }
+        ]
+      }
+    ],
+    "PostModelSwitch": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{CLAUDE_HOME}}/scripts/orchestration-mode.sh"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [

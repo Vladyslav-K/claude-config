@@ -36,16 +36,16 @@ If no tasks are available → report to user and stop. If the only remaining tas
 
 ## Step 3: Execute the Task
 
-Follow the **Task Execution Cycle** (section below). Update status.md as you move through states:
+Follow the **Task Execution Cycle** (section below). You are the orchestrator: research, plan, the ТЗ and the review are yours; the implementation goes to the `executor` agent per the «Оркестрація» section of the global CLAUDE.md. Update status.md as you move through states:
 
 1. Update status.md → `research`
 2. **Research** (cycle step 1)
 3. **Plan** (cycle step 2) — for visual/complex tasks present a plan and wait for approval; simple code tasks → skip
 4. Update status.md → `running`
-5. **Implement** (cycle step 3) → **Self-review** (cycle step 4) → **Verify** (cycle step 5)
+5. **Delegate** (cycle step 3) → **Review** (cycle step 4) → **Verify** (cycle step 5)
 6. Update status.md → `done`, update progress %
 
-For `visual` and `mixed` tasks invoke the `design-work` skill before implementing — it holds the design-to-code rules (measuring, tokens, missing states, breakpoints). Do not restate them here.
+For `visual` and `mixed` tasks run the pre-code analysis of the `design-work` skill («Перед написанням коду»: existing components, tokens, missing states, breakpoints, missing assets) yourself before delegating, batch the resulting questions to the user, and write the answers into `Decisions` and the ТЗ. The executor invokes `design-work` itself for measuring, implementation and the post-implementation check.
 
 If the task turns out to be blocked at any point (missing API, missing design asset, contradiction the user must resolve) → see **Blocked During Execution** below.
 
@@ -84,7 +84,7 @@ The report is written in Ukrainian; the commit message stays in English exactly 
 
 ## Task Execution Cycle
 
-The research → plan → implement → review → verify cycle for a single task:
+The research → plan → delegate → review → verify cycle for a single task:
 
 ### 1. Research
 - Read the task's full entry in tasks.md (What, Deps, Design, Existing Code to Reuse, Reference Implementation, API, New Code, Implementation Steps, Notes, Decisions). `Decisions` are the user's verbatim answers from planning and testing — treat them as requirements, do not re-ask what is already answered there
@@ -97,22 +97,23 @@ The research → plan → implement → review → verify cycle for a single tas
 - **Visual / complex tasks:** present a short implementation plan as the final text of the turn (one or two lines per point, no code) and end with «затверджуєш / що змінити?»; wait for approval before coding. Choices between alternatives go through AskUserQuestion **before** the plan text, never after it in the same turn
 - **Simple code tasks:** skip the plan and implement directly
 
-### 3. Implement
-- Follow THIS project's conventions exactly — file/folder structure, naming, styling approach
-- Build per the Implementation Steps from tasks.md and respect every entry in `Decisions`
-- **Reuse existing components** — don't duplicate; if a variant is missing, extend the existing component, don't create a one-off
-- Code cleanliness rules (no raw components/icons, no raw styles, split into components, basic a11y) come from the global CLAUDE.md, section «Чистота коду»
-- **Visual / mixed tasks:** follow the `design-work` skill — pixel-perfect transfer, verbatim static text, no substituted icons/assets, token mapping, missing states
-- If a question comes up that only the user can answer → ask via AskUserQuestion, then append the answer verbatim to the task's `Decisions` in tasks.md (see "tasks.md Updates")
+### 3. Delegate
+- Resolve every open question with the user **before** delegating (AskUserQuestion, answers verbatim into `Decisions`) — the executor has no AskUserQuestion, each of its questions costs a full round trip
+- Build the ТЗ per the «Оркестрація» section of the global CLAUDE.md: the path to tasks.md and the task ID (the executor reads the entry itself), every `Decisions` entry, your research findings that tasks.md lacks (verified props and signatures, corrections where tasks.md is outdated), the design package with the pre-code design answers, what not to touch, the project's `format` / `check-errors` commands
+- The ТЗ carries the content requirements as explicit instructions: follow THIS project's conventions (file/folder structure, naming, styling), build per the Implementation Steps, **reuse existing components** (extend a variant instead of a one-off), code cleanliness per «Чистота коду», and for visual/mixed tasks — `design-work` rules (pixel-perfect, verbatim static text, no substituted icons/assets, token mapping, missing states)
+- Run one `executor` in the foreground and wait for its report. Never run two executors at once
+- A question or blocker from the executor → AskUserQuestion → the answer goes verbatim both to the executor via SendMessage and to the task's `Decisions` (see "tasks.md Updates")
 
-### 4. Self-review
+### 4. Review
+- Read the executor's report, then the full `git diff` and every new file from `git status` in full — do not trust the report alone
 - Re-check the result against the task requirements, `Decisions` and design — every element present and correct
 - No leftover TODOs, empty/placeholder handlers, disabled fields, or empty catch blocks (unless explicitly agreed with the user)
 - Walk through the result as a real user: first visit with empty data, loading, error, and the final state — not only the happy path
 - Confirm every requirement of the task is fully met
+- Fixes: up to ~30 lines in files you have already read during the review → fix yourself; anything larger, or touching files you have not read, or spanning logic in several places → SendMessage to the same executor with a numbered list of remarks, then review again
 
 ### 5. Verify
-- Run the task completion gate from the global CLAUDE.md («Гейт завершення задачі»): `format`, then `check-errors` with the **full, unmodified output** (no `tail`/`head`, no output-limiting flags), then the security checklist on your own changes
+- Run the task completion gate from the global CLAUDE.md («Гейт завершення задачі») **yourself**, regardless of what the executor reported: `format`, then `check-errors` with the **full, unmodified output** (no `tail`/`head`, no output-limiting flags), then the security checklist on the changes
 - If `format` / `check-errors` don't exist but can be created → add them; if the project is too specific → use available equivalents (`prettier --write`, `eslint`, `tsc --noEmit`)
 - Fix every error caused by this task's changes — the task is not done while they remain
 - **Pre-existing errors outside the task's files are not yours to fix:** do not touch them, list them in the report (count + files) and let the user decide
@@ -123,8 +124,8 @@ The research → plan → implement → review → verify cycle for a single tas
 
 1. **Execute EXACTLY ONE task** — do NOT continue to the next task after completion
 2. **After the task is done — you are in TESTING & FIXING MODE:**
-   - If the user reports issues → fix them immediately
-   - If the user asks for changes → implement them
+   - If the user reports issues → fix them immediately, by the same threshold as in the review: small fixes yourself, larger ones via SendMessage to the same executor
+   - If the user asks for changes → implement them the same way
    - Run `format` then `check-errors` after every fix
    - Stay on this task until the user is satisfied
 3. **NEVER auto-continue** to the next task — the user must explicitly run `/run-tasks` again
@@ -173,7 +174,7 @@ No separate blocked report file — status.md is the single source of blocker st
 ## Rules
 
 1. **ONE task per invocation** — complete it, report, enter testing mode, DONE
-2. **Follow the Task Execution Cycle** (section above) for research/plan/implement/review/verify
+2. **Follow the Task Execution Cycle** (section above) for research/plan/delegate/review/verify
 3. **Update status.md after EACH state change**
 4. **tasks.md is read-only** except for appending to the current task's `Decisions` (see "tasks.md Updates")
 5. **NEVER proceed to the next task** — user must run the command again

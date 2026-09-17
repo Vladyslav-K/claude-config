@@ -139,7 +139,7 @@
       "Bash(bun remove:*)"
     ]
   },
-  "model": "opus[1m]",
+  "model": "fable",
   "disableClaudeAiConnectors": true,
   "hooks": {
     "Stop": [

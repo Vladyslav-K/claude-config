@@ -130,8 +130,22 @@ elif [[ -f "$RATE_LIMITS_CACHE_FILE" ]]; then
 fi
 
 NOW_EPOCH=$(date +%s)
+
+# BSD date (macOS) reads epoch via -r; GNU date (Linux/Docker) needs -d @epoch
+format_reset_at() {
+    # Rounded to the nearest minute: windows report a reset a second short of
+    # the full hour, which would otherwise display as 15:59 instead of 16:00
+    local epoch=$(( ($1 + 30) / 60 * 60 ))
+    if date --version >/dev/null 2>&1; then
+        LC_ALL=C date -d "@$epoch" '+%a %H:%M'
+    else
+        LC_ALL=C date -r "$epoch" '+%a %H:%M'
+    fi
+}
+
 LIMIT_5H="?"
 LIMIT_7D="?"
+SEVEN_AT=""
 if [[ -n "$RATE_LIMITS_JSON" ]]; then
     FIVE_PCT=$(echo "$RATE_LIMITS_JSON" | jq -r '.five_hour.used_percentage // empty')
     FIVE_RESET=$(echo "$RATE_LIMITS_JSON" | jq -r '.five_hour.resets_at // empty')
@@ -154,17 +168,74 @@ if [[ -n "$RATE_LIMITS_JSON" ]]; then
     SEVEN_RESET=$(echo "$RATE_LIMITS_JSON" | jq -r '.seven_day.resets_at // empty')
     SEVEN_RESET=${SEVEN_RESET%%.*}
     if [[ -n "$SEVEN_PCT" ]] && [[ -n "$SEVEN_RESET" ]] && (( SEVEN_RESET > NOW_EPOCH )); then
-        # BSD date (macOS) reads epoch via -r; GNU date (Linux/Docker) needs -d @epoch
-        if date --version >/dev/null 2>&1; then
-            SEVEN_AT=$(LC_ALL=C date -d "@$SEVEN_RESET" '+%a %H:%M')
-        else
-            SEVEN_AT=$(LC_ALL=C date -r "$SEVEN_RESET" '+%a %H:%M')
-        fi
-        LIMIT_7D="$(LC_ALL=C printf '%.0f' "$SEVEN_PCT")% (${SEVEN_AT})"
+        SEVEN_AT=$(format_reset_at "$SEVEN_RESET")
+        LIMIT_7D="$(LC_ALL=C printf '%.0f' "$SEVEN_PCT")%"
     fi
 fi
 
-LINE4="${YELLOW}Context: ${CONTEXT_PCT}% | 5h: ${LIMIT_5H} | 7d: ${LIMIT_7D}${RESET}"
+# Per-model weekly window (Fable). The statusline stdin carries only the
+# account-wide windows, so this comes from the usage cache that usage-fetch.sh
+# refreshes in the background.
+USAGE_CACHE_FILE="$CLAUDE_DIR/.usage-cache.json"
+USAGE_STAMP_FILE="$CLAUDE_DIR/.usage-fetch-stamp"
+USAGE_FETCHER="$CLAUDE_DIR/scripts/usage-fetch.sh"
+USAGE_MAX_AGE=60
+
+if [[ -x "$USAGE_FETCHER" ]]; then
+    # GNU stat first: it treats -f as "file system" and prints unrelated text
+    # before failing, so trying the BSD form first pollutes the value on Linux
+    STAMP_AT=$(stat -c %Y "$USAGE_STAMP_FILE" 2>/dev/null || stat -f %m "$USAGE_STAMP_FILE" 2>/dev/null)
+    if [[ -z "$STAMP_AT" ]] || (( NOW_EPOCH - STAMP_AT >= USAGE_MAX_AGE )); then
+        touch "$USAGE_STAMP_FILE" 2>/dev/null
+        ("$USAGE_FETCHER" >/dev/null 2>&1 &) 2>/dev/null
+    fi
+fi
+
+LIMIT_FABLE=""
+if [[ -f "$USAGE_CACHE_FILE" ]]; then
+    # resets_at arrives either as epoch seconds or as an ISO 8601 string
+    FABLE_ROW=$(jq -r '
+        ([.limits[]? | select((.kind // "") == "weekly_scoped")
+            | select(((.scope.model.display_name // "") | ascii_downcase) == "fable")] | first) as $f
+        | ($f.percent | tonumber?) as $pct
+        | if $f == null or $pct == null then empty
+          else
+            (try (
+                $f.resets_at
+                | if type == "number" then .
+                  elif type == "string" then (sub("\\.[0-9]+"; "") | sub("\\+00:00$"; "Z") | fromdateiso8601)
+                  else empty end
+            ) catch empty) as $epoch
+            | "\($pct) \($epoch // "")"
+          end
+    ' "$USAGE_CACHE_FILE" 2>/dev/null)
+
+    if [[ -n "$FABLE_ROW" ]]; then
+        FABLE_PCT=${FABLE_ROW%% *}
+        FABLE_RESET=${FABLE_ROW#* }
+        FABLE_RESET=${FABLE_RESET%%.*}
+        LIMIT_FABLE="$(LC_ALL=C printf '%.0f' "$FABLE_PCT")%"
+        if [[ -n "$FABLE_RESET" ]] && (( FABLE_RESET > NOW_EPOCH )); then
+            LIMIT_FABLE="${LIMIT_FABLE} ($(format_reset_at "$FABLE_RESET"))"
+        elif [[ -n "$SEVEN_AT" ]]; then
+            LIMIT_FABLE="${LIMIT_FABLE} (${SEVEN_AT})"
+        fi
+    fi
+fi
+
+# Both weekly windows reset at the same moment, so the reset time is printed
+# once - on the Fable one when it is known, on the 7d one otherwise
+if [[ -n "$LIMIT_FABLE" ]]; then
+    WEEKLY="7d: ${LIMIT_7D} | Fable: ${LIMIT_FABLE}"
+else
+    if [[ "$LIMIT_7D" != "?" ]] && [[ -n "$SEVEN_AT" ]]; then
+        WEEKLY="7d: ${LIMIT_7D} (${SEVEN_AT}) | Fable: ?"
+    else
+        WEEKLY="7d: ${LIMIT_7D} | Fable: ?"
+    fi
+fi
+
+LINE4="${YELLOW}Context: ${CONTEXT_PCT}% | 5h: ${LIMIT_5H} | ${WEEKLY}${RESET}"
 
 # ============================================
 # OUTPUT

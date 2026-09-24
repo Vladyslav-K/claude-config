@@ -15,7 +15,7 @@ Synchronize the frontend API layer (types, services, hooks) with the latest swag
 - **DIFF MODE** — when a populated `swagger-old.json` baseline exists alongside `swagger.json`. Compute a precise **swagger-to-swagger diff** and apply only that delta to the codebase. Faster, more reliable, avoids false positives.
 - **FULL MODE** — when only `swagger.json` exists (no usable baseline). Scan the project API layer, diff it against the swagger, update existing code, and add new endpoints.
 
-**Flow (both modes): research → understand changes → apply API-layer changes and safe usage fixes → ask the user about UI-affecting changes → apply the decisions → verify → report what was done.**
+**Flow (both modes): research → understand changes → apply API-layer changes and safe usage fixes → ask the user about UI-affecting changes → apply the decisions → verify → short report of what needs the user's attention.**
 Do NOT ask for confirmation of routine API-layer work. The one mandatory stop is the UI decision step (**Shared: UI-Affecting Changes**): a UI-affecting fix is never applied silently and never left only as a line in the report.
 
 ---
@@ -163,7 +163,7 @@ New reusable schemas that appeared in new swagger.
 #### F. REMOVED schemas
 Schemas no longer in new swagger. Flag in report.
 
-Keep this categorised diff as **your own working checklist** — every item must be either applied (A, B, D, E) or flagged (C, F) by the end. **Do not print it to the user:** text written mid-turn is collapsed by the CLI, and the user reviews the resulting code changes in the IDE anyway. The user gets one final report (D9) describing what was done.
+Keep this categorised diff as **your own working checklist** — every item must be either applied (A, B, D, E) or flagged (C, F) by the end. **Do not print it to the user:** text written mid-turn is collapsed by the CLI, and the user reviews the resulting code changes in the IDE anyway. The user gets one short final report (D9) with only what the IDE diff does not show.
 
 ### D3. Map Diff to Code Locations
 
@@ -249,60 +249,35 @@ Run the **Shared: Verify** procedure below.
 
 After ALL work is done, present a single summary as the final text of the turn (no tool calls after it). **The report MUST be written in Ukrainian (українською мовою).** All section headers, descriptions, and explanations — in Ukrainian. Only code identifiers, file paths, HTTP methods, and endpoint paths remain in English.
 
-**The report describes what was done, not how the code looks.** One line per item, in words: "перейменовано `name` → `fullName`, оновлено 3 місця використання". No before/after code snippets, no JSON dumps, no diff output — the user reads the actual diff in the IDE. Start with what could not be done or needs the user's decision (UI left broken by the user's choice, removed endpoints still in code, ambiguous renames, pre-existing errors), then what was done.
+**The report is short and carries only what the IDE diff does not show.** The user reviews every code change in the IDE, so a list of routine work is noise. Do NOT list:
+- changed or created files
+- updated endpoints/schemas and what changed in them
+- fixed usage sites
+- added types, services, hooks, query keys, exports
+- UI changes the user already chose in D7 — they are visible in the diff
+- code snippets, JSON dumps, diff output
+
+The report contains, in this order:
+1. **Scope** — one line of counts.
+2. **Потребує уваги** — only items that need the user's action or confirmation, one line each: a page left broken by the user's choice (file + consequence), a removed endpoint/schema that is still used in code, an ambiguous rename treated as remove + add, anything that could not be synced and why, pre-existing check-errors (count + files). An endpoint/schema that was removed from swagger and is not used in code is not reported.
+3. **Checks** — one line with the result of `format` and `check-errors`, one line about the security scan of your changes.
+4. **Baseline reminder** — one line about rolling `swagger-old.json` forward.
+
+Omit an empty section entirely — no «немає» placeholders. If «Потребує уваги» is empty, the whole report is the scope line, the checks and the reminder.
 
 ```
 ## Синхронізація Swagger (diff-режим) завершена
 
-### Підсумок swagger diff:
-- Змінені ендпоінти: N
-- Нові ендпоінти: N
-- Видалені ендпоінти: N (позначені, не видалені з коду)
-- Змінені схеми: N
-- Нові схеми: N
-- Видалені схеми: N (позначені, не видалені з коду)
+Ендпоінти: змінено N, додано N, видалено N. Схеми: змінено N, додано N, видалено N.
 
-### Оновлені ендпоінти:
-- [METHOD /path] — що змінилось одним рядком (наприклад, "перейменовано name→fullName у тілі запиту; додано updatedAt у відповідь")
-- ...
+### Потребує уваги:
+- `DELETE /api/users/{id}` видалено зі swagger, але `useDeleteUser` досі викликається у `src/pages/users/UsersTable.tsx` — вирішіть, чи прибирати
+- `UserDto`: неоднозначне перейменування `phone` → `phoneNumber`, оброблено як видалення + додавання — підтвердіть
+- `src/pages/users/UserForm.tsx` лишився зламаним за вашим рішенням: форма не надсилає обовʼязкове `role`, запит впаде з 400
+- Преіснуючі помилки check-errors: N у `file1`, `file2` — поза скоупом, не чіпав
 
-### Оновлені схеми:
-- [SchemaName] — що змінилось
-- ...
-
-### Виправлені місця використання:
-- [шлях до файлу] — що виправлено (наприклад, "оновлено деструктуризацію: fullName замість name")
-- ...
-
-### Зміни в UI за вашим рішенням:
-- [шлях до файлу] — що змінено (наприклад, "прибрано колонку phone з таблиці користувачів")
-- ...
-
-### Залишено без змін за вашим рішенням:
-- [шлях до файлу] — що лишилось зламаним і чому (наприклад, "форма не надсилає обовʼязкове поле role, запит впаде з 400")
-- ...
-
-### Нові ендпоінти додані (лише types + services + hooks, БЕЗ UI):
-- [METHOD /path] — опис
-- ...
-
-### Нові схеми додані:
-- [SchemaName] — опис
-- ...
-
-### Позначені ВИДАЛЕНІ (є в коді, але відсутні у новому swagger):
-- Ендпоінти: [METHOD /path] — потребує перегляду/видалення
-- Схеми: [SchemaName] — потребує перегляду/видалення
-- ...
-
-### Змінені файли:
-- [список всіх змінених файлів]
-
-### Преіснуючі помилки check-errors (не чіпав):
-- N помилок у [файли] — поза скоупом синхронізації, рішення за вами
-
-### Наступні кроки:
-- Замініть `swagger-old.json` на `swagger.json` після перевірки цієї синхронізації, щоб наступний diff починався з нової базової версії.
+format і check-errors — без помилок від синхронізації. Перевірка змін на вразливості: <результат одним реченням>.
+Після перевірки замініть `swagger-old.json` на `swagger.json`, щоб наступний diff починався з нової базової версії.
 ```
 
 ---
@@ -411,40 +386,19 @@ Run the **Shared: Verify** procedure below.
 
 After ALL work is done, present a single summary as the final text of the turn (no tool calls after it). **The report MUST be written in Ukrainian (українською мовою).** All section headers, descriptions, and explanations — in Ukrainian. Only code identifiers, file paths, HTTP methods, and endpoint paths remain in English.
 
-Same rules as D9: describe what was done in words, one line per item, no before/after code, no JSON dumps. Start with what needs the user's decision, then what was done.
+Same rules as D9: only what the IDE diff does not show, no lists of routine work, empty sections omitted. There is no baseline reminder in full mode.
 
 ```
 ## Синхронізація Swagger завершена
 
-### Оновлені ендпоінти:
-- [METHOD /path] — що змінилось (наприклад, "додано поле X у відповідь, видалено поле Y")
-- ...
+Ендпоінти: оновлено N, додано N, є в коді, але відсутні у swagger N.
 
-### Виправлені місця використання:
-- [шлях до файлу] — що виправлено (наприклад, "оновлено деструктуризацію для нового імені поля")
-- ...
+### Потребує уваги:
+- `GET /api/reports` відсутній у swagger, але досі викликається у `src/pages/reports/ReportsPage.tsx` — вирішіть, чи прибирати
+- `src/pages/users/UserForm.tsx` лишився зламаним за вашим рішенням: форма не надсилає обовʼязкове `role`, запит впаде з 400
+- Преіснуючі помилки check-errors: N у `file1`, `file2` — поза скоупом, не чіпав
 
-### Зміни в UI за вашим рішенням:
-- [шлях до файлу] — що змінено
-- ...
-
-### Залишено без змін за вашим рішенням:
-- [шлях до файлу] — що лишилось зламаним і чому
-- ...
-
-### Нові ендпоінти додані (лише types + services + hooks):
-- [METHOD /path] — опис
-- ...
-
-### Позначені для перевірки (є в коді, але відсутні у swagger):
-- [METHOD /path] — потребує перегляду/видалення
-- ...
-
-### Змінені файли:
-- [список всіх змінених файлів]
-
-### Преіснуючі помилки check-errors (не чіпав):
-- N помилок у [файли] — поза скоупом синхронізації, рішення за вами
+format і check-errors — без помилок від синхронізації. Перевірка змін на вразливості: <результат одним реченням>.
 ```
 
 ---
@@ -480,7 +434,7 @@ When unsure which group an item belongs to — treat it as UI-affecting.
 
 Run `format` (Prettier), then `check-errors` (lint + tsc) from `package.json` — with the **full, unmodified output** (no `tail`/`head`, no output-limiting flags). If these scripts don't exist but can be created → add them; if the project is too specific → use available equivalents (`prettier --write`, `eslint`, `tsc --noEmit`).
 
-Fix every error caused by the sync (new types, changed signatures, broken usage sites) until they are gone. If an error sits at a UI-affecting usage site that was not part of the UI decision step — run **Shared: UI-Affecting Changes** for it before fixing. Errors the user explicitly chose to leave stay in place and go into the report section «Залишено без змін за вашим рішенням». **Pre-existing errors in files the sync did not touch are not yours to fix** — leave them, list them in the final report (count + files) and let the user decide. Then run the security checklist from the global CLAUDE.md on your own changes.
+Fix every error caused by the sync (new types, changed signatures, broken usage sites) until they are gone. If an error sits at a UI-affecting usage site that was not part of the UI decision step — run **Shared: UI-Affecting Changes** for it before fixing. Errors the user explicitly chose to leave stay in place and go into the report section «Потребує уваги». **Pre-existing errors in files the sync did not touch are not yours to fix** — leave them, list them in the final report (count + files) and let the user decide. Then run the security checklist from the global CLAUDE.md on your own changes.
 
 ---
 
@@ -498,7 +452,7 @@ Fix every error caused by the sync (new types, changed signatures, broken usage 
 10. **Swagger field names → match project convention** (if project uses camelCase, convert; if project keeps snake_case, keep) — in diff mode apply this consistently to both sides of the diff so renames are detected correctly
 11. **Preserve existing comments/docs** on types if present
 12. **Run `format`, then `check-errors`** after all changes (full output, no truncation) — fix what the sync broke, report pre-existing errors without touching them
-13. **No intermediate output and no code dumps in the report** — the user sees the diff in the IDE; the report says what was done, in words, one line per item
+13. **No intermediate output and a short final report** — the user reviews all code changes in the IDE; the report has no lists of files, endpoints, usage sites or added code, only the scope counts, what needs the user's attention, and the check results
 
 ## Shared: TypeScript Type Mapping
 

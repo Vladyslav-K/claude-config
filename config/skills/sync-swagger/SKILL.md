@@ -55,7 +55,7 @@ Follow exactly one flow end-to-end. Do not interleave steps from the other mode.
 
 Before applying anything — **research this specific project** to understand how its API layer is organized. Do NOT assume any folder structure or naming conventions.
 
-Use Explore agent / Glob / Grep to answer:
+Use a `helper` agent / Glob / Grep to answer:
 
 1. **Where are API types defined?** — Search for directories/files containing API interfaces, DTOs, enums (e.g., `types/`, `models/`, `interfaces/`, `api/`, `generated/`).
 2. **Where are API service functions?** — Search for files that make HTTP calls (axios, fetch, ky, got, etc.). Understand the HTTP client used.

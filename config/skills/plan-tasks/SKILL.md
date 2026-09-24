@@ -88,7 +88,7 @@ Collect the design material per task (task folder + matched files from the share
 
 ### 3. Codebase Research
 
-Use Explore agents and direct reads to research the project:
+Use `helper` agents and direct reads to research the project:
 
 #### 3a. Project Structure
 - Identify framework, key directories, routing patterns
@@ -360,7 +360,7 @@ Too long, do not write like this: `feat: implement login page, OTP verification 
 6. **Verify API exists** before planning API tasks — if not found, ask in step 6; no answer -> the task moves to `blocked/`
 7. **Zero open points per planned task** — the dry run (step 5) must leave nothing for `/run-tasks` to ask
 8. **Highlight ALL blocked tasks prominently** — user must see them immediately
-9. **Use Explore agents for broad searches** — save context for analysis
+9. **Use `helper` agents for broad searches and flow tracing** — save context for analysis; never use the built-in Explore agent
 10. **$ARGUMENTS from user are MANDATORY instructions** — apply them to the planning process
 11. **Ask questions if ambiguous** — better to ask than to guess wrong; all questions in one batch (step 6), via AskUserQuestion, never as text in the chat
 12. **Record every user answer verbatim** in the task's `Decisions` section — answers that live only in the chat are lost for `/run-tasks`

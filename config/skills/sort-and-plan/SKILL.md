@@ -54,7 +54,7 @@ Read every task from `todo/` and `blocked/` fully (except tasks excluded in step
 ### 2. Research the API and the Project
 
 - **API:** swagger at `.project-meta/swagger/swagger.json` first. Check endpoints and fields with the `sync-swagger` scripts (`list-spec.py`, `show-endpoint.py`, `show-schema.py` in `~/.claude/skills/sync-swagger/scripts/`) instead of opening the large file. Also check the project's API layer (types, services, hooks) — an endpoint can already be wired.
-- **Project:** existing pages, components, routes and assets that a task needs or that may already implement it. Use Explore agents for broad searches, then open the cited code yourself — a hint from an agent is a hypothesis, not a fact.
+- **Project:** existing pages, components, routes and assets that a task needs or that may already implement it. Use `helper` agents for broad searches, then open the cited code yourself — a hint from an agent is a hypothesis, not a fact.
 - Match each requirement of each task to concrete evidence: an endpoint and field, a file and line, a design file — or the absence of it.
 
 ### 3. Classify Every Task

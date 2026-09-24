@@ -679,7 +679,7 @@ function main() {
     );
   }
 
-  // One file per non-empty category, so triage (and Explore fan-out) can read a
+  // One file per non-empty category, so triage (and helper fan-out) can read a
   // small slice instead of the full findings.json on large result sets.
   const catDir = join(dirname(outPath), 'categories');
   rmSync(catDir, { recursive: true, force: true });

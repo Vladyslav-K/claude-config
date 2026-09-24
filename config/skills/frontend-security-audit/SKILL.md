@@ -269,12 +269,12 @@ that grows is **triage**. For a big result set:
 
 - Triage by severity and stop-loss: clear critical/high first; sample noisy
   medium categories before grinding every entry.
-- **Optional read-only Explore fan-out:** spawn one `Explore` subagent per noisy
+- **Optional read-only helper fan-out:** spawn one `helper` subagent per noisy
   category (or per directory) to classify its candidates against the catalog and
   return a structured verdict list (`file:line`, verdict, reason). This parallelizes
-  the reading. **Explore agents only read and report — they never write fixes.** The
+  the reading. **helper agents only read and report — they never write fixes.** The
   main agent consolidates verdicts and performs all edits in Phase 5.
-- Give each Explore agent the catalog section for its category and the path to its
+- Give each helper agent the catalog section for its category and the path to its
   `categories/<id>.json` slice so it doesn't re-scan or read the full findings file.
 
 ## Files

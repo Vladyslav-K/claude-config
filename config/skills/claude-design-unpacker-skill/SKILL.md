@@ -1,11 +1,9 @@
 ---
 name: claude-design-unpacker-skill
-description: Unpack self-contained HTML bundles exported by Claude Design into native React pages. Use when Claude Design (or a similar handoff) delivers a folder of standalone HTML files where each file is a base64-packed React+CSS+fonts bundle with an inline bundler script (typically rendered today inside an iframe), and the deliverable is native Next.js App Router pages with isolated styles, scoped CSS, shared component kits extracted into TSX modules, and rewritten internal links. Triggers on phrases like "unpack Claude Design files", "port Claude Design export to React", "turn Claude Design HTML into real pages", "port handoff bundle", "convert iframe demo to React", "extract this design HTML into pages", "rebuild demo as React", "the client sent HTML mockups and I need them as real pages", "design files are self-contained HTML — port them", or "we have demo HTML, make them real routes".
+description: Unpack self-contained HTML bundles exported by Claude Design (each file a base64-packed React+CSS+fonts bundle with an inline bundler script, often shown inside an iframe) into native Next.js App Router pages with scoped CSS, shared TSX component kits and rewritten internal links. Use when a Claude Design handoff or any other self-contained HTML mockup or demo export has to become real React routes.
 ---
 
 # Skill: Unpack a self-contained Claude Design HTML bundle into native React pages
-
-**Origin:** distilled from a session that ported 41 handoff HTML bundles (~60 MB) into 41 native Next.js pages with shared component kits, isolated CSS scope, and full SSR safety.
 
 ## When to use this skill
 

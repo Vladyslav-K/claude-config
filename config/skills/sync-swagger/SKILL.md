@@ -1,6 +1,6 @@
 ---
 name: sync-swagger
-description: Sync the project API layer (types, services, hooks) with swagger. Auto-detects mode — if a non-empty swagger-old.json baseline exists, apply only the precise swagger-to-swagger diff; otherwise do a full sync against swagger.json. Updates existing APIs, adds new ones (types/services/hooks only), and fixes usage where APIs changed.
+description: Sync the project API layer (types, services, hooks) with swagger. Auto-detects mode — if a non-empty swagger-old.json baseline exists, apply only the precise swagger-to-swagger diff; otherwise do a full sync against swagger.json. Updates existing APIs, adds new ones (types/services/hooks only), fixes usage where APIs changed, and asks the user before any fix that changes the UI.
 allowed-tools: Bash(python3 *)
 ---
 
@@ -15,8 +15,8 @@ Synchronize the frontend API layer (types, services, hooks) with the latest swag
 - **DIFF MODE** — when a populated `swagger-old.json` baseline exists alongside `swagger.json`. Compute a precise **swagger-to-swagger diff** and apply only that delta to the codebase. Faster, more reliable, avoids false positives.
 - **FULL MODE** — when only `swagger.json` exists (no usable baseline). Scan the project API layer, diff it against the swagger, update existing code, and add new endpoints.
 
-**Flow (both modes): research → understand changes → apply all changes → verify → report what was done.**
-Do NOT ask for confirmation mid-process. Just do the work and report results at the end.
+**Flow (both modes): research → understand changes → apply API-layer changes and safe usage fixes → ask the user about UI-affecting changes → apply the decisions → verify → report what was done.**
+Do NOT ask for confirmation of routine API-layer work. The one mandatory stop is the UI decision step (**Shared: UI-Affecting Changes**): a UI-affecting fix is never applied silently and never left only as a line in the report.
 
 ---
 
@@ -163,7 +163,7 @@ New reusable schemas that appeared in new swagger.
 #### F. REMOVED schemas
 Schemas no longer in new swagger. Flag in report.
 
-Keep this categorised diff as **your own working checklist** — every item must be either applied (A, B, D, E) or flagged (C, F) by the end. **Do not print it to the user:** text written mid-turn is collapsed by the CLI, and the user reviews the resulting code changes in the IDE anyway. The user gets one final report (D8) describing what was done.
+Keep this categorised diff as **your own working checklist** — every item must be either applied (A, B, D, E) or flagged (C, F) by the end. **Do not print it to the user:** text written mid-turn is collapsed by the CLI, and the user reviews the resulting code changes in the IDE anyway. The user gets one final report (D9) describing what was done.
 
 ### D3. Map Diff to Code Locations
 
@@ -205,13 +205,11 @@ For each changed endpoint/schema, update in this order — **following the proje
 - Update barrel exports if the project uses them
 
 #### D4.4 Usage Sites
-- Grep for usage of changed types/hooks/services across the entire codebase
-- Fix type errors at usage sites:
-  - Renamed fields: update all reads/writes to the new name
-  - Removed fields: remove references (if code uses a removed field, replace with equivalent or mark clearly)
-  - New required fields in requests: add to callers where required
-  - Changed enum values: update consumers
-- Do NOT change business logic — only fix type compatibility driven by the swagger diff
+- Grep for usage of changed types/hooks/services across the entire codebase, including pages and components
+- Split every affected usage site into two groups (criteria in **Shared: UI-Affecting Changes**):
+  - **Safe fixes — apply right away.** What the user sees and does stays exactly the same: a renamed field read/written under its new name, an updated type annotation or generic, a changed query key, a renamed param passed through unchanged, a new required request field whose value the caller already has.
+  - **UI-affecting — do not fix yet, collect.** The fix would change rendered output, a component's props contract, form fields, select/filter options, validation, navigation or other user-visible behavior. Record each item (file, what changed in the API, what breaks in the UI, possible fixes) for step D7.
+- Do NOT change business logic on your own — anything beyond type compatibility is applied only after the user picks it in step D7
 
 ### D5. Add NEW endpoints (Category B) and NEW schemas (Category E)
 
@@ -237,17 +235,21 @@ For each new endpoint/schema, add ONLY infrastructure — do NOT integrate into 
 
 ### D6. Flag REMOVED endpoints/schemas (Categories C and F)
 
-Do NOT delete anything from the codebase. Just collect the list for the final report so the user can decide.
+Do NOT delete anything from the codebase. Just collect the list for the final report so the user can decide. If a removed endpoint is still called from a page, the page's fallback behavior is a UI decision — add it to the D7 list.
 
-### D7. Verify
+### D7. Resolve UI-Affecting Changes
+
+Run the **Shared: UI-Affecting Changes** procedure below for everything collected in D4.4 and D6.
+
+### D8. Verify
 
 Run the **Shared: Verify** procedure below.
 
-### D8. Final Report
+### D9. Final Report
 
 After ALL work is done, present a single summary as the final text of the turn (no tool calls after it). **The report MUST be written in Ukrainian (українською мовою).** All section headers, descriptions, and explanations — in Ukrainian. Only code identifiers, file paths, HTTP methods, and endpoint paths remain in English.
 
-**The report describes what was done, not how the code looks.** One line per item, in words: "перейменовано `name` → `fullName`, оновлено 3 місця використання". No before/after code snippets, no JSON dumps, no diff output — the user reads the actual diff in the IDE. Start with what could not be done or needs the user's decision (removed endpoints still in code, ambiguous renames, pre-existing errors), then what was done.
+**The report describes what was done, not how the code looks.** One line per item, in words: "перейменовано `name` → `fullName`, оновлено 3 місця використання". No before/after code snippets, no JSON dumps, no diff output — the user reads the actual diff in the IDE. Start with what could not be done or needs the user's decision (UI left broken by the user's choice, removed endpoints still in code, ambiguous renames, pre-existing errors), then what was done.
 
 ```
 ## Синхронізація Swagger (diff-режим) завершена
@@ -270,6 +272,14 @@ After ALL work is done, present a single summary as the final text of the turn (
 
 ### Виправлені місця використання:
 - [шлях до файлу] — що виправлено (наприклад, "оновлено деструктуризацію: fullName замість name")
+- ...
+
+### Зміни в UI за вашим рішенням:
+- [шлях до файлу] — що змінено (наприклад, "прибрано колонку phone з таблиці користувачів")
+- ...
+
+### Залишено без змін за вашим рішенням:
+- [шлях до файлу] — що лишилось зламаним і чому (наприклад, "форма не надсилає обовʼязкове поле role, запит впаде з 400")
 - ...
 
 ### Нові ендпоінти додані (лише types + services + hooks, БЕЗ UI):
@@ -361,9 +371,11 @@ For each changed endpoint, update in this order — **following the project's ow
 - Update barrel exports if the project uses them
 
 #### F4.4 Usage Sites
-- Grep for usage of changed types/hooks across the entire codebase
-- Fix type errors at usage sites (updated field names, removed fields, new required fields)
-- Do NOT change business logic — only fix type compatibility
+- Grep for usage of changed types/hooks across the entire codebase, including pages and components
+- Split every affected usage site into two groups, exactly as in D4.4 (criteria in **Shared: UI-Affecting Changes**):
+  - **Safe fixes — apply right away** (renamed fields, type annotations, generics, query keys; the UI stays exactly the same)
+  - **UI-affecting — do not fix yet, collect** for step F6, together with removed endpoints (Category C) that are still called from pages
+- Do NOT change business logic on your own — anything beyond type compatibility is applied only after the user picks it in step F6
 
 ### F5. Add NEW Endpoints (Category B)
 
@@ -387,15 +399,19 @@ For each new endpoint, add ONLY infrastructure — do NOT integrate into UI:
 #### F5.4 Exports
 - Update all barrel/index exports as the project convention requires
 
-### F6. Verify
+### F6. Resolve UI-Affecting Changes
+
+Run the **Shared: UI-Affecting Changes** procedure below for everything collected in F4.4.
+
+### F7. Verify
 
 Run the **Shared: Verify** procedure below.
 
-### F7. Final Report
+### F8. Final Report
 
 After ALL work is done, present a single summary as the final text of the turn (no tool calls after it). **The report MUST be written in Ukrainian (українською мовою).** All section headers, descriptions, and explanations — in Ukrainian. Only code identifiers, file paths, HTTP methods, and endpoint paths remain in English.
 
-Same rules as D8: describe what was done in words, one line per item, no before/after code, no JSON dumps. Start with what needs the user's decision, then what was done.
+Same rules as D9: describe what was done in words, one line per item, no before/after code, no JSON dumps. Start with what needs the user's decision, then what was done.
 
 ```
 ## Синхронізація Swagger завершена
@@ -406,6 +422,14 @@ Same rules as D8: describe what was done in words, one line per item, no before/
 
 ### Виправлені місця використання:
 - [шлях до файлу] — що виправлено (наприклад, "оновлено деструктуризацію для нового імені поля")
+- ...
+
+### Зміни в UI за вашим рішенням:
+- [шлях до файлу] — що змінено
+- ...
+
+### Залишено без змін за вашим рішенням:
+- [шлях до файлу] — що лишилось зламаним і чому
 - ...
 
 ### Нові ендпоінти додані (лише types + services + hooks):
@@ -425,11 +449,38 @@ Same rules as D8: describe what was done in words, one line per item, no before/
 
 ---
 
+## Shared: UI-Affecting Changes
+
+An API change often breaks pages: a component reads a field that no longer exists, a form does not send a newly required field, a select renders removed enum members, a prop type no longer matches. Leaving this unfixed ships a broken app; fixing it silently changes the UI without the user's consent. So every such fix goes through the user — as a question, not as a side note in the report.
+
+**UI-affecting** — the fix would change any of:
+- **Rendered output:** a displayed field was removed; a value changed type or format (`string` → object, number → string, date format), so it renders differently; a table/list column lost its data
+- **Component props contract:** a prop has to be removed, made required, or change type because of the API, so parent components must pass something new
+- **Forms and inputs:** a newly required request field has no input or known value on the page; a removed field still has an input; validation constraints changed; enum members changed in selects, filters, tabs or badges
+- **Behavior and flow:** changed status codes or response shape alter success/error handling, pagination, redirects, or conditional rendering driven by a changed field or enum
+- **Removed endpoints still called from a page:** the call stays in code (rule 6), but what the page should do instead is the user's decision
+
+**Not UI-affecting** (apply as safe fixes in D4.4/F4.4): renamed fields carrying the same data, type annotations, generics, query keys, imports, barrel exports, optionality changes the existing render already handles.
+
+When unsure which group an item belongs to — treat it as UI-affecting.
+
+**Procedure:**
+1. Finish all API-layer work and safe fixes first, so the questions come once, after the sync, as one batch.
+2. For every collected item, read the page/component and work out 2-3 concrete fixes for this specific case.
+3. Ask via AskUserQuestion — up to 4 questions per call; if there are more items, make several consecutive calls. Merge items with the same page and the same root cause into one question. Do not print the questions as text and do not use the `preview` field.
+4. Each question is self-contained, because the user does not see your analysis: the file path of the page/component, what changed in the API, what breaks in the UI now, and the consequence of each option in its `description`.
+5. The most suitable option goes first with "(Recommended)". A typical set:
+   - a minimal fix that keeps the current UI as close as possible (read the value from its new location, render a fallback)
+   - adapting the UI to the new API (remove the column/field, add an input for the new required field, update select options)
+   - leave the code as is — state explicitly that the page stays broken and check-errors keeps failing
+6. Apply exactly what the user chose. New UI elements follow the project's existing components and styles. If an "Other" answer is ambiguous — ask a follow-up question instead of guessing.
+7. If nothing was collected — skip this step silently.
+
 ## Shared: Verify
 
 Run `format` (Prettier), then `check-errors` (lint + tsc) from `package.json` — with the **full, unmodified output** (no `tail`/`head`, no output-limiting flags). If these scripts don't exist but can be created → add them; if the project is too specific → use available equivalents (`prettier --write`, `eslint`, `tsc --noEmit`).
 
-Fix every error caused by the sync (new types, changed signatures, broken usage sites) until they are gone. **Pre-existing errors in files the sync did not touch are not yours to fix** — leave them, list them in the final report (count + files) and let the user decide. Then run the security checklist from the global CLAUDE.md on your own changes.
+Fix every error caused by the sync (new types, changed signatures, broken usage sites) until they are gone. If an error sits at a UI-affecting usage site that was not part of the UI decision step — run **Shared: UI-Affecting Changes** for it before fixing. Errors the user explicitly chose to leave stay in place and go into the report section «Залишено без змін за вашим рішенням». **Pre-existing errors in files the sync did not touch are not yours to fix** — leave them, list them in the final report (count + files) and let the user decide. Then run the security checklist from the global CLAUDE.md on your own changes.
 
 ---
 
@@ -438,11 +489,11 @@ Fix every error caused by the sync (new types, changed signatures, broken usage 
 1. **Detect the mode first** — check `swagger.json` (required) and whether `swagger-old.json` holds a real snapshot; never run the diff flow on an empty/placeholder baseline
 2. **In diff mode, the diff is the source of truth** — do NOT re-derive changes by reading project code; trust the swagger-to-swagger diff
 3. **NEVER assume project structure** — always discover it first (Step 0)
-4. **NEVER change business logic** — only sync the API layer and fix type compatibility
+4. **NEVER change business logic or UI on your own** — sync the API layer and apply safe type-compatibility fixes; every UI-affecting fix goes through the user via AskUserQuestion (**Shared: UI-Affecting Changes**), never silently and never only as a note in the report
 5. **NEVER integrate new APIs into UI** — only add types, services, hooks
 6. **NEVER delete endpoints/schemas from code** that are missing from swagger — only flag them in the report
 7. **NEVER modify `swagger-old.json` yourself** — it is the user's baseline; the user decides when to roll it forward
-8. **Ask ONLY if something is unclear** (or if `swagger.json` is missing) — otherwise just do the work and report at the end
+8. **Ask ONLY about UI-affecting changes, unclear items, or a missing `swagger.json`** — otherwise just do the work and report at the end
 9. **ALWAYS follow THIS PROJECT's conventions** for naming, file structure, patterns — match existing code exactly
 10. **Swagger field names → match project convention** (if project uses camelCase, convert; if project keeps snake_case, keep) — in diff mode apply this consistently to both sides of the diff so renames are detected correctly
 11. **Preserve existing comments/docs** on types if present
@@ -470,5 +521,5 @@ Map swagger schemas to TypeScript types correctly:
 - **Type changes on same-name field**: always treat as a change (not remove + add), and update all usage sites accordingly.
 - **`$ref` resolution**: the scripts compare references as strings and report schema changes separately (Script 2). A change inside a referenced schema therefore shows up under the schema, with its `used by ->` endpoints — treat each of those endpoints as changed even though Script 1 does not list them.
 - **Required flag changes**: a field going from optional to required (or vice versa) is a meaningful diff — update TypeScript optionality (`?`) and fix call sites that now must pass the field.
-- **Enum narrowing vs widening**: added enum members are safe; removed enum members can break exhaustive switches — flag removed members in the report if any usage site relies on them.
+- **Enum narrowing vs widening**: added enum members are safe; removed enum members can break exhaustive switches — if any usage site relies on a removed member, fix it as a safe fix when the member only appears in types, or treat it as UI-affecting when it drives rendered options, labels or conditional rendering.
 - **Shared schemas**: if a schema used by many endpoints changed, update the schema once, then ensure every consumer endpoint's types/services/hooks still compile.

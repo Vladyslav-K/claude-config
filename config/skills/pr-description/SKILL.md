@@ -64,7 +64,7 @@ $ARGUMENTS
 Опис пишеться з коду, а не з памʼяті про задачу. Прочитай:
 
 - диф повністю - кожен файл, а не тільки `--stat`;
-- постановку задачі, якщо вона є в проєкті: `.project-meta/tasks/tasks.md`, `.project-meta/tasks/plan/*.md`, `.project-meta/tasks/session-tasks.md` - звідти беруться вимоги, acceptance criteria, посилання на PRD і дизайн, які пояснюють рішення;
+- постановку задачі, якщо вона є в проєкті: `.project-meta/tasks/tasks.md`, `.project-meta/tasks/todo/`, `.project-meta/tasks/done/*/` (там лежать закриті задачі і заархівовані tasks.md/status.md), `.project-meta/tasks/session-tasks.md` - звідти беруться вимоги, acceptance criteria, посилання на PRD і дизайн, які пояснюють рішення;
 - проєктний `CLAUDE.md`, README, `.env.example`, конфіг dev-сервера - звідти беруться реальні порти, URL і передумови для розділу "How to test";
 - сусідній код там, де диф сам себе не пояснює (навіщо змінено, що було раніше).
 

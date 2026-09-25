@@ -1,6 +1,6 @@
 ---
 name: sort-and-plan
-description: Sort the text kanban board in .project-meta/tasks/ and plan the ready tasks. Goes through todo/ and blocked/, checks every task against the API and the project, moves each task to todo/ (ready), blocked/ (with a `## Blocked` reason block) or done/YYYY-MM-DD/ (already implemented), asks the user everything that affects the sorting, then runs /plan-tasks for the todo/ tasks only. Use whenever the user asks to sort tasks, check which tasks can be taken into work, re-check blocked tasks against a new backend, prepare a sprint or tasks for execution — e.g. «розсортуй задачі», «які задачі вже можна робити», «перевір blocked», «пройдись по todo і blocked», «підготуй задачі до виконання».
+description: Sort the text kanban board in .project-meta/tasks/ and plan the ready tasks. Goes through todo/ and blocked/, checks every task against the API and the project, moves each task to todo/ (ready), blocked/ (with a `## Blocked` reason block) or done/DD-MM-YYYY/ (already implemented), asks the user everything that affects the sorting, then runs /plan-tasks for the todo/ tasks only. Use whenever the user asks to sort tasks, check which tasks can be taken into work, re-check blocked tasks against a new backend, prepare a sprint or tasks for execution — e.g. «розсортуй задачі», «які задачі вже можна робити», «перевір blocked», «пройдись по todo і blocked», «підготуй задачі до виконання».
 ---
 
 # Sort and Plan
@@ -12,7 +12,7 @@ $ARGUMENTS
 
 `.project-meta/tasks/` is a text kanban board. This skill brings it up to date and prepares the ready tasks for `/run-tasks`:
 
-1. **Sort** — every task from `todo/` and `blocked/` ends up where it belongs: ready → `todo/`, has a blocker → `blocked/`, already implemented → `done/YYYY-MM-DD/`.
+1. **Sort** — every task from `todo/` and `blocked/` ends up where it belongs: ready → `todo/`, has a blocker → `blocked/`, already implemented → `done/DD-MM-YYYY/`.
 2. **Plan** — `/plan-tasks` plans the tasks left in `todo/`, and only them.
 
 The goal is that `/run-tasks` later executes every planned task without asking the user anything. So every question goes to the user here, in this session: sorting questions in step 4, implementation questions in `/plan-tasks`.
@@ -24,7 +24,7 @@ The goal is that `/run-tasks` later executes every planned task without asking t
 ├── todo/            # Tasks fully ready to be executed
 ├── blocked/         # Tasks with a blocker; the reason is in the `## Blocked` block at the bottom of the task
 ├── waiting/         # The user's postponed tasks — never read or touch
-├── done/            # Finished tasks: done/YYYY-MM-DD/
+├── done/            # Finished tasks: done/DD-MM-YYYY/
 ├── screenshots/     # Shared design docs and screenshots
 ├── tasks.md         # Current plan (written by /plan-tasks)
 └── status.md        # Current plan statuses
@@ -36,6 +36,8 @@ A task is either a `.md` file or a task folder. For a task folder, read **every*
 
 Chat, questions, the `## Blocked` block and the final report — Ukrainian. Code identifiers, file paths and endpoints stay in English.
 
+Every date (folder names, `Оновлено`, `Decisions`) is DD-MM-YYYY, taken from `currentDate` and converted: `2026-09-25` → `25-09-2026`.
+
 ---
 
 ## Steps
@@ -44,7 +46,7 @@ Chat, questions, the `## Blocked` block and the final report — Ukrainian. Code
 
 1. If `.project-meta/tasks/todo/` and `blocked/` do not exist, but the old `.project-meta/tasks/plan/` does — stop and tell the user that the project uses the old structure and the tasks have to be moved into `todo/` / `blocked/` / `waiting/` first. Do not migrate on your own.
 2. If `tasks.md` / `status.md` exist in the root of `tasks/`, read both:
-   - every task is `done` or `blocked` → the plan is finished but not archived: move both files to `done/YYYY-MM-DD/` (today, `mv -n`, numeric suffix if the name is taken) and continue;
+   - every task is `done` or `blocked` → the plan is finished but not archived: move both files to `done/DD-MM-YYYY/` (today, from `currentDate` converted to DD-MM-YYYY, `mv -n`, numeric suffix if the name is taken) and continue;
    - some tasks are still `pending` / `research` / `running` → ask via AskUserQuestion: **Re-plan from scratch** (sort all of `todo/` and `blocked/`, the current plan is overwritten), **Add new tasks only** (tasks already listed in the plan's `Sources` are not re-sorted, the plan keeps its statuses), **Stop**. Pass the answer to `/plan-tasks` in step 6 so it does not ask again.
 
 ### 1. Read All Tasks
@@ -85,14 +87,14 @@ Move with `mv -n` and check the result; never overwrite — if the target name i
 
 ```markdown
 ## Blocked
-_Оновлено: YYYY-MM-DD_
+_Оновлено: DD-MM-YYYY_
 - Причина: що саме відсутнє або незрозуміле, конкретно (ендпоінт, поле, дизайн, рішення)
 - Перевірено: де шукав (swagger, файли коду, дизайн)
 - Для розблокування: що має зʼявитись або що має вирішити юзер
 ```
 
 - **Ready** — stays in `todo/`; a task from `blocked/` moves back to `todo/`, and its `## Blocked` block (from the `## Blocked` heading to the end of the file) is removed. The user's text above it stays untouched.
-- **Done** — move to `done/YYYY-MM-DD/` (today, from `currentDate`), creating the folder with `mkdir -p`. Do not add anything to the file.
+- **Done** — move to `done/DD-MM-YYYY/` (today, from `currentDate` converted to DD-MM-YYYY: `2026-09-25` → `25-09-2026`), creating the folder with `mkdir -p`. Do not add anything to the file.
 
 ### 6. Plan the Ready Tasks
 
@@ -100,7 +102,7 @@ If `todo/` has tasks to plan, invoke the `plan-tasks` skill via the Skill tool. 
 - that it is called from `/sort-and-plan` and the sorting is finished;
 - the list of `todo/` entries to plan (only the ready ones; with "Add new tasks only" — only the new ones);
 - the answer from step 0, if the question was asked;
-- the user's answers from step 4, verbatim, grouped by task — to be recorded as `(sorting, YYYY-MM-DD)` entries in `Decisions`;
+- the user's answers from step 4, verbatim, grouped by task — to be recorded as `(sorting, DD-MM-YYYY)` entries in `Decisions`;
 - for partly implemented tasks — what already exists (`file:line`), so the plan covers only the rest.
 
 `/plan-tasks` runs its research, dry run and questions, and writes `tasks.md` / `status.md`. Blocked tasks never go into the plan. If `/plan-tasks` moves a task to `blocked/` during its own analysis, include that in the report.
@@ -117,7 +119,7 @@ One final message of the turn (no tool calls after it), in Ukrainian. It replace
 ### Заблоковані (blocked/):
 - [назва задачі] — причина одним рядком; що потрібно для розблокування
 
-### Вже зроблені (перенесені в done/YYYY-MM-DD/):
+### Вже зроблені (перенесені в done/DD-MM-YYYY/):
 - [назва задачі] — докази: file:line
 
 ### Повернуті з blocked/ в todo/:

@@ -27,13 +27,13 @@ Run a test scenario in the real app, record what actually happened, fix what is 
 ├── accounts.md                  # Test accounts and created entities (user + you)
 ├── .auth/<account-id>.json      # Saved browser sessions, one per account
 ├── _artifacts/                  # MCP output dir (traces land here first)
-└── YYYY-MM-DD-<slug>/           # One folder per tested task / QA pass / ad-hoc test
+└── DD-MM-YYYY-<slug>/           # One folder per tested task / QA pass / ad-hoc test
     ├── report.md
     ├── screens/01-<step>.png
     └── trace/                   # <name>.trace, <name>.network, resources/
 ```
 
-- **Slug:** lowercase English kebab-case. `/run-tasks` task → `task-<N>-<short-summary>` (e.g. `task-3-items-search`); QA pass → `qa-<goal-summary>`; ad-hoc → `<short-summary>`. The date is the day the folder was created.
+- **Slug:** lowercase English kebab-case. `/run-tasks` task → `task-<N>-<short-summary>` (e.g. `task-3-items-search`); QA pass → `qa-<goal-summary>`; ad-hoc → `<short-summary>`. The date is the day the folder was created, in DD-MM-YYYY (`currentDate` `2026-09-25` → `25-09-2026`); every other date in this skill uses the same format.
 - **Re-run** of the same task (after a fix, in testing mode, on another day) reuses its existing folder: empty `screens/` and `trace/` first, then write the new run; `report.md` describes the latest run and keeps one line per previous run in «Історія прогонів».
 - `.project-meta/` is in the user's global gitignore on the host. `.auth/`, `accounts.md` and traces hold live credentials and tokens: never copy them anywhere else and never suggest sharing a trace.
 
@@ -129,7 +129,7 @@ Email для нових акаунтів: <шаблон від юзера, на�
 - `Вхід` — `пароль`, `код на пошту`, `magic-link`, `SSO`. Codes and links come from the user at login time.
 - **Write immediately.** A created account or entity (company, team, invite) gets its row right after the app confirms the creation — before the next step, so a crashed run loses nothing. Bulk creation (30 users) — one row per account as each one is created.
 - **New credentials:** the email by the template in the file header; no template → ask the user once and write the answer into the header. Passwords — `openssl rand -base64 18`, adjusted to the form's validation rules.
-- **Never delete rows.** An account or entity removed by a test gets `видалено YYYY-MM-DD` in its notes.
+- **Never delete rows.** An account or entity removed by a test gets `видалено DD-MM-YYYY` in its notes.
 - **Secrets stay here.** Passwords from this file go only into the login form fields. They never appear in `report.md`, the chat, code, comments or commit messages — reports name accounts by `ID`.
 - Accounts belong to the environment in the header: if the app now talks to a different API host, say so before using them.
 
@@ -139,10 +139,10 @@ Ukrainian. Steps are written for a reader who does not open the code; UI texts, 
 
 ```markdown
 # QA: <назва задачі або флоу>
-_Дата: YYYY-MM-DD · Прогін N_
+_Дата: DD-MM-YYYY · Прогін N_
 
 **Результат:** ✅ 7 · ❌ 1 · ⚠️ 2
-**Сценарій:** Task 3 з `done/YYYY-MM-DD/items.md` | `done/YYYY-MM-DD/qa.md` | ad-hoc (нижче)
+**Сценарій:** Task 3 з `done/DD-MM-YYYY/items.md` | `done/DD-MM-YYYY/qa.md` | ad-hoc (нижче)
 **Середовище:** http://localhost:3000 · API <хост> · 1440×900
 **Акаунти:** admin, employee-01
 
@@ -178,8 +178,8 @@ _Дата: YYYY-MM-DD · Прогін N_
 ## Історія прогонів
 | Прогін | Дата | Результат | Що змінилось |
 |--------|------|-----------|--------------|
-| 1 | YYYY-MM-DD | ✅ 6 · ❌ 1 | — |
-| 2 | YYYY-MM-DD | ✅ 7 | фікс параметра search |
+| 1 | DD-MM-YYYY | ✅ 6 · ❌ 1 | — |
+| 2 | DD-MM-YYYY | ✅ 7 | фікс параметра search |
 
 ## Трейс
 З кореня проєкту на хості: `npx playwright show-trace .project-meta/qa/<run>/trace`

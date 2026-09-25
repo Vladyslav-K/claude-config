@@ -1,6 +1,6 @@
 ---
 name: run-tasks
-description: Execute the next available task from .project-meta/tasks/tasks.md without re-asking what the plan already answers, save its testing instructions into the task file, run them in the browser with /browser-test, move the finished task to .project-meta/tasks/done/YYYY-MM-DD/, then enter testing/fixing mode. The last task of the plan (QA) compiles the testing instructions of all done tasks into one qa.md for QA and runs it as a browser regression pass. Does NOT continue to the next task.
+description: Execute the next available task from .project-meta/tasks/tasks.md without re-asking what the plan already answers, save its testing instructions into the task file, run them in the browser with /browser-test, move the finished task to .project-meta/tasks/done/DD-MM-YYYY/, then enter testing/fixing mode. The last task of the plan (QA) compiles the testing instructions of all done tasks into one qa.md for QA and runs it as a browser regression pass. Does NOT continue to the next task.
 ---
 
 # Task Execution (Single Task Mode)
@@ -21,7 +21,7 @@ The plan was researched and agreed with the user during `/plan-tasks` (or `/sort
 ├── todo/            # Sources of planned tasks
 ├── blocked/         # Tasks with a blocker (the reason is in the `## Blocked` block at the bottom)
 ├── waiting/         # The user's postponed tasks — never read or touch
-├── done/            # Finished tasks: done/YYYY-MM-DD/ (plus the archived plan and its qa.md)
+├── done/            # Finished tasks: done/DD-MM-YYYY/ (plus the archived plan and its qa.md)
 ├── screenshots/     # Shared design docs and screenshots
 ├── tasks.md         # Current plan
 └── status.md        # Current plan statuses
@@ -42,7 +42,7 @@ Merge → task list with statuses
 Count: total, done, pending, blocked
 ```
 
-If there is no tasks.md — report that there is no active plan (finished plans are archived in `done/YYYY-MM-DD/`) and suggest `/sort-and-plan`; stop.
+If there is no tasks.md — report that there is no active plan (finished plans are archived in `done/DD-MM-YYYY/`) and suggest `/sort-and-plan`; stop.
 
 ## Step 2: Find Next Available Task
 
@@ -81,7 +81,7 @@ If the task turns out to be blocked at any point (missing API, missing design as
 1. **Task ID and title** that was completed
 2. **What was done** — brief summary of changes (files created/modified, key decisions)
 3. **Files changed** — list all created/modified files with short descriptions
-4. **Task board** — where the task source moved (`done/YYYY-MM-DD/...`), and whether the plan was archived
+4. **Task board** — where the task source moved (`done/DD-MM-YYYY/...`), and whether the plan was archived
 
 ### Browser Test
 5. **Result** — the output block of `browser-test` as is (step 3.6). If the test did not run or left ❌ — this goes to the very top of the report, before the task summary.
@@ -186,7 +186,7 @@ Before the task is set to `done`, the testing instructions from the report are w
 ## Testing
 
 ### Task 3: Список items з пошуком і видаленням
-_Оновлено: YYYY-MM-DD_
+_Оновлено: DD-MM-YYYY_
 
 Передумови: `pnpm dev`, сторінка `/items`, юзер з роллю admin, у базі є хоча б 2 items.
 
@@ -224,13 +224,13 @@ The last task of every plan has ID `QA` and Type `qa` (added by `/plan-tasks`). 
 ### Steps
 1. Update status.md → `running`.
 2. **Collect the tasks** from status.md: every `done` task except `QA`, and every `blocked` task with its Blocker text.
-3. **Find the instructions.** For each `done` task, find its `### Task N: <title>` subsection inside a `## Testing` block: search `done/` subfolders dated from the plan's `Created` date onward, then `todo/` and `blocked/` (a `Source` shared with a blocked task moves to `blocked/` together with the instructions). Also read the task's entry in tasks.md (What, States and Texts, Decisions) for context.
+3. **Find the instructions.** For each `done` task, find its `### Task N: <title>` subsection inside a `## Testing` block: search `done/` subfolders dated from the plan's `Created` date onward (folder names are DD-MM-YYYY, so compare them as dates, not as strings), then `todo/` and `blocked/` (a `Source` shared with a blocked task moves to `blocked/` together with the instructions). Also read the task's entry in tasks.md (What, States and Texts, Decisions) for context.
    - No subsection found (the task was done before this flow existed, or the user moved the file) → compose the steps from the tasks.md entry and the code, and name these tasks in the report.
 4. **Collect the prerequisites.** Environment, URLs, roles, accounts and test data come only from the instructions, the project `CLAUDE.md`, README and `.env.example`. Never invent them: if something is missing, write it more generally and name the gap in the report.
 5. **Compose the file** by the rules and the template below.
-6. **Write** `done/YYYY-MM-DD/qa.md` (today, from `currentDate`), creating the folder with `mkdir -p`. Never overwrite: if `qa.md` already exists — use `qa-2.md`, `qa-3.md`.
+6. **Write** `done/DD-MM-YYYY/qa.md` (today, from `currentDate` converted to DD-MM-YYYY), creating the folder with `mkdir -p`. Never overwrite: if `qa.md` already exists — use `qa-2.md`, `qa-3.md`.
 7. **Regression pass.** Invoke the `browser-test` skill with the whole `qa.md` as the scenario and the run slug `qa-<goal-summary>`. For every ❌ name the task whose behaviour broke (the scenario lists its tasks). A clear regression in the code of this plan is fixed by the skill's rules — with `format` / `check-errors` after the fix; the fix gets its own commit line in the report (`fix: ...`), because the task it belongs to is already committed. Anything else — the skill asks the user.
-8. Update status.md → `done`. The `QA` task has no `Source`, so there is nothing to move; the plan is archived to the same `done/YYYY-MM-DD/` (Move Finished Tasks, step 2).
+8. Update status.md → `done`. The `QA` task has no `Source`, so there is nothing to move; the plan is archived to the same `done/DD-MM-YYYY/` (Move Finished Tasks, step 2).
 9. **Report** (below) and enter testing mode: the user may ask to change the file — edit it and keep the rules below; after a regression fix, re-run the affected scenarios with `browser-test`.
 
 No `design-work` and no `## Testing` block for this task. It changes code only when the regression pass fixes something.
@@ -249,7 +249,7 @@ The file is a single testing pass through everything the plan delivered, not a c
 
 ```markdown
 # QA: <Goal з tasks.md>
-_Дата: YYYY-MM-DD_
+_Дата: DD-MM-YYYY_
 
 ## Що увійшло
 - <назва задачі>
@@ -298,18 +298,18 @@ A commit line only if the regression pass fixed code — then the `fix: ...` mes
 
 Right after setting the status to `done`:
 
-1. **Task source → `done/YYYY-MM-DD/`** (today's date from `currentDate`, YYYY-MM-DD). Move every path from the task's `Source` (file or whole task folder) from `todo/` to `done/YYYY-MM-DD/`, creating the folder with `mkdir -p`. If other tasks in the plan share the same `Source` and are not `done` yet — leave it in `todo/`; it moves together with the last of them. Shared `tasks/screenshots/` never moves.
-2. **Plan archive.** When no task in status.md is left as `pending`, `research` or `running` (every task is `done` or `blocked`), move `tasks.md` and `status.md` to the same `done/YYYY-MM-DD/`. Blocked tasks lose nothing: their sources already live in `blocked/` with the reason, and `/sort-and-plan` picks them up later.
+1. **Task source → `done/DD-MM-YYYY/`** (today's date from `currentDate`, converted to DD-MM-YYYY: `2026-09-25` → `25-09-2026`). Move every path from the task's `Source` (file or whole task folder) from `todo/` to `done/DD-MM-YYYY/`, creating the folder with `mkdir -p`. If other tasks in the plan share the same `Source` and are not `done` yet — leave it in `todo/`; it moves together with the last of them. Shared `tasks/screenshots/` never moves.
+2. **Plan archive.** When no task in status.md is left as `pending`, `research` or `running` (every task is `done` or `blocked`), move `tasks.md` and `status.md` to the same `done/DD-MM-YYYY/`. Blocked tasks lose nothing: their sources already live in `blocked/` with the reason, and `/sort-and-plan` picks them up later.
 3. **Never overwrite.** Move with `mv -n` and check the result. If the target name is already taken — add a numeric suffix (`tasks-2.md`, `status-2.md`, `items-list-2.md`). If a `Source` path does not exist (the user moved it) — skip it and say so in the report.
 
-In testing mode after the archive, `tasks.md Updates` go to the archived copy in `done/YYYY-MM-DD/`.
+In testing mode after the archive, `tasks.md Updates` go to the archived copy in `done/DD-MM-YYYY/`.
 
 ---
 
 ## status.md Updates
 
 1. Find row by task ID → replace status
-2. Update "Updated:" date (YYYY-MM-DD only, no time — use `currentDate` from session context)
+2. Update "Updated:" date (DD-MM-YYYY only, no time — use `currentDate` from session context, converted: `2026-09-25` → `25-09-2026`)
 3. Recalculate progress: `done_count/total (percentage%)`
 
 **Status values:** `pending` → `research` → `running` → `done` / `blocked`
@@ -322,9 +322,9 @@ tasks.md is read-only after planning with **one exception**: the `### Decisions`
 
 ```markdown
 ### Decisions
-- (planning, YYYY-MM-DD) Q: ... A: "..."
-- (run, YYYY-MM-DD) Q: Порожній стан таблиці — текст? A: "Nothing here yet, як на сторінці users"
-- (testing, YYYY-MM-DD) A: "кнопку Export прибрати, бекенд не готовий"
+- (planning, DD-MM-YYYY) Q: ... A: "..."
+- (run, DD-MM-YYYY) Q: Порожній стан таблиці — текст? A: "Nothing here yet, як на сторінці users"
+- (testing, DD-MM-YYYY) A: "кнопку Export прибрати, бекенд не готовий"
 ```
 
 If the section does not exist for this task — add it as the last section of the task's entry. Nothing else in tasks.md is edited.
@@ -343,7 +343,7 @@ When the task cannot be finished without something only the user can provide (an
 
 ```markdown
 ## Blocked
-_Оновлено: YYYY-MM-DD_
+_Оновлено: DD-MM-YYYY_
 - Причина: що саме відсутнє або незрозуміле, конкретно
 - Перевірено: де шукав (swagger, файли коду, дизайн)
 - Вже зроблено: які файли реалізовані до блокера

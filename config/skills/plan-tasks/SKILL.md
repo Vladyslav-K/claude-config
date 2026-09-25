@@ -27,7 +27,7 @@ The plan is the context `/run-tasks` executes from, and `/run-tasks` does not st
 ├── todo/            # Input: tasks ready to be executed
 ├── blocked/         # Tasks with a blocker (the reason is in the `## Blocked` block at the bottom)
 ├── waiting/         # The user's postponed tasks — never read or touch
-├── done/            # Finished tasks: done/YYYY-MM-DD/
+├── done/            # Finished tasks: done/DD-MM-YYYY/
 ├── screenshots/     # Shared design docs and screenshots
 ├── tasks.md         # Output: detailed task plan
 └── status.md        # Output: status tracking
@@ -172,7 +172,7 @@ If a task still has a BLOCKER after step 6 (the user cannot provide the missing 
 
 ```markdown
 ## Blocked
-_Оновлено: YYYY-MM-DD_
+_Оновлено: DD-MM-YYYY_
 - Причина: що саме відсутнє або незрозуміле, конкретно (ендпоінт, поле, дизайн, рішення)
 - Перевірено: де шукав (swagger, файли коду, дизайн)
 - Для розблокування: що має зʼявитись або що має вирішити юзер
@@ -206,7 +206,7 @@ For EACH ready task, compile:
 16. **Estimated complexity** — simple / standard / complex (based on research)
 17. **Commit** — a ready-to-use commit message for this task, written to status.md only (see "Commit Message Rules" below)
 
-**The QA task.** After the ready tasks, always add one more task with ID `QA` and Type `qa` — exactly as in the template below. `/run-tasks` executes it last, when every other task is `done` or `blocked`: it compiles the `## Testing` instructions that `/run-tasks` wrote into the files of the done tasks into one `done/YYYY-MM-DD/qa.md`, which the user hands to QA, and runs every scenario of it in the browser as a regression pass. It has no `Source`, no commit and no research — everything it needs is described in `/run-tasks`, section «QA Task». If no task is ready (all of them moved to `blocked/` in step 7), there is no plan and no `QA` task.
+**The QA task.** After the ready tasks, always add one more task with ID `QA` and Type `qa` — exactly as in the template below. `/run-tasks` executes it last, when every other task is `done` or `blocked`: it compiles the `## Testing` instructions that `/run-tasks` wrote into the files of the done tasks into one `done/DD-MM-YYYY/qa.md`, which the user hands to QA, and runs every scenario of it in the browser as a regression pass. It has no `Source`, no commit and no research — everything it needs is described in `/run-tasks`, section «QA Task». If no task is ready (all of them moved to `blocked/` in step 7), there is no plan and no `QA` task.
 
 ### 9. Determine Task Order
 - Tasks with no deps first
@@ -236,12 +236,14 @@ Otherwise report to user (Ukrainian, as the final text of the turn — no tool c
 
 ## tasks.md Format (Full)
 
+Every date in tasks.md and status.md is DD-MM-YYYY, taken from `currentDate` and converted: `2026-09-25` → `25-09-2026`.
+
 ```markdown
 # Tasks
 
 Goal: Overall goal
 Sources: todo/items-list.md, todo/item-details/
-Created: YYYY-MM-DD
+Created: DD-MM-YYYY
 
 ---
 
@@ -301,8 +303,8 @@ Created: YYYY-MM-DD
 - Table has 6 columns — on narrow viewports the table scrolls horizontally, as in `users-table.tsx`
 
 ### Decisions
-- (sorting, YYYY-MM-DD) Q: Bulk delete — is there an API? A: "поки що ні, кнопку не робимо, буде в наступному спринті"
-- (planning, YYYY-MM-DD) Q: Search — server-side or client-side? A: "серверний, параметр search уже є"
+- (sorting, DD-MM-YYYY) Q: Bulk delete — is there an API? A: "поки що ні, кнопку не робимо, буде в наступному спринті"
+- (planning, DD-MM-YYYY) Q: Search — server-side or client-side? A: "серверний, параметр search уже є"
 
 ---
 
@@ -318,7 +320,7 @@ Created: YYYY-MM-DD
 ---
 
 ## Task QA: Інструкція для QA
-- **What:** Зібрати інструкції `## Testing` усіх done-задач цього плану в один файл `done/YYYY-MM-DD/qa.md` для QA; заблоковані задачі — у розділ «Не входить у тестування». Прогнати всі сценарії qa.md у браузері як регресію. Флоу — `/run-tasks`, секція «QA Task».
+- **What:** Зібрати інструкції `## Testing` усіх done-задач цього плану в один файл `done/DD-MM-YYYY/qa.md` для QA; заблоковані задачі — у розділ «Не входить у тестування». Прогнати всі сценарії qa.md у браузері як регресію. Флоу — `/run-tasks`, секція «QA Task».
 - **Source:** none
 - **Deps:** усі інші задачі плану (`done` або `blocked`)
 - **Type:** qa
@@ -329,7 +331,7 @@ Created: YYYY-MM-DD
 
 ```markdown
 # Tasks Status
-Updated: YYYY-MM-DD
+Updated: DD-MM-YYYY
 
 ## Progress: 0/N (0%)
 

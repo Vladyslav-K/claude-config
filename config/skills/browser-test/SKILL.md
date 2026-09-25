@@ -1,6 +1,6 @@
 ---
 name: browser-test
-description: Test finished changes in a real headless Chromium through the Playwright MCP and save the evidence — report.md with steps and screenshots, plus a trace — into .project-meta/qa/<run>/. Logs in with accounts from .project-meta/qa/accounts.md and records every account or entity the test creates there. Called by /run-tasks after every task and by its QA task for a regression pass; outside /run-tasks only when the user explicitly asks to test — «протестуй», «перевір у браузері», «прогони тест», «зроби QA». Never run it on your own initiative.
+description: Test finished changes in a real headless Chromium through the Playwright MCP and save the evidence — report.md with steps and screenshots, plus a trace, plus findings.md with every bug or finding outside the task's scope — into .project-meta/qa/<run>/. Logs in with accounts from .project-meta/qa/accounts.md and records every account or entity the test creates there. Called by /run-tasks after every task and by its QA task for a regression pass; outside /run-tasks only when the user explicitly asks to test — «протестуй», «перевір у браузері», «прогони тест», «зроби QA». Never run it on your own initiative.
 ---
 
 # Browser Test
@@ -29,12 +29,14 @@ Run a test scenario in the real app, record what actually happened, fix what is 
 ├── _artifacts/                  # MCP output dir (traces land here first)
 └── DD-MM-YYYY-<slug>/           # One folder per tested task / QA pass / ad-hoc test
     ├── report.md
+    ├── findings.md              # Bugs and findings outside the task's scope
+    ├── findings/NN-<slug>.png   # Screenshots for findings.md
     ├── screens/01-<step>.png
     └── trace/                   # <name>.trace, <name>.network, resources/
 ```
 
 - **Slug:** lowercase English kebab-case. `/run-tasks` task → `task-<N>-<short-summary>` (e.g. `task-3-items-search`); QA pass → `qa-<goal-summary>`; ad-hoc → `<short-summary>`. The date is the day the folder was created, in DD-MM-YYYY (`currentDate` `2026-09-25` → `25-09-2026`); every other date in this skill uses the same format.
-- **Re-run** of the same task (after a fix, in testing mode, on another day) reuses its existing folder: empty `screens/` and `trace/` first, then write the new run; `report.md` describes the latest run and keeps one line per previous run in «Історія прогонів».
+- **Re-run** of the same task (after a fix, in testing mode, on another day) reuses its existing folder: empty `screens/` and `trace/` first, then write the new run; `report.md` describes the latest run and keeps one line per previous run in «Історія прогонів». `findings.md` and `findings/` are never emptied: new findings are appended (see «findings.md»).
 - `.project-meta/` is in the user's global gitignore on the host. `.auth/`, `accounts.md` and traces hold live credentials and tokens: never copy them anywhere else and never suggest sharing a trace.
 
 ---
@@ -82,11 +84,12 @@ Log in before `browser_start_tracing`, so typed passwords do not land in the tra
 
 1. `browser_start_tracing`.
 2. For every step: act through `browser_snapshot` element refs; check the expectation against the snapshot (texts, states, values), not against a guess; then `browser_take_screenshot` with `filename: .project-meta/qa/<run>/screens/NN-<step-slug>.png` (`fullPage: true` when the checked content is below the fold). Numbering is continuous through the whole run.
-3. After every scenario: `browser_console_messages` with `level: "error"` and `browser_network_requests` with a filter for the API host — unexpected errors and 4xx/5xx go to the report even if every step passed.
-4. **Visual tasks:** screenshot at the design's viewport and compare with the design material of the task; list every visible difference. Call it a visual comparison, not a pixel diff.
-5. **Responsive requirements:** repeat the relevant steps after `browser_resize` (390×844 for mobile, 768×1024 for tablet when the task has it), then restore 1440×900.
-6. **Statuses:** ✅ — observed as expected; ❌ — observed differently; ⚠️ — not checked, with the reason (needs an email, a code the user did not send, a third-party service, data the environment lacks). Never mark ✅ what you did not see.
-7. `browser_stop_tracing`. Move the files from the paths in its response into `.project-meta/qa/<run>/trace/`: `<name>.trace`, `<name>.network` and the `resources/` folder (`mv -n`). Then `browser_close`.
+3. After every scenario: `browser_console_messages` with `level: "error"` and `browser_network_requests` with a filter for the API host — unexpected errors and 4xx/5xx go to the report even if every step passed. Errors that come from code outside the task also go to `findings.md`.
+4. **Findings outside the scope.** Anything broken or suspicious you notice along the way that the task did not touch (a bug on a neighbouring page, a broken layout, a wrong text, a failing request of another feature, a pre-existing ❌ from Step 5) goes to `findings.md` right away, before the next step — with a screenshot in `findings/`. Do not fix it and do not skip it.
+5. **Visual tasks:** screenshot at the design's viewport and compare with the design material of the task; list every visible difference. Call it a visual comparison, not a pixel diff.
+6. **Responsive requirements:** repeat the relevant steps after `browser_resize` (390×844 for mobile, 768×1024 for tablet when the task has it), then restore 1440×900.
+7. **Statuses:** ✅ — observed as expected; ❌ — observed differently; ⚠️ — not checked, with the reason (needs an email, a code the user did not send, a third-party service, data the environment lacks). Never mark ✅ what you did not see.
+8. `browser_stop_tracing`. Move the files from the paths in its response into `.project-meta/qa/<run>/trace/`: `<name>.trace`, `<name>.network` and the `resources/` folder (`mv -n`). Then `browser_close`.
 
 **Safety on a real backend.** The app talks to a real API. Delete, bulk-change, send invites or emails, pay — only on entities this test created (recorded in `accounts.md`), or after the user's ok via AskUserQuestion. Emails for new accounts only by the template in `accounts.md`.
 
@@ -97,7 +100,7 @@ For every ❌:
 1. Repeat the step once — rule out timing (wait for the element or the request, not a fixed sleep).
 2. Find where the problem is born and name the cause: the code under test, a pre-existing bug outside it, the backend, test data, the environment, or a wrong scenario.
 3. **Code under test, the fix is clear and inside the task's scope** → fix it, run `format` and `check-errors` (full output), re-run the failed scenario and the scenarios that touch the same code, record the run in «Історія прогонів». After 3 unsuccessful fix attempts for the same failure — stop and ask.
-4. **Anything else** (backend, pre-existing bug, unclear expectation, scope change) → ask via AskUserQuestion: what you saw, the cause with evidence, the options (fix now / leave as a known issue / change the expectation). Record the answer where the caller keeps decisions (`Decisions` in `tasks.md` for `/run-tasks`).
+4. **Anything else** (backend, pre-existing bug, unclear expectation, scope change) → ask via AskUserQuestion: what you saw, the cause with evidence, the options (fix now / leave as a known issue / change the expectation). Record the answer where the caller keeps decisions (`Decisions` in `tasks.md` for `/run-tasks`). A cause outside the task's scope (pre-existing bug, backend, environment) also goes to `findings.md` together with the user's answer.
 5. **Stop the dev server** you started in Step 1 once the run (with its fixes) is finished: `kill -TERM -- -$(cat /tmp/dev-<project>.pid)`, check that the port no longer answers. In the output say that you stopped it.
 
 ---
@@ -133,6 +136,29 @@ Email для нових акаунтів: <шаблон від юзера, на�
 - **Secrets stay here.** Passwords from this file go only into the login form fields. They never appear in `report.md`, the chat, code, comments or commit messages — reports name accounts by `ID`.
 - Accounts belong to the environment in the header: if the app now talks to a different API host, say so before using them.
 
+## findings.md
+
+Ukrainian. Every bug or finding outside the task's scope noticed during the run: pre-existing bugs, backend errors, problems of neighbouring features, suspicious behaviour. It is a list for the user to decide on later, not a to-do for you.
+
+- Create it on the first finding of the run; no findings → no file.
+- One finding — one entry, written right when you notice it. A finding already in the file is not duplicated: add the run number to its `Прогони`.
+- On a re-run keep the old entries. A finding that no longer reproduces gets `не відтворюється в прогоні N`; never delete entries.
+- Screenshots go to `findings/NN-<slug>.png` (own numbering), so a re-run that empties `screens/` does not lose them.
+- Credentials never appear here — accounts by `ID`.
+
+```markdown
+# Знахідки поза скоупом: <назва задачі або флоу>
+
+### 1. <коротка назва> — баг | бекенд | спостереження
+Де: `/team` · роль admin · 1440×900
+Що видно: <що саме не так, буквально>
+Як відтворити: <кроки, якщо відрізняються від сценарію>
+Причина: <механізм з file:line | 4xx/5xx з URL і статусом | не встановлено>
+Доказ: ![01](findings/01-team-avatar.png)
+Рішення юзера: <відповідь з AskUserQuestion | не питав — не впливає на сценарій задачі>
+Прогони: 1, 2
+```
+
 ## report.md
 
 Ukrainian. Steps are written for a reader who does not open the code; UI texts, URLs and role names exactly as in the app.
@@ -164,7 +190,7 @@ _Дата: DD-MM-YYYY · Прогін N_
 ![02](screens/02-search.png)
 
 ## Проблеми
-- ❌ Крок 2 — причина: <механізм>. Статус: виправлено в прогоні 2 | чекає рішення юзера | відомий баг поза задачею
+- ❌ Крок 2 — причина: <механізм>. Статус: виправлено в прогоні 2 | чекає рішення юзера | відомий баг поза задачею (findings.md, #1)
 
 ## Консоль і мережа
 - <неочікувані помилки консолі, 4xx/5xx з URL і статусом; "чисто", якщо нічого>
@@ -196,6 +222,7 @@ Close the skill with a short block in Ukrainian that the caller puts into its fi
 Виправлено під час тесту: <коротко, або "нічого">
 Чекає рішення: <❌, які лишились, або "нічого">
 Перевір сам: <⚠️ кроки>
+Знахідки поза скоупом: <N — .project-meta/qa/<run>/findings.md, коротко по кожній | "немає">
 Створені акаунти: <ID або "нових немає">
 Трейс: npx playwright show-trace .project-meta/qa/<run>/trace
 Dev-сервер: <запускав і зупинив | вже працював>
@@ -211,4 +238,5 @@ If the test did not run (no MCP, the dev server did not start, a login the user 
 4. **Credentials never leave `accounts.md` and `.auth/`** — not into reports, the chat, code or traces (log in before tracing).
 5. **Destructive or outward-facing actions** only on the test's own entities or with the user's ok.
 6. **Fix only the code under test and only when the cause is named**; everything else is a question to the user.
-7. **Stop what you started** — the dev server you launched; never touch a server the user runs.
+7. **Every finding outside the scope goes to `findings.md` right away** — not fixed, not skipped.
+8. **Stop what you started** — the dev server you launched; never touch a server the user runs.

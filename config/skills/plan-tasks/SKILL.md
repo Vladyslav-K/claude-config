@@ -1,6 +1,6 @@
 ---
 name: plan-tasks
-description: Deep task planning with full codebase research, API analysis, component inventory, and blocker detection. Plans the tasks from .project-meta/tasks/todo/ so thoroughly that /run-tasks can execute them without asking the user anything. Produces a detailed implementation plan.
+description: Deep task planning with full codebase research, API analysis, component inventory, and blocker detection. Plans the tasks from .project-meta/tasks/todo/ so thoroughly that /run-tasks can execute them without asking the user anything. Produces a detailed implementation plan, with the browser-test setup of every task, that always ends with a QA task compiling the testing instructions of all done tasks into one qa.md and running it as a browser regression pass.
 ---
 
 # Task Planning
@@ -72,7 +72,7 @@ The content of tasks.md and status.md is written in **Ukrainian**: task titles, 
 
 If `.project-meta/tasks/tasks.md` or `status.md` already exists, read both, then ask the user via AskUserQuestion before doing anything else:
 
-- **Add new tasks only** — keep existing tasks, their statuses and decisions untouched; plan only the `todo/` entries that are not yet listed in `Sources`, append them with the next free IDs.
+- **Add new tasks only** — keep existing tasks, their statuses and decisions untouched; plan only the `todo/` entries that are not yet listed in `Sources`, append them with the next free IDs. The `QA` task stays the last entry: move its entry and its status.md row below the new tasks (add it if the plan has none, see step 8).
 - **Re-plan from scratch** — overwrite both files; all statuses reset to `pending`.
 - **Stop** — leave the files as they are.
 
@@ -117,6 +117,9 @@ For each task that involves UI:
 - Identify validation patterns, error handling, loading/empty states, toasts, confirmations
 - Check i18n setup and existing translations structure
 
+#### 3e. Test Accounts
+Every task is run in the browser by `/run-tasks` through the `browser-test` skill. Read `.project-meta/qa/accounts.md` if it exists: which account IDs and roles are available, and the email template for new accounts. Use only IDs and roles in the plan — credentials never leave that file.
+
 ### 4. Blocker Analysis
 
 For EACH task, check:
@@ -141,6 +144,7 @@ For EACH task, walk through the implementation as if you were coding it right no
 - **Components** — which existing component and variant; which one to extend when a variant is missing
 - **Assets** — every icon/image/font from the design, with its path in the project
 - **Scope edges** — breakpoints, i18n keys, what is explicitly out of scope
+- **Testing** — which accounts (IDs from `accounts.md`) the browser test logs in with and whether every needed role is covered; which data must exist and which the test creates itself (created accounts and entities are recorded in `accounts.md`); which destructive or outward-facing actions (delete, invites, emails) the test may perform on the real backend; what cannot be checked in the browser (emails, third-party services)
 
 Resolve each decision point with the first source that answers it:
 1. the task text or design — write the answer into the plan as a fact (texts verbatim);
@@ -152,7 +156,7 @@ The plan contains decisions, not investigations: "check whether the API supports
 
 ### 6. Ask the User Once
 
-Collect everything that needs the user's input from steps 3-5 (missing API, unclear requirements, missing designs or assets, conflicts with existing code, open dry-run points) into one list. Do not ask anything mid-research.
+Collect everything that needs the user's input from steps 3-5 (missing API, unclear requirements, missing designs or assets, conflicts with existing code, missing test accounts or unclear limits for the browser test, open dry-run points) into one list. Do not ask anything mid-research.
 
 Ask all collected questions via AskUserQuestion (up to 4 questions per call; if there are more, group them by task and use consecutive calls — more questions now is the intended trade-off for no questions during execution). Every question is self-contained: state the task, the problem and the consequences of each option, because the user does not see your research. Do not re-ask what the arguments or the task's existing `Decisions` already answer.
 
@@ -195,17 +199,21 @@ For EACH ready task, compile:
    - New types/interfaces
 10. **Implementation steps** — ordered list of concrete steps; each step states what to do, not what to find out
 11. **States and texts** — every state from the dry run with how it looks, and every static text verbatim
-12. **Blockers** — always `None` for a planned task (blocked tasks were moved out in step 7)
-13. **Notes** — edge cases and gotchas only; no open questions, no "need to check"
-14. **Decisions** — the user's answers (from sorting and from step 6) that concern this task, verbatim; `/run-tasks` treats them as requirements
-15. **Estimated complexity** — simple / standard / complex (based on research)
-16. **Commit** — a ready-to-use commit message for this task, written to status.md only (see "Commit Message Rules" below)
+12. **Test setup** — the answers to the dry run's «Testing» point: accounts by ID, required and created data, allowed destructive actions, what stays for manual checking. A task with nothing observable in the browser says so in one line
+13. **Blockers** — always `None` for a planned task (blocked tasks were moved out in step 7)
+14. **Notes** — edge cases and gotchas only; no open questions, no "need to check"
+15. **Decisions** — the user's answers (from sorting and from step 6) that concern this task, verbatim; `/run-tasks` treats them as requirements
+16. **Estimated complexity** — simple / standard / complex (based on research)
+17. **Commit** — a ready-to-use commit message for this task, written to status.md only (see "Commit Message Rules" below)
+
+**The QA task.** After the ready tasks, always add one more task with ID `QA` and Type `qa` — exactly as in the template below. `/run-tasks` executes it last, when every other task is `done` or `blocked`: it compiles the `## Testing` instructions that `/run-tasks` wrote into the files of the done tasks into one `done/YYYY-MM-DD/qa.md`, which the user hands to QA, and runs every scenario of it in the browser as a regression pass. It has no `Source`, no commit and no research — everything it needs is described in `/run-tasks`, section «QA Task». If no task is ready (all of them moved to `blocked/` in step 7), there is no plan and no `QA` task.
 
 ### 9. Determine Task Order
 - Tasks with no deps first
 - Then by dependency chain
 - Within same priority — simpler tasks first (build foundations before complex features)
 - Group related tasks when it makes sense
+- The `QA` task is always the last entry
 
 ### 10. Write tasks.md + status.md
 Write both files with the detailed format below. Every planned task starts as `pending`.
@@ -221,6 +229,7 @@ Otherwise report to user (Ukrainian, as the final text of the turn — no tool c
 - Tasks created (with complexity breakdown)
 - Tasks moved to `blocked/` — **highlight these prominently**, with the reason and what the user must provide to unblock each one
 - Decisions recorded from the user's answers (short list, so the user can spot a misunderstanding)
+- Browser testing: the accounts the plan uses, and the ones missing from `.project-meta/qa/accounts.md` that the user has to add before `/run-tasks` (or that the tests will create)
 - Recommended execution order explanation
 
 ---
@@ -280,6 +289,11 @@ Created: YYYY-MM-DD
 - Empty — text "No items yet", no button
 - Delete — confirmation modal "Delete this item?", after success toast "Item deleted" and list refetch
 
+### Test Setup
+- Акаунти: `admin` (список, видалення), `viewer-01` (немає кнопки Delete)
+- Дані: тест сам створює 2 items і видаляє тільки їх
+- Вручну: нічого
+
 ### Blockers
 - None
 
@@ -300,6 +314,15 @@ Created: YYYY-MM-DD
 - **Complexity:** complex
 
 ...
+
+---
+
+## Task QA: Інструкція для QA
+- **What:** Зібрати інструкції `## Testing` усіх done-задач цього плану в один файл `done/YYYY-MM-DD/qa.md` для QA; заблоковані задачі — у розділ «Не входить у тестування». Прогнати всі сценарії qa.md у браузері як регресію. Флоу — `/run-tasks`, секція «QA Task».
+- **Source:** none
+- **Deps:** усі інші задачі плану (`done` або `blocked`)
+- **Type:** qa
+- **Complexity:** simple
 ```
 
 ## status.md Format
@@ -314,7 +337,10 @@ Updated: YYYY-MM-DD
 |---|------|------|------------|--------|---------|
 | 1 | Task title. \| feat: add items list page with search and delete | visual | standard | pending | |
 | 2 | Another task. \| fix: map api errors to form fields | mixed | complex | pending | |
+| QA | Інструкція для QA | qa | simple | pending | |
 ```
+
+**Type values:** `visual` / `code` / `mixed` for regular tasks; `qa` only for the `QA` task.
 
 **Status values:** `pending` -> `research` -> `running` -> `done` / `blocked`
 
@@ -324,11 +350,13 @@ The Task cell ends with the task's commit message, appended after the title as p
 
 Example: `Project і Trade Type на детальній WO (SCRUM-357). \| fix: resolve project and trade type names on work orders`
 
+The `QA` task changes no code, so its Task cell is the title only, without the separator and a commit message.
+
 ---
 
 ## Commit Message Rules
 
-Every task gets one commit message, generated at planning time and written to status.md only — appended to the Task cell after the title, separated by `. \|` (period, space, escaped pipe), without parentheses or any wrapping. It is not duplicated in tasks.md. It is a title line only, meant to be copied as is:
+Every task except `QA` gets one commit message, generated at planning time and written to status.md only — appended to the Task cell after the title, separated by `. \|` (period, space, escaped pipe), without parentheses or any wrapping. It is not duplicated in tasks.md. It is a title line only, meant to be copied as is:
 
 - Conventional Commits format: `<type>: <summary>`. Types: `feat` (new behaviour), `fix` (bug fix), `refactor` (no behaviour change), `chore` (tooling, config, generated code), `test`, `docs`. Pick by what the task changes for the user or the codebase, not by task label.
 - English, imperative mood, lowercase, no trailing period, no task ID, no ticket link.
@@ -365,3 +393,4 @@ Too long, do not write like this: `feat: implement login page, OTP verification 
 11. **Ask questions if ambiguous** — better to ask than to guess wrong; all questions in one batch (step 6), via AskUserQuestion, never as text in the chat
 12. **Record every user answer verbatim** in the task's `Decisions` section — answers that live only in the chat are lost for `/run-tasks`
 13. **Never overwrite an existing plan without asking** (step 0)
+14. **Every plan ends with the `QA` task** (step 8) — including a plan extended with "Add new tasks only"

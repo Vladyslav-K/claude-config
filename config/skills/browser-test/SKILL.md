@@ -1,6 +1,6 @@
 ---
 name: browser-test
-description: Test finished changes in a real headless Chromium through the Playwright MCP and save the evidence — report.md with steps and screenshots, plus a video of the run, plus findings.md with every bug or finding outside the task's scope — into .project-meta/qa/<run>/. Logs in with accounts from .project-meta/qa/accounts.md and records every account or entity the test creates there. Called by the QA task of /run-tasks once per plan, covering all done tasks; outside /run-tasks only when the user explicitly asks to test — «протестуй», «перевір у браузері», «прогони тест», «зроби QA». Never run it on your own initiative.
+description: Test finished changes in a real headless Chromium through the Playwright MCP and save the evidence — report.md with steps and screenshots, plus findings.md with every bug or finding outside the task's scope — into .project-meta/qa/<run>/. Logs in with accounts from .project-meta/qa/accounts.md and records every account or entity the test creates there. Called by the QA task of /run-tasks once per plan, covering all done tasks; outside /run-tasks only when the user explicitly asks to test — «протестуй», «перевір у браузері», «прогони тест», «зроби QA». Never run it on your own initiative.
 ---
 
 # Browser Test
@@ -31,26 +31,30 @@ Run a test scenario in the real app, record what actually happened, fix what is 
     ├── report.md
     ├── findings.md              # Bugs and findings outside the task's scope
     ├── findings/NN-<slug>.png   # Screenshots for findings.md
-    ├── screens/01-<step>.png
-    └── video/                   # run.webm; run-1.webm, run-2.webm for extra tabs
+    └── screens/01-<step>.png
 ```
 
 - **Slug:** lowercase English kebab-case. QA pass of `/run-tasks` → `qa-<goal-summary>`; ad-hoc → `<short-summary>`. The date is the day the folder was created, in DD-MM-YYYY (`currentDate` `2026-09-25` → `25-09-2026`); every other date in this skill uses the same format.
-- **Re-run** of the same QA pass or ad-hoc test (after a fix, in testing mode, on another day) reuses its existing folder: empty `screens/` and `video/` first, then write the new run; `report.md` describes the latest run and keeps one line per previous run in «Історія прогонів». `findings.md` and `findings/` are never emptied: new findings are appended (see «findings.md»).
-- `.project-meta/` is in the user's global gitignore on the host. `.auth/` and `accounts.md` hold live credentials and tokens, and videos show real data of the environment: never copy them anywhere else and never suggest sharing a video.
+- **Re-run** of the same QA pass or ad-hoc test (after a fix, in testing mode, on another day) reuses its existing folder: empty `screens/` first, then write the new run; `report.md` describes the latest run and keeps one line per previous run in «Історія прогонів». `findings.md` and `findings/` are never emptied: new findings are appended (see «findings.md»).
+- `.project-meta/` is in the user's global gitignore on the host. `.auth/` and `accounts.md` hold live credentials and tokens, and screenshots show real data of the environment: never copy them anywhere else.
 
 ---
 
 ## Step 1: Preflight
 
-1. **MCP.** Load the tools with ToolSearch `select:mcp__playwright__browser_navigate,mcp__playwright__browser_snapshot,mcp__playwright__browser_click,mcp__playwright__browser_type,mcp__playwright__browser_fill_form,mcp__playwright__browser_select_option,mcp__playwright__browser_press_key,mcp__playwright__browser_wait_for,mcp__playwright__browser_take_screenshot,mcp__playwright__browser_resize,mcp__playwright__browser_console_messages,mcp__playwright__browser_network_requests,mcp__playwright__browser_start_video,mcp__playwright__browser_stop_video,mcp__playwright__browser_video_chapter,mcp__playwright__browser_storage_state,mcp__playwright__browser_set_storage_state,mcp__playwright__browser_handle_dialog,mcp__playwright__browser_close`. If the `playwright` server is missing or failed to connect (typical for a session on the host, outside the dev container), stop: the test did not run — say so in the report, with the reason. Never replace it with "the code looks right".
+1. **MCP.** Load the tools with ToolSearch `select:mcp__playwright__browser_run_code_unsafe,mcp__playwright__browser_navigate,mcp__playwright__browser_snapshot,mcp__playwright__browser_find,mcp__playwright__browser_click,mcp__playwright__browser_type,mcp__playwright__browser_fill_form,mcp__playwright__browser_select_option,mcp__playwright__browser_press_key,mcp__playwright__browser_wait_for,mcp__playwright__browser_take_screenshot,mcp__playwright__browser_resize,mcp__playwright__browser_console_messages,mcp__playwright__browser_network_requests,mcp__playwright__browser_storage_state,mcp__playwright__browser_set_storage_state,mcp__playwright__browser_handle_dialog,mcp__playwright__browser_close`. If the `playwright` server is missing or failed to connect (typical for a session on the host, outside the dev container), stop: the test did not run — say so in the report, with the reason. Never replace it with "the code looks right".
 2. **App URL.** Take the port from the project `CLAUDE.md`, then the `dev` script in `package.json` (`-p`, `--port`), then the framework default (Next 3000, Vite 5173). Check with `curl -s -o /dev/null -w '%{http_code}' http://localhost:<port>`.
 3. **Dev server.** If nothing answers, start the project's `dev` script yourself (the package manager comes from the lock file) in its own process group, so it can be stopped completely:
    ```bash
    setsid nohup <pm> run dev > /tmp/dev-<project>.log 2>&1 < /dev/null & echo $! > /tmp/dev-<project>.pid
    ```
    Poll the URL until it answers (up to ~90 s); on timeout read the log and report the blocker. Remember that you started it. A server that was already running is never touched.
-4. **Folder.** `mkdir -p .project-meta/qa/<run>/screens .project-meta/qa/<run>/video`. If `accounts.md` does not exist, create it from the template in «accounts.md» below.
+4. **Folder.** `mkdir -p .project-meta/qa/<run>/screens`. If `accounts.md` does not exist, create it from the template in «accounts.md» below.
+5. **Warm-up.** The dev server compiles a page on its first request, and that time lands on `browser_navigate`. Collect the page paths of the scenario and request them all in one Bash call with `run_in_background: true`, then go on without waiting for it:
+   ```bash
+   printf '%s\n' /items /items/new /settings | xargs -P 4 -I{} curl -s -o /dev/null --max-time 120 -w '%{http_code} {} %{time_total}s\n' 'http://localhost:<port>{}'
+   ```
+   Only plain page paths: no query strings, tokens, magic links, API endpoints or any URL whose GET changes data. A dynamic segment (`/items/[id]`) only with an ID the scenario already names.
 
 ## Step 2: Scenario
 
@@ -77,21 +81,75 @@ The scenario uses the one format shared by `## Testing`, `qa.md` and this skill:
 3. Otherwise log in through the UI with the credentials from `accounts.md`. A one-time code, magic link or 2FA you cannot receive → ask the user for it in plain text (open question), with the login it is for. Then save the session: `browser_storage_state` → `.project-meta/qa/.auth/<account-id>.json`.
 4. No account for a required role → create it through the app if an available account can do that and the scenario allows it (see «accounts.md»); otherwise ask the user.
 5. Switch accounts inside a scenario with `browser_set_storage_state` (it clears the previous session).
-
-Log in before `browser_start_video`, so the login form and typed credentials do not land in the video.
+6. Never take a screenshot of a login form with typed credentials.
 
 ## Step 4: Run
 
-1. `browser_start_video` with `filename: .project-meta/qa/<run>/video/run.webm` and `size: { width: 1440, height: 900 }`. Before every scenario — `browser_video_chapter` with the scenario name, so the video can be navigated by scenarios.
-2. For every step: act through `browser_snapshot` element refs; check the expectation against the snapshot (texts, states, values), not against a guess; then `browser_take_screenshot` with `filename: .project-meta/qa/<run>/screens/NN-<step-slug>.png` (`fullPage: true` when the checked content is below the fold). Numbering is continuous through the whole run.
-3. After every scenario: `browser_console_messages` with `level: "error"` and `browser_network_requests` with a filter for the API host — unexpected errors and 4xx/5xx go to the report even if every step passed. Errors that come from code outside the task also go to `findings.md`.
-4. **Findings outside the scope.** Anything broken or suspicious you notice along the way that the task did not touch (a bug on a neighbouring page, a broken layout, a wrong text, a failing request of another feature, a pre-existing ❌ from Step 5) goes to `findings.md` right away, before the next step — with a screenshot in `findings/`. Do not fix it and do not skip it.
-5. **Visual tasks:** screenshot at the design's viewport and compare with the design material of the task; list every visible difference. Call it a visual comparison, not a pixel diff.
-6. **Responsive requirements:** repeat the relevant steps after `browser_resize` (390×844 for mobile, 768×1024 for tablet when the task has it), then restore 1440×900.
-7. **Statuses:** ✅ — observed as expected; ❌ — observed differently; ⚠️ — not checked, with the reason (needs an email, a code the user did not send, a third-party service, data the environment lacks). Never mark ✅ what you did not see.
-8. `browser_stop_video`. Its response lists the saved files: `run.webm` plus `run-1.webm`, `run-2.webm` for every extra tab the run opened. Check that they are in `.project-meta/qa/<run>/video/`; "No videos were recorded" → say so in the report. Then `browser_close`.
+Most of the run time is the model's turn after every tool call, so a scenario runs as one Playwright script in one call instead of one call per click. The step-by-step tools are for learning a page before its script and for diagnosing a failure.
 
-**Safety on a real backend.** The app talks to a real API. Delete, bulk-change, send invites or emails, pay — only on entities this test created (recorded in `accounts.md`), or after the user's ok via AskUserQuestion. Emails for new accounts only by the template in `accounts.md`.
+1. **Selectors first.** Take roles, labels and texts from the scenario (UI texts are exact) and from the code under test. If that is not enough — one `browser_snapshot` of the page, or `browser_find` for a single element. Prefer `getByRole`, `getByLabel`, `getByText` with the scenario's texts.
+2. **One script per scenario** — `browser_run_code_unsafe` with `code`, built on the skeleton below. The script:
+   - runs the steps in order; after every step it saves `screens/NN-<step-slug>.png` by an absolute path (project root + `.project-meta/qa/<run>/screens/`), with `fullPage: true` when the checked content is below the fold; the numbering is continuous through the whole run;
+   - returns for every step what it actually saw: URL, the checked texts, counts, field values, visible / disabled states;
+   - collects console errors and responses with status ≥ 400 through `page.on` and returns them;
+   - stops at the first failed step and returns its error and a `-fail` screenshot, because later steps depend on it; independent checks (a list of pages or roles) go on after a failure;
+   - fits in about a minute: every wait has an explicit timeout of up to 10 s, navigation up to 30 s; a longer scenario is split into several scripts by its steps. A call that runs over 120 s is moved to the background by Claude Code — do not touch the browser until its notification arrives;
+   - never contains passwords or tokens — the session comes from Step 3; a native `confirm` / `alert` is handled with `page.once('dialog', (d) => d.accept())` before the action that opens it.
+3. **Statuses from the result.** Compare every step's actual values with «Очікується»: ✅ / ❌ come from this comparison, not from the script finishing without an error. A step the script did not reach is not ✅.
+4. **Script error or ❌.** Take `browser_snapshot` of the current state and continue this scenario step by step with the interactive tools (`browser_click`, `browser_fill_form`, …, `browser_take_screenshot` into the same numbering), then go to Step 5. A wrong selector is a script bug, not an app ❌: fix the selector and re-run the script from the failed step.
+5. **No fixed waits.** Never `browser_wait_for` with `time`, never `page.waitForTimeout` or polling loops with sleeps. Playwright actions already wait for their element. Wait for a concrete signal: `browser_wait_for` with `text` / `textGone`; in scripts `locator.waitFor()`, `page.waitForURL()`, `page.waitForResponse()`.
+6. **Console and network.** The errors the script returned, plus, for steps done with the interactive tools, `browser_console_messages` with `level: "error"` and `browser_network_requests` for the API host. Unexpected errors and 4xx/5xx go to the report even if every step passed; errors that come from code outside the task also go to `findings.md`.
+7. **Findings outside the scope.** Anything broken or suspicious you notice along the way that the task did not touch (a bug on a neighbouring page, a broken layout, a wrong text, a failing request of another feature, a pre-existing ❌ from Step 5) goes to `findings.md` right away, before the next step — with a screenshot in `findings/`. Do not fix it and do not skip it.
+8. **Visual tasks:** screenshot at the design's viewport, open it with `Read` and compare with the design material of the task; list every visible difference. Call it a visual comparison, not a pixel diff.
+9. **Responsive requirements:** repeat the relevant steps at 390×844 for mobile and 768×1024 for tablet when the task has it — `page.setViewportSize()` inside the script or `browser_resize` — then restore 1440×900.
+10. **Statuses:** ✅ — observed as expected; ❌ — observed differently; ⚠️ — not checked, with the reason (needs an email, a code the user did not send, a third-party service, data the environment lacks). Never mark ✅ what you did not see.
+11. `browser_close` when the run is finished.
+
+Script skeleton — replace the steps, keep the error collection and the `finally`:
+
+```js
+async (page) => {
+  const dir = '<project root>/.project-meta/qa/<run>/screens';
+  const steps = [];
+  const errors = [];
+  const onConsole = (m) => m.type() === 'error' && errors.push(`console: ${m.text()}`);
+  const onResponse = (r) => r.status() >= 400 && errors.push(`${r.status()} ${r.request().method()} ${r.url()}`);
+  page.on('console', onConsole);
+  page.on('response', onResponse);
+  let current = { n: 0, slug: '' };
+  const shot = (name) => page.screenshot({ path: `${dir}/${String(current.n).padStart(2, '0')}-${name}.png` });
+  const step = async (n, slug, run) => {
+    current = { n, slug };
+    const actual = await run();
+    await shot(slug);
+    steps.push({ n, url: page.url(), actual });
+  };
+  try {
+    await step(1, 'items-list', async () => {
+      await page.goto('http://localhost:3000/items', { timeout: 30000 });
+      await page.getByRole('table').waitFor({ timeout: 10000 });
+      return { columns: await page.locator('thead th').allInnerTexts() };
+    });
+    await step(2, 'search', async () => {
+      const response = page.waitForResponse((r) => r.url().includes('search=abc'), { timeout: 10000 });
+      await page.getByPlaceholder('Search').fill('abc');
+      await response;
+      return { rows: await page.getByRole('row').allInnerTexts() };
+    });
+  } catch (e) {
+    await shot(`${current.slug}-fail`).catch(() => {});
+    steps.push({ n: current.n, url: page.url(), error: e.message.split('\n')[0] });
+  } finally {
+    page.off('console', onConsole);
+    page.off('response', onResponse);
+  }
+  return { steps, errors };
+}
+```
+
+A re-run of a scenario (after a fix, in Step 5) is the same script again, one call.
+
+**Safety on a real backend.** The app talks to a real API. Delete, bulk-change, send invites or emails, pay — only on entities this test created (recorded in `accounts.md`), or after the user's ok via AskUserQuestion. Emails for new accounts only by the template in `accounts.md`. Scripts follow the same rule.
 
 ## Step 5: Failures
 
@@ -99,7 +157,7 @@ For every ❌:
 
 1. Repeat the step once — rule out timing (wait for the element or the request, not a fixed sleep).
 2. Find where the problem is born and name the cause: the code under test, a pre-existing bug outside it, the backend, test data, the environment, or a wrong scenario.
-3. **Code under test, the fix is clear and inside the task's scope** → fix it, run `format` and `check-errors` (full output), re-run the failed scenario and the scenarios that touch the same code, record the run in «Історія прогонів». After 3 unsuccessful fix attempts for the same failure — stop and ask.
+3. **Code under test, the fix is clear and inside the task's scope** → fix it, run `format` and `check-errors` (full output), re-run the scripts of the failed scenario and of the scenarios that touch the same code, record the run in «Історія прогонів». After 3 unsuccessful fix attempts for the same failure — stop and ask.
 4. **Anything else** (backend, pre-existing bug, unclear expectation, scope change) → ask via AskUserQuestion: what you saw, the cause with evidence, the options (fix now / leave as a known issue / change the expectation). Record the answer where the caller keeps decisions (for `/run-tasks` — `Decisions` of the broken task in `tasks.md`). A cause outside the task's scope (pre-existing bug, backend, environment) also goes to `findings.md` together with the user's answer.
 5. **Stop the dev server** you started in Step 1 once the run (with its fixes) is finished: `kill -TERM -- -$(cat /tmp/dev-<project>.pid)`, check that the port no longer answers. In the output say that you stopped it.
 
@@ -206,9 +264,6 @@ _Дата: DD-MM-YYYY · Прогін N_
 |--------|------|-----------|--------------|
 | 1 | DD-MM-YYYY | ✅ 6 · ❌ 1 | — |
 | 2 | DD-MM-YYYY | ✅ 7 | фікс параметра search |
-
-## Відео
-`.project-meta/qa/<run>/video/run.webm` — відкривається в Chrome або VLC, глави відповідають сценаріям.
 ```
 
 Omit empty sections.
@@ -224,7 +279,6 @@ Close the skill with a short block in Ukrainian that the caller puts into its fi
 Перевір сам: <⚠️ кроки>
 Знахідки поза скоупом: <N — .project-meta/qa/<run>/findings.md, коротко по кожній | "немає">
 Створені акаунти: <ID або "нових немає">
-Відео: .project-meta/qa/<run>/video/run.webm
 Dev-сервер: <запускав і зупинив | вже працював>
 ```
 
@@ -233,10 +287,11 @@ If the test did not run (no MCP, the dev server did not start, a login the user 
 ## Rules
 
 1. **Never run on your own initiative** — only from `/run-tasks` or on the user's explicit request.
-2. **Observed only** — ✅ means you saw it in the browser; the rest is ❌ or ⚠️ with a reason.
+2. **Observed only** — ✅ means you saw it in the browser (a snapshot or the values a script returned); the rest is ❌ or ⚠️ with a reason.
 3. **Every created account and entity goes to `accounts.md` right away.**
-4. **Credentials never leave `accounts.md` and `.auth/`** — not into reports, the chat, code or videos (log in before recording).
+4. **Credentials never leave `accounts.md` and `.auth/`** — not into reports, the chat, code or screenshots.
 5. **Destructive or outward-facing actions** only on the test's own entities or with the user's ok.
 6. **Fix only the code under test and only when the cause is named**; everything else is a question to the user.
 7. **Every finding outside the scope goes to `findings.md` right away** — not fixed, not skipped.
 8. **Stop what you started** — the dev server you launched; never touch a server the user runs.
+9. **One script per scenario, no fixed waits** — the step-by-step tools only to learn a page or to diagnose a failure.

@@ -89,7 +89,8 @@
       "Bash(gh issue view:*)",
       "Bash(ctx7:*)",
       "Bash(npx ctx7@latest:*)",
-      "mcp__playwright"
+      "mcp__playwright",
+      "Bash(python3 -)"
     ],
     "deny": [
       "Bash(sudo:*)",

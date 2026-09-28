@@ -89,23 +89,25 @@ Most of the run time is the model's turn after every tool call, so a scenario ru
 
 1. **Selectors first.** Take roles, labels and texts from the scenario (UI texts are exact) and from the code under test. If that is not enough — one `browser_snapshot` of the page, or `browser_find` for a single element. Prefer `getByRole`, `getByLabel`, `getByText` with the scenario's texts.
 2. **One script per scenario** — `browser_run_code_unsafe` with `code`, built on the skeleton below. The script:
-   - runs the steps in order; after every step it saves `screens/NN-<step-slug>.png` by an absolute path (project root + `.project-meta/qa/<run>/screens/`), with `fullPage: true` when the checked content is below the fold; the numbering is continuous through the whole run;
-   - returns for every step what it actually saw: URL, the checked texts, counts, field values, visible / disabled states;
+   - runs the steps in order; after every step it waits for the page to settle (`settle` in the skeleton: loaders gone, finite animations finished), then saves `screens/NN-<step-slug>.png` by an absolute path (project root + `.project-meta/qa/<run>/screens/`) with `animations: 'disabled'`, and with `fullPage: true` when the checked content is below the fold; the numbering is continuous through the whole run;
+   - before the first script, looks up the project's own loader, spinner and skeleton components in its code and adds their selectors to `loaders`; an element that is not a loader but matches `loaders` (it stays in `pending` on a finished page) is excluded from the selector, otherwise every step waits 10 s for it;
+   - returns for every step what it actually saw: URL, the checked texts, counts, field values, visible / disabled states, and `pending` — what was still loading or animating when `settle` gave up;
    - collects console errors and responses with status ≥ 400 through `page.on` and returns them;
    - stops at the first failed step and returns its error and a `-fail` screenshot, because later steps depend on it; independent checks (a list of pages or roles) go on after a failure;
    - fits in about a minute: every wait has an explicit timeout of up to 10 s, navigation up to 30 s; a longer scenario is split into several scripts by its steps. A call that runs over 120 s is moved to the background by Claude Code — do not touch the browser until its notification arrives;
    - never contains passwords or tokens — the session comes from Step 3; a native `confirm` / `alert` is handled with `page.once('dialog', (d) => d.accept())` before the action that opens it.
-3. **Statuses from the result.** Compare every step's actual values with «Очікується»: ✅ / ❌ come from this comparison, not from the script finishing without an error. A step the script did not reach is not ✅.
-4. **Script error or ❌.** Take `browser_snapshot` of the current state and continue this scenario step by step with the interactive tools (`browser_click`, `browser_fill_form`, …, `browser_take_screenshot` into the same numbering), then go to Step 5. A wrong selector is a script bug, not an app ❌: fix the selector and re-run the script from the failed step.
-5. **No fixed waits.** Never `browser_wait_for` with `time`, never `page.waitForTimeout` or polling loops with sleeps. Playwright actions already wait for their element. Wait for a concrete signal: `browser_wait_for` with `text` / `textGone`; in scripts `locator.waitFor()`, `page.waitForURL()`, `page.waitForResponse()`.
-6. **Console and network.** The errors the script returned, plus, for steps done with the interactive tools, `browser_console_messages` with `level: "error"` and `browser_network_requests` for the API host. Unexpected errors and 4xx/5xx go to the report even if every step passed; errors that come from code outside the task also go to `findings.md`.
-7. **Findings outside the scope.** Anything broken or suspicious you notice along the way that the task did not touch (a bug on a neighbouring page, a broken layout, a wrong text, a failing request of another feature, a pre-existing ❌ from Step 5) goes to `findings.md` right away, before the next step — with a screenshot in `findings/`. Do not fix it and do not skip it.
-8. **Visual tasks:** screenshot at the design's viewport, open it with `Read` and compare with the design material of the task; list every visible difference. Call it a visual comparison, not a pixel diff.
-9. **Responsive requirements:** repeat the relevant steps at 390×844 for mobile and 768×1024 for tablet when the task has it — `page.setViewportSize()` inside the script or `browser_resize` — then restore 1440×900.
-10. **Statuses:** ✅ — observed as expected; ❌ — observed differently; ⚠️ — not checked, with the reason (needs an email, a code the user did not send, a third-party service, data the environment lacks). Never mark ✅ what you did not see.
-11. `browser_close` when the run is finished.
+3. **Statuses from the result.** Compare every step's actual values with «Очікується»: ✅ / ❌ come from this comparison, not from the script finishing without an error. A step the script did not reach is not ✅. A step with a non-empty `pending` is not ✅ until a re-take shows the finished state.
+4. **Screenshot review.** After every script, open every screenshot it saved with `Read` before giving any status: the returned values alone are not evidence. A step is ✅ only when both its values and its screenshot match «Очікується». A screenshot with a loader or skeleton, a half-transparent modal or overlay, an empty block where content is expected, or a state that differs from the returned values was taken too early: find the signal the step missed (wait for the content itself, add the loader to `loaders`), fix the script and re-take the step. The same picture after the fix means the app never finishes → ❌ with the cause. Screenshots from the interactive tools are reviewed the same way.
+5. **Script error or ❌.** Take `browser_snapshot` of the current state and continue this scenario step by step with the interactive tools (`browser_click`, `browser_fill_form`, …, `browser_take_screenshot` into the same numbering), then go to Step 5. A wrong selector is a script bug, not an app ❌: fix the selector and re-run the script from the failed step.
+6. **No fixed waits.** Never `browser_wait_for` with `time`, never `page.waitForTimeout` or polling loops with sleeps. Playwright actions already wait for their element. Wait for a concrete signal: `browser_wait_for` with `text` / `textGone`; in scripts `locator.waitFor()`, `page.waitForURL()`, `page.waitForResponse()`. Wait for the content the step checks, not for its container: a dialog, a section or a page shell appears before its data, and Playwright counts an element with `opacity: 0` as visible, so a wait for a dialog resolves on the first frame of its fade-in.
+7. **Console and network.** The errors the script returned, plus, for steps done with the interactive tools, `browser_console_messages` with `level: "error"` and `browser_network_requests` for the API host. Unexpected errors and 4xx/5xx go to the report even if every step passed; errors that come from code outside the task also go to `findings.md`.
+8. **Findings outside the scope.** Anything broken or suspicious you notice along the way that the task did not touch (a bug on a neighbouring page, a broken layout, a wrong text, a failing request of another feature, a pre-existing ❌ from Step 5) goes to `findings.md` right away, before the next step — with a screenshot in `findings/`. Do not fix it and do not skip it.
+9. **Visual tasks:** screenshot at the design's viewport, open it with `Read` and compare with the design material of the task; list every visible difference. Call it a visual comparison, not a pixel diff.
+10. **Responsive requirements:** repeat the relevant steps at 390×844 for mobile and 768×1024 for tablet when the task has it — `page.setViewportSize()` inside the script or `browser_resize` — then restore 1440×900.
+11. **Statuses:** ✅ — observed as expected; ❌ — observed differently; ⚠️ — not checked, with the reason (needs an email, a code the user did not send, a third-party service, data the environment lacks). Never mark ✅ what you did not see.
+12. `browser_close` when the run is finished.
 
-Script skeleton — replace the steps, keep the error collection and the `finally`:
+Script skeleton — replace the steps and extend `loaders`, keep `settle`, the error collection and the `finally`. A step is `act` (actions and the wait for its content) plus `read` (the values to return); `read` runs after `settle`, so the values and the screenshot show the same state:
 
 ```js
 async (page) => {
@@ -116,26 +118,71 @@ async (page) => {
   const onResponse = (r) => r.status() >= 400 && errors.push(`${r.status()} ${r.request().method()} ${r.url()}`);
   page.on('console', onConsole);
   page.on('response', onResponse);
+  const loaders = page
+    .locator(
+      '[aria-busy="true"], [role="progressbar"]:not([aria-valuenow]), .animate-spin, [data-slot="skeleton"], [class*="skeleton" i], [class*="spinner" i], [class*="loader" i]',
+    )
+    .filter({ visible: true });
+  // Infinite animations (spinners, pulsing dots) never finish, so only finite ones are awaited.
+  const animationsDone = () =>
+    document
+      .getAnimations()
+      .every((a) => a.playState !== 'running' || a.effect?.getComputedTiming().iterations === Infinity);
+  // UI libraries often start an enter transition one or two frames after mount.
+  const nextFrames = () =>
+    page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  const settle = async () => {
+    const pending = [];
+    await nextFrames();
+    const loaded = await loaders
+      .first()
+      .waitFor({ state: 'hidden', timeout: 10000 })
+      .then(() => true, () => false);
+    if (!loaded) {
+      pending.push(
+        ...(await loaders.evaluateAll((els) =>
+          els.map((e) => `loader <${e.tagName.toLowerCase()} class="${e.getAttribute('class') ?? ''}">`),
+        )),
+      );
+    }
+    await nextFrames();
+    const animated = await page
+      .waitForFunction(animationsDone, null, { timeout: 5000 })
+      .then(() => true, () => false);
+    if (!animated) pending.push('finite animations still running');
+    return pending;
+  };
   let current = { n: 0, slug: '' };
-  const shot = (name) => page.screenshot({ path: `${dir}/${String(current.n).padStart(2, '0')}-${name}.png` });
-  const step = async (n, slug, run) => {
+  const shot = (name) =>
+    page.screenshot({ path: `${dir}/${String(current.n).padStart(2, '0')}-${name}.png`, animations: 'disabled' });
+  const step = async (n, slug, act, read) => {
     current = { n, slug };
-    const actual = await run();
+    await act();
+    const pending = await settle();
+    const actual = await read();
     await shot(slug);
-    steps.push({ n, url: page.url(), actual });
+    steps.push({ n, url: page.url(), actual, pending });
   };
   try {
-    await step(1, 'items-list', async () => {
-      await page.goto('http://localhost:3000/items', { timeout: 30000 });
-      await page.getByRole('table').waitFor({ timeout: 10000 });
-      return { columns: await page.locator('thead th').allInnerTexts() };
-    });
-    await step(2, 'search', async () => {
-      const response = page.waitForResponse((r) => r.url().includes('search=abc'), { timeout: 10000 });
-      await page.getByPlaceholder('Search').fill('abc');
-      await response;
-      return { rows: await page.getByRole('row').allInnerTexts() };
-    });
+    await step(
+      1,
+      'items-list',
+      async () => {
+        await page.goto('http://localhost:3000/items', { timeout: 30000 });
+        await page.getByRole('row').nth(1).waitFor({ timeout: 10000 });
+      },
+      async () => ({ columns: await page.locator('thead th').allInnerTexts() }),
+    );
+    await step(
+      2,
+      'search',
+      async () => {
+        const response = page.waitForResponse((r) => r.url().includes('search=abc'), { timeout: 10000 });
+        await page.getByPlaceholder('Search').fill('abc');
+        await response;
+      },
+      async () => ({ rows: await page.getByRole('row').allInnerTexts() }),
+    );
   } catch (e) {
     await shot(`${current.slug}-fail`).catch(() => {});
     steps.push({ n: current.n, url: page.url(), error: e.message.split('\n')[0] });
@@ -287,7 +334,7 @@ If the test did not run (no MCP, the dev server did not start, a login the user 
 ## Rules
 
 1. **Never run on your own initiative** — only from `/run-tasks` or on the user's explicit request.
-2. **Observed only** — ✅ means you saw it in the browser (a snapshot or the values a script returned); the rest is ❌ or ⚠️ with a reason.
+2. **Observed only** — ✅ means you saw it in the browser: a snapshot or the values a script returned, and the step's screenshot opened with `Read`; the rest is ❌ or ⚠️ with a reason.
 3. **Every created account and entity goes to `accounts.md` right away.**
 4. **Credentials never leave `accounts.md` and `.auth/`** — not into reports, the chat, code or screenshots.
 5. **Destructive or outward-facing actions** only on the test's own entities or with the user's ok.

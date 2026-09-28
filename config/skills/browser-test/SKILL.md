@@ -1,6 +1,6 @@
 ---
 name: browser-test
-description: Test finished changes in a real headless Chromium through the Playwright MCP and save the evidence — report.md with steps and screenshots, plus a trace, plus findings.md with every bug or finding outside the task's scope — into .project-meta/qa/<run>/. Logs in with accounts from .project-meta/qa/accounts.md and records every account or entity the test creates there. Called by the QA task of /run-tasks once per plan, covering all done tasks; outside /run-tasks only when the user explicitly asks to test — «протестуй», «перевір у браузері», «прогони тест», «зроби QA». Never run it on your own initiative.
+description: Test finished changes in a real headless Chromium through the Playwright MCP and save the evidence — report.md with steps and screenshots, plus a video of the run, plus findings.md with every bug or finding outside the task's scope — into .project-meta/qa/<run>/. Logs in with accounts from .project-meta/qa/accounts.md and records every account or entity the test creates there. Called by the QA task of /run-tasks once per plan, covering all done tasks; outside /run-tasks only when the user explicitly asks to test — «протестуй», «перевір у браузері», «прогони тест», «зроби QA». Never run it on your own initiative.
 ---
 
 # Browser Test
@@ -26,31 +26,31 @@ Run a test scenario in the real app, record what actually happened, fix what is 
 .project-meta/qa/
 ├── accounts.md                  # Test accounts and created entities (user + you)
 ├── .auth/<account-id>.json      # Saved browser sessions, one per account
-├── _artifacts/                  # MCP output dir (traces land here first)
+├── _artifacts/                  # MCP output dir (files saved without an explicit name)
 └── DD-MM-YYYY-<slug>/           # One folder per tested task / QA pass / ad-hoc test
     ├── report.md
     ├── findings.md              # Bugs and findings outside the task's scope
     ├── findings/NN-<slug>.png   # Screenshots for findings.md
     ├── screens/01-<step>.png
-    └── trace/                   # <name>.trace, <name>.network, resources/
+    └── video/                   # run.webm; run-1.webm, run-2.webm for extra tabs
 ```
 
 - **Slug:** lowercase English kebab-case. QA pass of `/run-tasks` → `qa-<goal-summary>`; ad-hoc → `<short-summary>`. The date is the day the folder was created, in DD-MM-YYYY (`currentDate` `2026-09-25` → `25-09-2026`); every other date in this skill uses the same format.
-- **Re-run** of the same QA pass or ad-hoc test (after a fix, in testing mode, on another day) reuses its existing folder: empty `screens/` and `trace/` first, then write the new run; `report.md` describes the latest run and keeps one line per previous run in «Історія прогонів». `findings.md` and `findings/` are never emptied: new findings are appended (see «findings.md»).
-- `.project-meta/` is in the user's global gitignore on the host. `.auth/`, `accounts.md` and traces hold live credentials and tokens: never copy them anywhere else and never suggest sharing a trace.
+- **Re-run** of the same QA pass or ad-hoc test (after a fix, in testing mode, on another day) reuses its existing folder: empty `screens/` and `video/` first, then write the new run; `report.md` describes the latest run and keeps one line per previous run in «Історія прогонів». `findings.md` and `findings/` are never emptied: new findings are appended (see «findings.md»).
+- `.project-meta/` is in the user's global gitignore on the host. `.auth/` and `accounts.md` hold live credentials and tokens, and videos show real data of the environment: never copy them anywhere else and never suggest sharing a video.
 
 ---
 
 ## Step 1: Preflight
 
-1. **MCP.** Load the tools with ToolSearch `select:mcp__playwright__browser_navigate,mcp__playwright__browser_snapshot,mcp__playwright__browser_click,mcp__playwright__browser_type,mcp__playwright__browser_fill_form,mcp__playwright__browser_select_option,mcp__playwright__browser_press_key,mcp__playwright__browser_wait_for,mcp__playwright__browser_take_screenshot,mcp__playwright__browser_resize,mcp__playwright__browser_console_messages,mcp__playwright__browser_network_requests,mcp__playwright__browser_start_tracing,mcp__playwright__browser_stop_tracing,mcp__playwright__browser_storage_state,mcp__playwright__browser_set_storage_state,mcp__playwright__browser_handle_dialog,mcp__playwright__browser_close`. If the `playwright` server is missing or failed to connect (typical for a session on the host, outside the dev container), stop: the test did not run — say so in the report, with the reason. Never replace it with "the code looks right".
+1. **MCP.** Load the tools with ToolSearch `select:mcp__playwright__browser_navigate,mcp__playwright__browser_snapshot,mcp__playwright__browser_click,mcp__playwright__browser_type,mcp__playwright__browser_fill_form,mcp__playwright__browser_select_option,mcp__playwright__browser_press_key,mcp__playwright__browser_wait_for,mcp__playwright__browser_take_screenshot,mcp__playwright__browser_resize,mcp__playwright__browser_console_messages,mcp__playwright__browser_network_requests,mcp__playwright__browser_start_video,mcp__playwright__browser_stop_video,mcp__playwright__browser_video_chapter,mcp__playwright__browser_storage_state,mcp__playwright__browser_set_storage_state,mcp__playwright__browser_handle_dialog,mcp__playwright__browser_close`. If the `playwright` server is missing or failed to connect (typical for a session on the host, outside the dev container), stop: the test did not run — say so in the report, with the reason. Never replace it with "the code looks right".
 2. **App URL.** Take the port from the project `CLAUDE.md`, then the `dev` script in `package.json` (`-p`, `--port`), then the framework default (Next 3000, Vite 5173). Check with `curl -s -o /dev/null -w '%{http_code}' http://localhost:<port>`.
 3. **Dev server.** If nothing answers, start the project's `dev` script yourself (the package manager comes from the lock file) in its own process group, so it can be stopped completely:
    ```bash
    setsid nohup <pm> run dev > /tmp/dev-<project>.log 2>&1 < /dev/null & echo $! > /tmp/dev-<project>.pid
    ```
    Poll the URL until it answers (up to ~90 s); on timeout read the log and report the blocker. Remember that you started it. A server that was already running is never touched.
-4. **Folder.** `mkdir -p .project-meta/qa/<run>/screens .project-meta/qa/<run>/trace`. If `accounts.md` does not exist, create it from the template in «accounts.md» below.
+4. **Folder.** `mkdir -p .project-meta/qa/<run>/screens .project-meta/qa/<run>/video`. If `accounts.md` does not exist, create it from the template in «accounts.md» below.
 
 ## Step 2: Scenario
 
@@ -78,18 +78,18 @@ The scenario uses the one format shared by `## Testing`, `qa.md` and this skill:
 4. No account for a required role → create it through the app if an available account can do that and the scenario allows it (see «accounts.md»); otherwise ask the user.
 5. Switch accounts inside a scenario with `browser_set_storage_state` (it clears the previous session).
 
-Log in before `browser_start_tracing`, so typed passwords do not land in the trace.
+Log in before `browser_start_video`, so the login form and typed credentials do not land in the video.
 
 ## Step 4: Run
 
-1. `browser_start_tracing`.
+1. `browser_start_video` with `filename: .project-meta/qa/<run>/video/run.webm` and `size: { width: 1440, height: 900 }`. Before every scenario — `browser_video_chapter` with the scenario name, so the video can be navigated by scenarios.
 2. For every step: act through `browser_snapshot` element refs; check the expectation against the snapshot (texts, states, values), not against a guess; then `browser_take_screenshot` with `filename: .project-meta/qa/<run>/screens/NN-<step-slug>.png` (`fullPage: true` when the checked content is below the fold). Numbering is continuous through the whole run.
 3. After every scenario: `browser_console_messages` with `level: "error"` and `browser_network_requests` with a filter for the API host — unexpected errors and 4xx/5xx go to the report even if every step passed. Errors that come from code outside the task also go to `findings.md`.
 4. **Findings outside the scope.** Anything broken or suspicious you notice along the way that the task did not touch (a bug on a neighbouring page, a broken layout, a wrong text, a failing request of another feature, a pre-existing ❌ from Step 5) goes to `findings.md` right away, before the next step — with a screenshot in `findings/`. Do not fix it and do not skip it.
 5. **Visual tasks:** screenshot at the design's viewport and compare with the design material of the task; list every visible difference. Call it a visual comparison, not a pixel diff.
 6. **Responsive requirements:** repeat the relevant steps after `browser_resize` (390×844 for mobile, 768×1024 for tablet when the task has it), then restore 1440×900.
 7. **Statuses:** ✅ — observed as expected; ❌ — observed differently; ⚠️ — not checked, with the reason (needs an email, a code the user did not send, a third-party service, data the environment lacks). Never mark ✅ what you did not see.
-8. `browser_stop_tracing`. Move the files from the paths in its response into `.project-meta/qa/<run>/trace/`: `<name>.trace`, `<name>.network` and the `resources/` folder (`mv -n`). Then `browser_close`.
+8. `browser_stop_video`. Its response lists the saved files: `run.webm` plus `run-1.webm`, `run-2.webm` for every extra tab the run opened. Check that they are in `.project-meta/qa/<run>/video/`; "No videos were recorded" → say so in the report. Then `browser_close`.
 
 **Safety on a real backend.** The app talks to a real API. Delete, bulk-change, send invites or emails, pay — only on entities this test created (recorded in `accounts.md`), or after the user's ok via AskUserQuestion. Emails for new accounts only by the template in `accounts.md`.
 
@@ -207,8 +207,8 @@ _Дата: DD-MM-YYYY · Прогін N_
 | 1 | DD-MM-YYYY | ✅ 6 · ❌ 1 | — |
 | 2 | DD-MM-YYYY | ✅ 7 | фікс параметра search |
 
-## Трейс
-З кореня проєкту на хості: `npx playwright show-trace .project-meta/qa/<run>/trace`
+## Відео
+`.project-meta/qa/<run>/video/run.webm` — відкривається в Chrome або VLC, глави відповідають сценаріям.
 ```
 
 Omit empty sections.
@@ -224,7 +224,7 @@ Close the skill with a short block in Ukrainian that the caller puts into its fi
 Перевір сам: <⚠️ кроки>
 Знахідки поза скоупом: <N — .project-meta/qa/<run>/findings.md, коротко по кожній | "немає">
 Створені акаунти: <ID або "нових немає">
-Трейс: npx playwright show-trace .project-meta/qa/<run>/trace
+Відео: .project-meta/qa/<run>/video/run.webm
 Dev-сервер: <запускав і зупинив | вже працював>
 ```
 
@@ -235,7 +235,7 @@ If the test did not run (no MCP, the dev server did not start, a login the user 
 1. **Never run on your own initiative** — only from `/run-tasks` or on the user's explicit request.
 2. **Observed only** — ✅ means you saw it in the browser; the rest is ❌ or ⚠️ with a reason.
 3. **Every created account and entity goes to `accounts.md` right away.**
-4. **Credentials never leave `accounts.md` and `.auth/`** — not into reports, the chat, code or traces (log in before tracing).
+4. **Credentials never leave `accounts.md` and `.auth/`** — not into reports, the chat, code or videos (log in before recording).
 5. **Destructive or outward-facing actions** only on the test's own entities or with the user's ok.
 6. **Fix only the code under test and only when the cause is named**; everything else is a question to the user.
 7. **Every finding outside the scope goes to `findings.md` right away** — not fixed, not skipped.

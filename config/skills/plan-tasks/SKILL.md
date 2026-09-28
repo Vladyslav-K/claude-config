@@ -1,6 +1,6 @@
 ---
 name: plan-tasks
-description: Deep task planning with full codebase research, API analysis, component inventory, and blocker detection. Plans the tasks from .project-meta/tasks/todo/ so thoroughly that /run-tasks can execute them without asking the user anything. Produces a detailed implementation plan, with the browser-test setup of every task, that always ends with a QA task compiling the testing instructions of all done tasks into one qa.md and running it as a browser regression pass.
+description: Deep task planning with full codebase research, API analysis, component inventory, and blocker detection. Plans the tasks from .project-meta/tasks/todo/ so thoroughly that /run-tasks can execute them without asking the user anything. Produces a detailed implementation plan, with the browser-test setup of every task, that always ends with a QA task compiling the testing instructions of all done tasks into one qa.md and running it in the browser as the plan's single browser test.
 ---
 
 # Task Planning
@@ -118,7 +118,7 @@ For each task that involves UI:
 - Check i18n setup and existing translations structure
 
 #### 3e. Test Accounts
-Every task is run in the browser by `/run-tasks` through the `browser-test` skill. Read `.project-meta/qa/accounts.md` if it exists: which account IDs and roles are available, and the email template for new accounts. Use only IDs and roles in the plan — credentials never leave that file.
+Every task is run in the browser once, at the end of the plan: the `QA` task of `/run-tasks` runs the testing instructions of all done tasks through the `browser-test` skill, using each task's `Test Setup`. Read `.project-meta/qa/accounts.md` if it exists: which account IDs and roles are available, and the email template for new accounts. Use only IDs and roles in the plan — credentials never leave that file.
 
 ### 4. Blocker Analysis
 
@@ -206,7 +206,7 @@ For EACH ready task, compile:
 16. **Estimated complexity** — simple / standard / complex (based on research)
 17. **Commit** — a ready-to-use commit message for this task, written to status.md only (see "Commit Message Rules" below)
 
-**The QA task.** After the ready tasks, always add one more task with ID `QA` and Type `qa` — exactly as in the template below. `/run-tasks` executes it last, when every other task is `done` or `blocked`: it compiles the `## Testing` instructions that `/run-tasks` wrote into the files of the done tasks into one `done/DD-MM-YYYY/qa.md`, which the user hands to QA, and runs every scenario of it in the browser as a regression pass. It has no `Source`, no commit and no research — everything it needs is described in `/run-tasks`, section «QA Task». If no task is ready (all of them moved to `blocked/` in step 7), there is no plan and no `QA` task.
+**The QA task.** After the ready tasks, always add one more task with ID `QA` and Type `qa` — exactly as in the template below. `/run-tasks` executes it last, when every other task is `done` or `blocked`: it compiles the `## Testing` instructions that `/run-tasks` wrote into the files of the done tasks into one `done/DD-MM-YYYY/qa.md`, which the user hands to QA, and runs every scenario of it in the browser. This is the plan's only browser test — regular tasks are not run in the browser. It has no `Source`, no commit and no research — everything it needs is described in `/run-tasks`, section «QA Task». If no task is ready (all of them moved to `blocked/` in step 7), there is no plan and no `QA` task.
 
 ### 9. Determine Task Order
 - Tasks with no deps first
@@ -320,7 +320,7 @@ Created: DD-MM-YYYY
 ---
 
 ## Task QA: Інструкція для QA
-- **What:** Зібрати інструкції `## Testing` усіх done-задач цього плану в один файл `done/DD-MM-YYYY/qa.md` для QA; заблоковані задачі — у розділ «Не входить у тестування». Прогнати всі сценарії qa.md у браузері як регресію. Флоу — `/run-tasks`, секція «QA Task».
+- **What:** Зібрати інструкції `## Testing` усіх done-задач цього плану в один файл `done/DD-MM-YYYY/qa.md` для QA; заблоковані задачі — у розділ «Не входить у тестування». Прогнати всі сценарії qa.md у браузері одним прогоном — це єдиний браузерний тест плану. Флоу — `/run-tasks`, секція «QA Task».
 - **Source:** none
 - **Deps:** усі інші задачі плану (`done` або `blocked`)
 - **Type:** qa

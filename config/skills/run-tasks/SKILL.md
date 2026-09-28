@@ -1,6 +1,6 @@
 ---
 name: run-tasks
-description: Execute the next available task from .project-meta/tasks/tasks.md without re-asking what the plan already answers, save its testing instructions into the task file, run them in the browser with /browser-test, move the finished task to .project-meta/tasks/done/DD-MM-YYYY/, then enter testing/fixing mode. The last task of the plan (QA) compiles the testing instructions of all done tasks into one qa.md for QA and runs it as a browser regression pass. Does NOT continue to the next task.
+description: Execute the next available task from .project-meta/tasks/tasks.md without re-asking what the plan already answers, save its testing instructions into the task file, move the finished task to .project-meta/tasks/done/DD-MM-YYYY/, then enter testing/fixing mode. Regular tasks are not run in the browser: the last task of the plan (QA) compiles the testing instructions of all done tasks into one qa.md for QA and runs it with /browser-test as the plan's single browser pass. Does NOT continue to the next task.
 ---
 
 # Task Execution (Single Task Mode)
@@ -27,7 +27,7 @@ The plan was researched and agreed with the user during `/plan-tasks` (or `/sort
 └── status.md        # Current plan statuses
 ```
 
-The last task of every plan is the `QA` task (ID `QA`, Type `qa`). It compiles `qa.md`, runs it as a browser regression pass and follows its own flow — see **QA Task** below.
+The last task of every plan is the `QA` task (ID `QA`, Type `qa`). It compiles `qa.md`, runs it in the browser — the only browser test of the plan — and follows its own flow — see **QA Task** below.
 
 ---
 
@@ -62,10 +62,9 @@ Follow the **Task Execution Cycle** (section below). Update status.md as you mov
 2. **Research** (cycle step 1) → **Check the plan** (cycle step 2)
 3. Update status.md → `running`
 4. **Implement** (cycle step 3) → **Verify** (cycle step 4)
-5. **Write the testing instructions** into the task file (section **Testing Instructions in the Task File** below)
-6. **Browser test** — run those instructions with the `browser-test` skill (section **Browser Test** below)
-7. Update status.md → `done`, update progress %
-8. **Move finished tasks** (section below)
+5. **Write the testing instructions** into the task file (section **Testing Instructions in the Task File** below). They are not run in the browser now — the `QA` task runs them together with the other tasks at the end of the plan
+6. Update status.md → `done`, update progress %
+7. **Move finished tasks** (section below)
 
 The `QA` task skips this list and follows **QA Task** instead.
 
@@ -83,23 +82,18 @@ If the task turns out to be blocked at any point (missing API, missing design as
 3. **Files changed** — list all created/modified files with short descriptions
 4. **Task board** — where the task source moved (`done/DD-MM-YYYY/...`), and whether the plan was archived
 
-### Browser Test
-5. **Result** — the output block of `browser-test` as is (step 3.6). If the test did not run or left ❌ — this goes to the very top of the report, before the task summary.
-
 ### Testing Instructions
-6. **How to test** — the same instructions that were written to the task file's `## Testing` block (step 3.5), with the path of that file:
+5. **How to test** — the same instructions that were written to the task file's `## Testing` block (step 3.5), with the path of that file:
    - What to run (dev server, specific URL, etc.)
    - What to check visually or functionally
    - Expected behavior
    - Edge cases worth testing
 
 ### Status
-7. **Progress** — how many tasks are done out of total (done/total)
+6. **Progress** — how many tasks are done out of total (done/total)
 
 ### Testing Mode Message
-> 🧪 Задача виконана і прогнана в браузері — звіт у `report.md` вище. Перевір результат, особливо кроки ⚠️ — якщо є зауваження чи баги, пиши, виправлю. Коли буде все ок — запусти `/run-tasks` для наступної задачі.
-
-If the browser test was skipped (nothing observable in the browser) or did not run, replace the first sentence with «Задача виконана, у браузері не тестувалась: <причина>.»
+> 🧪 Задача виконана, у браузері ще не тестувалась — її сценарій прожене QA-задача в кінці плану разом з усіма іншими. Якщо перевіриш вручну і знайдеш зауваження чи баги — пиши, виправлю. Коли буде все ок — запусти `/run-tasks` для наступної задачі.
 
 ### Commit Line (last thing in the message)
 The very last element of the report is the task's commit message taken from status.md (the text after the `. \|` separator in the Task cell, without the separator itself), alone in a fenced code block so the user can copy it with one click:
@@ -167,7 +161,7 @@ If the answer is found — follow it and do not ask. If the question is really n
    - If the user asks for changes → implement them
    - Run `format` then `check-errors` after every fix
    - If a fix or a change changes what or how to test — update this task's subsection in the `## Testing` block (the file may already be in `done/`), so it describes the final behaviour
-   - Re-run the affected scenarios with `browser-test` in the task's existing run folder, and put its output block into the reply
+   - Do not run `browser-test` — the fix is checked in the browser by the `QA` task together with everything else
    - Stay on this task until the user is satisfied
 3. The next task starts only when the user runs `/run-tasks` again
 
@@ -175,7 +169,7 @@ If the answer is found — follow it and do not ask. If the question is really n
 
 ## Testing Instructions in the Task File
 
-Before the task is set to `done`, the testing instructions from the report are written into the task's own file. They move to `done/` together with the task, and the `QA` task compiles them into one file for QA later.
+Before the task is set to `done`, the testing instructions from the report are written into the task's own file. They move to `done/` together with the task, and the `QA` task compiles them into one file for QA later and runs that file in the browser. These instructions are the only test scenario the task gets, and they are run in another session without this task's context — so they must be complete on their own.
 
 - **Where:** the task's `Source` `.md` file; for a task folder — its main description file; for a task with several `Source` entries — the first one.
 - **Block:** `## Testing` at the bottom of the file. If the file has a `## Blocked` block, `## Testing` goes right above it — `## Blocked` always stays last. Nothing else in the file changes.
@@ -201,25 +195,9 @@ _Оновлено: DD-MM-YYYY_
 
 ---
 
-## Browser Test
-
-Right after the `## Testing` subsection is written, invoke the `browser-test` skill via the Skill tool. Pass in the arguments:
-- the scenario: the path of the task file and the `### Task N: <title>` subsection just written;
-- the run slug: `task-<N>-<short-summary>` (English kebab-case, e.g. from the commit message without its type);
-- the task's `Test Setup` from tasks.md (accounts, data, allowed destructive actions) and its Type (`visual` / `mixed` tasks get the design comparison).
-
-The skill runs the scenario, fixes clear failures in this task's code (with `format` / `check-errors` after every fix) and asks the user about the rest. The task becomes `done` after that:
-- every ❌ is fixed, or the user decided what to do with it (the answer goes to `Decisions`);
-- a task with nothing observable in the browser (Type `code` without UI effect) skips the test — the skill returns the reason;
-- the test did not run (no Playwright MCP, the dev server did not start) — the task still becomes `done`, and the report says prominently that it was not tested.
-
-Fixes made during the test belong to this task: they are covered by its commit message and, if they change the behaviour, by an update of its `## Testing` subsection.
-
----
-
 ## QA Task
 
-The last task of every plan has ID `QA` and Type `qa` (added by `/plan-tasks`). It compiles the `## Testing` subsections of all `done` tasks of this plan into one `qa.md`, which the user hands to QA, and then runs every scenario of `qa.md` in the browser as a regression pass — later tasks may have broken what earlier ones delivered. It is picked only under the rule from Step 2.5.
+The last task of every plan has ID `QA` and Type `qa` (added by `/plan-tasks`). It compiles the `## Testing` subsections of all `done` tasks of this plan into one `qa.md`, which the user hands to QA, and then runs every scenario of `qa.md` in the browser. This is the only browser test of the plan: regular tasks are not run in the browser, so this pass checks every task's own behaviour and also catches later tasks breaking what earlier ones delivered. It is picked only under the rule from Step 2.5.
 
 ### Steps
 1. Update status.md → `running`.
@@ -229,11 +207,16 @@ The last task of every plan has ID `QA` and Type `qa` (added by `/plan-tasks`). 
 4. **Collect the prerequisites.** Environment, URLs, roles, accounts and test data come only from the instructions, the project `CLAUDE.md`, README and `.env.example`. Never invent them: if something is missing, write it more generally and name the gap in the report.
 5. **Compose the file** by the rules and the template below.
 6. **Write** `done/DD-MM-YYYY/qa.md` (today, from `currentDate` converted to DD-MM-YYYY), creating the folder with `mkdir -p`. Never overwrite: if `qa.md` already exists — use `qa-2.md`, `qa-3.md`.
-7. **Regression pass.** Invoke the `browser-test` skill with the whole `qa.md` as the scenario and the run slug `qa-<goal-summary>`. For every ❌ name the task whose behaviour broke (the scenario lists its tasks). A clear regression in the code of this plan is fixed by the skill's rules — with `format` / `check-errors` after the fix; the fix gets its own commit line in the report (`fix: ...`), because the task it belongs to is already committed. Anything else — the skill asks the user.
-8. Update status.md → `done`. The `QA` task has no `Source`, so there is nothing to move; the plan is archived to the same `done/DD-MM-YYYY/` (Move Finished Tasks, step 2).
-9. **Report** (below) and enter testing mode: the user may ask to change the file — edit it and keep the rules below; after a regression fix, re-run the affected scenarios with `browser-test`.
+7. **Browser pass.** Invoke the `browser-test` skill via the Skill tool. Pass in the arguments:
+   - the scenario: the whole `qa.md`;
+   - the run slug: `qa-<goal-summary>`;
+   - for every task the file covers: its `Test Setup` from tasks.md (accounts, data, allowed destructive actions), its Type and its design refs (`visual` / `mixed` tasks get the design comparison).
 
-No `design-work` and no `## Testing` block for this task. It changes code only when the regression pass fixes something.
+   For every ❌ name the task whose behaviour is broken (the scenario lists its tasks). A clear bug in the code of this plan is fixed by the skill's rules — with `format` / `check-errors` after the fix; if the fix changes the behaviour, update that task's `### Task N` subsection and the matching part of `qa.md`. Every fixed task gets its own commit line in the report (`fix: ...`), because the task it belongs to is already committed. Anything else — the skill asks the user, and the answer goes to the `Decisions` of the broken task.
+8. Update status.md → `done`. The `QA` task has no `Source`, so there is nothing to move; the plan is archived to the same `done/DD-MM-YYYY/` (Move Finished Tasks, step 2).
+9. **Report** (below) and enter testing mode: the user may ask to change the file — edit it and keep the rules below; after a fix, re-run the affected scenarios with `browser-test` in the same run folder.
+
+No `design-work` and no `## Testing` block for this task. It changes code only when the browser pass fixes something.
 
 ### Composition Rules
 The file is a single testing pass through everything the plan delivered, not a concatenation of the task subsections:
@@ -281,7 +264,7 @@ _Дата: DD-MM-YYYY_
 
 ### QA Report
 Ukrainian, the final text of the turn:
-1. First, what needs attention: ❌ of the regression pass that wait for the user's decision, or the fact that the pass did not run; tasks without a `## Testing` subsection (their steps come from the plan and the code — check them first), gaps in the prerequisites, blocked tasks left out.
+1. First, what needs attention: ❌ of the browser pass that wait for the user's decision, or the fact that the pass did not run (then no task of the plan was tested in the browser — say so plainly); tasks without a `## Testing` subsection (their steps come from the plan and the code — check them first), gaps in the prerequisites, blocked tasks left out.
 2. The output block of `browser-test` as is, plus the broken task for every ❌.
 3. The path to `qa.md` and how many tasks and scenarios it covers.
 4. Task board — where the plan was archived.
@@ -290,7 +273,7 @@ Ukrainian, the final text of the turn:
 
 > 🧪 QA-файл готовий і прогнаний у браузері. Якщо треба щось змінити в інструкції — пиши, виправлю. План завершено.
 
-A commit line only if the regression pass fixed code — then the `fix: ...` message, alone in a fenced code block, is the last element of the report.
+Commit lines only if the browser pass fixed code — then the `fix: ...` messages, one per fixed task, each alone in its own fenced code block, are the last elements of the report.
 
 ---
 
@@ -360,12 +343,12 @@ _Оновлено: DD-MM-YYYY_
 1. **ONE task per invocation** — complete it, move it to `done/`, report, enter testing mode, DONE
 2. **Follow the Task Execution Cycle** (section above) for research/check/implement/verify; the `QA` task follows **QA Task** instead
 3. **Testing instructions go into the task file** before the task is `done` — the report alone is not enough; the `QA` task relies on them
-4. **Every task is run in the browser** with `browser-test` before it is `done`, and the `QA` task runs the whole `qa.md`; a skipped or failed-to-run test is named in the report, never hidden
+4. **One browser test per plan** — regular tasks are not run with `browser-test`; the `QA` task runs the whole `qa.md` once, covering every done task; a pass that failed to run is named in the report, never hidden
 5. **No plan approval** — the plan in tasks.md is already approved; stop only for a real discrepancy or gap (cycle step 2)
 6. **Go through "Before Asking the User"** before every question
 7. **Update status.md after EACH state change**
 8. **tasks.md is read-only** except for appending to the current task's `Decisions` (see "tasks.md Updates")
-9. **NEVER skip the report step** — even for simple tasks; the report ends with the commit line (the `QA` task has one only if its regression pass fixed code)
+9. **NEVER skip the report step** — even for simple tasks; the report ends with the commit line (the `QA` task has them only if its browser pass fixed code)
 10. **Testing mode after completion** — user feedback → fix → re-verify; scope changes requested in testing mode go to `Decisions`
 11. **Never pick a `blocked` task or a task with blocker text** — only the user (or `/sort-and-plan`) unblocks tasks
 12. **Never read or touch `waiting/`**; never delete or overwrite task files — only move them with `mv -n`; the only edits inside a task file are its `## Testing` and `## Blocked` blocks

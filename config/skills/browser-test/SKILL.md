@@ -1,6 +1,6 @@
 ---
 name: browser-test
-description: Test finished changes in a real headless Chromium through the Playwright MCP and save the evidence — report.md with steps and screenshots, plus a trace, plus findings.md with every bug or finding outside the task's scope — into .project-meta/qa/<run>/. Logs in with accounts from .project-meta/qa/accounts.md and records every account or entity the test creates there. Called by /run-tasks after every task and by its QA task for a regression pass; outside /run-tasks only when the user explicitly asks to test — «протестуй», «перевір у браузері», «прогони тест», «зроби QA». Never run it on your own initiative.
+description: Test finished changes in a real headless Chromium through the Playwright MCP and save the evidence — report.md with steps and screenshots, plus a trace, plus findings.md with every bug or finding outside the task's scope — into .project-meta/qa/<run>/. Logs in with accounts from .project-meta/qa/accounts.md and records every account or entity the test creates there. Called by the QA task of /run-tasks once per plan, covering all done tasks; outside /run-tasks only when the user explicitly asks to test — «протестуй», «перевір у браузері», «прогони тест», «зроби QA». Never run it on your own initiative.
 ---
 
 # Browser Test
@@ -16,7 +16,7 @@ Run a test scenario in the real app, record what actually happened, fix what is 
 
 ## When It Runs
 
-- **`/run-tasks`** — after every task (scenario = the task's `### Task N` subsection in `## Testing`) and in the `QA` task (scenario = the whole `qa.md`, regression pass).
+- **`/run-tasks`** — only in the `QA` task at the end of the plan (scenario = the whole `qa.md`, one pass over every done task). Regular tasks are not run in the browser.
 - **Ad-hoc** — only when the user asks to test in the current request ("зроби X і протестуй"). No request → no browser test; the regular completion report tells the user how to check.
 - A change with nothing observable in the browser (types, config, tooling, refactor without UI effect) → skip, and write one line with the reason instead of a report.
 
@@ -35,8 +35,8 @@ Run a test scenario in the real app, record what actually happened, fix what is 
     └── trace/                   # <name>.trace, <name>.network, resources/
 ```
 
-- **Slug:** lowercase English kebab-case. `/run-tasks` task → `task-<N>-<short-summary>` (e.g. `task-3-items-search`); QA pass → `qa-<goal-summary>`; ad-hoc → `<short-summary>`. The date is the day the folder was created, in DD-MM-YYYY (`currentDate` `2026-09-25` → `25-09-2026`); every other date in this skill uses the same format.
-- **Re-run** of the same task (after a fix, in testing mode, on another day) reuses its existing folder: empty `screens/` and `trace/` first, then write the new run; `report.md` describes the latest run and keeps one line per previous run in «Історія прогонів». `findings.md` and `findings/` are never emptied: new findings are appended (see «findings.md»).
+- **Slug:** lowercase English kebab-case. QA pass of `/run-tasks` → `qa-<goal-summary>`; ad-hoc → `<short-summary>`. The date is the day the folder was created, in DD-MM-YYYY (`currentDate` `2026-09-25` → `25-09-2026`); every other date in this skill uses the same format.
+- **Re-run** of the same QA pass or ad-hoc test (after a fix, in testing mode, on another day) reuses its existing folder: empty `screens/` and `trace/` first, then write the new run; `report.md` describes the latest run and keeps one line per previous run in «Історія прогонів». `findings.md` and `findings/` are never emptied: new findings are appended (see «findings.md»).
 - `.project-meta/` is in the user's global gitignore on the host. `.auth/`, `accounts.md` and traces hold live credentials and tokens: never copy them anywhere else and never suggest sharing a trace.
 
 ---
@@ -66,7 +66,7 @@ The scenario uses the one format shared by `## Testing`, `qa.md` and this skill:
 - ...
 ```
 
-- `/run-tasks` and QA pass — take the scenario as given; add the `Test Setup` of the task from `tasks.md` to the prerequisites.
+- QA pass of `/run-tasks` — take the scenario as given; add the `Test Setup` of every task the scenario covers (passed by the caller, or from `tasks.md`) to the prerequisites of its scenarios. Scenarios that cover `visual` / `mixed` tasks get the design comparison from Step 4.
 - Ad-hoc — write the scenario first, in this format, into the «Сценарій» section of `report.md`. Every step relies on behaviour you saw in the code; cover the edge cases of the change (empty state on first visit, errors, validation, roles, direct URL), not only the happy path.
 - If the scenario itself is wrong (the code follows the requirements, the step does not) — correct the scenario (and the `## Testing` subsection it came from) instead of the code, and name it in the report.
 
@@ -100,7 +100,7 @@ For every ❌:
 1. Repeat the step once — rule out timing (wait for the element or the request, not a fixed sleep).
 2. Find where the problem is born and name the cause: the code under test, a pre-existing bug outside it, the backend, test data, the environment, or a wrong scenario.
 3. **Code under test, the fix is clear and inside the task's scope** → fix it, run `format` and `check-errors` (full output), re-run the failed scenario and the scenarios that touch the same code, record the run in «Історія прогонів». After 3 unsuccessful fix attempts for the same failure — stop and ask.
-4. **Anything else** (backend, pre-existing bug, unclear expectation, scope change) → ask via AskUserQuestion: what you saw, the cause with evidence, the options (fix now / leave as a known issue / change the expectation). Record the answer where the caller keeps decisions (`Decisions` in `tasks.md` for `/run-tasks`). A cause outside the task's scope (pre-existing bug, backend, environment) also goes to `findings.md` together with the user's answer.
+4. **Anything else** (backend, pre-existing bug, unclear expectation, scope change) → ask via AskUserQuestion: what you saw, the cause with evidence, the options (fix now / leave as a known issue / change the expectation). Record the answer where the caller keeps decisions (for `/run-tasks` — `Decisions` of the broken task in `tasks.md`). A cause outside the task's scope (pre-existing bug, backend, environment) also goes to `findings.md` together with the user's answer.
 5. **Stop the dev server** you started in Step 1 once the run (with its fixes) is finished: `kill -TERM -- -$(cat /tmp/dev-<project>.pid)`, check that the port no longer answers. In the output say that you stopped it.
 
 ---
@@ -168,7 +168,7 @@ Ukrainian. Steps are written for a reader who does not open the code; UI texts, 
 _Дата: DD-MM-YYYY · Прогін N_
 
 **Результат:** ✅ 7 · ❌ 1 · ⚠️ 2
-**Сценарій:** Task 3 з `done/DD-MM-YYYY/items.md` | `done/DD-MM-YYYY/qa.md` | ad-hoc (нижче)
+**Сценарій:** `done/DD-MM-YYYY/qa.md` | ad-hoc (нижче)
 **Середовище:** http://localhost:3000 · API <хост> · 1440×900
 **Акаунти:** admin, employee-01
 

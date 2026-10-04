@@ -158,7 +158,7 @@
   "workflowKeywordTriggerEnabled": false,
   "statusLine": {
     "type": "command",
-    "command": "{{CLAUDE_HOME}}/scripts/statusline.sh",
+    "command": "$HOME/.claude/scripts/statusline.sh",
     "padding": 0
   },
   "enabledPlugins": {},

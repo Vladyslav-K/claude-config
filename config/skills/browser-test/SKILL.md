@@ -1,6 +1,6 @@
 ---
 name: browser-test
-description: Test finished changes in a real headless Chromium through the Playwright MCP and save the evidence — report.md with steps and screenshots, plus findings.md with every bug or finding outside the task's scope — into .project-meta/qa/<run>/. Logs in with accounts from .project-meta/qa/accounts.md and records every account or entity the test creates there. Called by the QA task of /run-tasks once per plan, covering all done tasks; outside /run-tasks only when the user explicitly asks to test — «протестуй», «перевір у браузері», «прогони тест», «зроби QA». Never run it on your own initiative.
+description: Test finished changes in a real headless Chromium through the Playwright MCP and save the evidence — report.md with steps and screenshots, plus findings.md with every bug or finding outside the task's scope, and a self-contained PDF copy of each — into .project-meta/qa/<run>/. Logs in with accounts from .project-meta/qa/accounts.md and records every account or entity the test creates there. Called by the QA task of /run-tasks once per plan, covering all done tasks; outside /run-tasks only when the user explicitly asks to test — «протестуй», «перевір у браузері», «прогони тест», «зроби QA». Never run it on your own initiative.
 ---
 
 # Browser Test
@@ -29,14 +29,16 @@ Run a test scenario in the real app, record what actually happened, fix what is 
 ├── _artifacts/                  # MCP output dir (files saved without an explicit name)
 └── DD-MM-YYYY-<slug>/           # One folder per tested task / QA pass / ad-hoc test
     ├── report.md
+    ├── report.pdf               # PDF copy of report.md with embedded screenshots (Step 6)
     ├── findings.md              # Bugs and findings outside the task's scope
+    ├── findings.pdf             # PDF copy of findings.md (Step 6)
     ├── findings/NN-<slug>.png   # Screenshots for findings.md
     └── screens/01-<step>.png
 ```
 
 - **Slug:** lowercase English kebab-case. QA pass of `/run-tasks` → `qa-<goal-summary>`; ad-hoc → `<short-summary>`. The date is the day the folder was created, in DD-MM-YYYY (`currentDate` `2026-09-25` → `25-09-2026`); every other date in this skill uses the same format.
-- **Re-run** of the same QA pass or ad-hoc test (after a fix, in testing mode, on another day) reuses its existing folder: empty `screens/` first, then write the new run; `report.md` describes the latest run and keeps one line per previous run in «Історія прогонів». `findings.md` and `findings/` are never emptied: new findings are appended (see «findings.md»).
-- `.project-meta/` is in the user's global gitignore on the host. `.auth/` and `accounts.md` hold live credentials and tokens, and screenshots show real data of the environment: never copy them anywhere else.
+- **Re-run** of the same QA pass or ad-hoc test (after a fix, in testing mode, on another day) reuses its existing folder: empty `screens/` first, then write the new run; `report.md` describes the latest run and keeps one line per previous run in «Історія прогонів». `findings.md` and `findings/` are never emptied: new findings are appended (see «findings.md»). The PDFs are made again from the updated `.md` files.
+- `.project-meta/` is in the user's global gitignore on the host. `.auth/` and `accounts.md` hold live credentials and tokens, and screenshots show real data of the environment: never copy them anywhere else. The PDFs embed the screenshots and carry the same data.
 
 ---
 
@@ -208,6 +210,31 @@ For every ❌:
 4. **Anything else** (backend, pre-existing bug, unclear expectation, scope change) → ask via AskUserQuestion: what you saw, the cause with evidence, the options (fix now / leave as a known issue / change the expectation). Record the answer where the caller keeps decisions (for `/run-tasks` — `Decisions` of the broken task in `tasks.md`). A cause outside the task's scope (pre-existing bug, backend, environment) also goes to `findings.md` together with the user's answer.
 5. **Stop the dev server** you started in Step 1 once the run (with its fixes) is finished: `kill -TERM -- -$(cat /tmp/dev-<project>.pid)`, check that the port no longer answers. In the output say that you stopped it.
 
+## Step 6: PDF
+
+The last step of every run with a `report.md`: once `report.md` and `findings.md` are final (every fix, re-run and answer of the user from Step 5 is written into them), make a PDF copy of each next to it, so the report can be sent as one file without `screens/` and `findings/`. The `.md` files stay the source and are not changed. No `report.md` (the test did not run, or was skipped) → no PDF; no `findings.md` → only `report.pdf`.
+
+The scripts are in the `scripts/` folder of this skill (`<skill dir>` — the base directory of this skill). Printing runs in its own Node process with its own Chromium, not through the Playwright MCP, so the test sessions are not touched.
+
+1. **Prerequisites** — one call:
+   ```bash
+   python3 -c "import PIL" && ls -d /usr/local/lib/node_modules/@playwright/mcp/node_modules/playwright-core && fc-list | grep -iE "dejavu|emoji"
+   ```
+   No `PIL`, no `playwright-core`, or no `DejaVu Sans` / `Noto Color Emoji` fonts → no PDF: name what is missing in the output. Never substitute another tool or install a package without the user's ok.
+2. **Convert and print:**
+   ```bash
+   RUN=<project root>/.project-meta/qa/<run>; TMP=/tmp/qapdf-<run>
+   mkdir -p "$TMP"
+   python3 <skill dir>/scripts/md2html.py "$RUN/report.md" "$TMP/report.html" "QA report"
+   python3 <skill dir>/scripts/md2html.py "$RUN/findings.md" "$TMP/findings.html" "QA findings"
+   node <skill dir>/scripts/print.js "$TMP" "$RUN" report findings
+   ```
+   Without `findings.md` drop its `md2html.py` line and the `findings` argument. `missing images: …` means a link in the `.md` points to a file that does not exist: fix the link or retake the screenshot, then convert again.
+3. **Check:** `pdfinfo <file>.pdf | grep Pages`; render the first page, the last page and a page with a mobile screenshot (`pdftoppm -r 60 -png -f <N> -l <N> <file>.pdf "$TMP/p<N>"`) and open them with `Read`: Cyrillic without boxes, colour ✅ ❌ ⚠️, inline code on a grey background, tables with borders, no screenshot cut between pages, the page number at the bottom. No `pdfinfo` / `pdftoppm` → say that the PDF was not checked visually.
+4. `rm -rf "$TMP"`.
+
+The converter knows only the markup of the templates below: headings, paragraphs, `- ` lists, tables, `**bold**`, `_italic_`, `` `code` ``, `![alt](path)`. Numbered lines (the ad-hoc «Сценарій») print as plain lines. Code blocks, nested lists, links and quotes are not supported: keep them out of `report.md` / `findings.md`, or extend `md2html.py` when the templates change. Screenshots are embedded as JPEG with `quality=82`; lower it in the script only when the user asks for a smaller file.
+
 ---
 
 ## accounts.md
@@ -327,6 +354,7 @@ Close the skill with a short block in Ukrainian that the caller puts into its fi
 Знахідки поза скоупом: <N — .project-meta/qa/<run>/findings.md, коротко по кожній | "немає">
 Створені акаунти: <ID або "нових немає">
 Dev-сервер: <запускав і зупинив | вже працював>
+PDF: <report.pdf, findings.pdf — скріншоти містять реальні дані стенду (email тестових акаунтів), перед пересиланням назовні переглянь | не створено — причина>
 ```
 
 If the test did not run (no MCP, the dev server did not start, a login the user could not provide) — the block says exactly that, and the caller must not describe the change as tested.

@@ -148,7 +148,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "{{CLAUDE_HOME}}/scripts/notify-done.sh"
+            "command": "$HOME/.claude/scripts/notify-done.sh"
           }
         ]
       }

@@ -92,6 +92,7 @@ Most of the run time is the model's turn after every tool call, so a scenario ru
 1. **Selectors first.** Take roles, labels and texts from the scenario (UI texts are exact) and from the code under test. If that is not enough — one `browser_snapshot` of the page, or `browser_find` for a single element. Prefer `getByRole`, `getByLabel`, `getByText` with the scenario's texts.
 2. **One script per scenario** — `browser_run_code_unsafe` with `code`, built on the skeleton below. The script:
    - runs the steps in order; after every step it waits for the page to settle (`settle` in the skeleton: loaders gone, finite animations finished), then saves `screens/NN-<step-slug>.png` by an absolute path (project root + `.project-meta/qa/<run>/screens/`) with `animations: 'disabled'`, and with `fullPage: true` when the checked content is below the fold; the numbering is continuous through the whole run;
+   - shows on every screenshot where the step acted: the skeleton draws a mouse arrow at the point the step clicked or hovered, and no arrow in a step that did not. Keyboard and form actions (`fill`, `pressSequentially`, `press`, `selectOption`, `setInputFiles`) do not move the arrow, so after them the step calls `mark(locator)` with their target, and the screenshot gets a red frame around it;
    - before the first script, looks up the project's own loader, spinner and skeleton components in its code and adds their selectors to `loaders`; an element that is not a loader but matches `loaders` (it stays in `pending` on a finished page) is excluded from the selector, otherwise every step waits 10 s for it;
    - returns for every step what it actually saw: URL, the checked texts, counts, field values, visible / disabled states, and `pending` — what was still loading or animating when `settle` gave up;
    - collects console errors and responses with status ≥ 400 through `page.on` and returns them;
@@ -99,17 +100,17 @@ Most of the run time is the model's turn after every tool call, so a scenario ru
    - fits in about a minute: every wait has an explicit timeout of up to 10 s, navigation up to 30 s; a longer scenario is split into several scripts by its steps. A call that runs over 120 s is moved to the background by Claude Code — do not touch the browser until its notification arrives;
    - never contains passwords or tokens — the session comes from Step 3; a native `confirm` / `alert` is handled with `page.once('dialog', (d) => d.accept())` before the action that opens it.
 3. **Statuses from the result.** Compare every step's actual values with «Очікується»: ✅ / ❌ come from this comparison, not from the script finishing without an error. A step the script did not reach is not ✅. A step with a non-empty `pending` is not ✅ until a re-take shows the finished state.
-4. **Screenshot review.** After every script, open every screenshot it saved with `Read` before giving any status: the returned values alone are not evidence. A step is ✅ only when both its values and its screenshot match «Очікується». A screenshot with a loader or skeleton, a half-transparent modal or overlay, an empty block where content is expected, or a state that differs from the returned values was taken too early: find the signal the step missed (wait for the content itself, add the loader to `loaders`), fix the script and re-take the step. The same picture after the fix means the app never finishes → ❌ with the cause. Screenshots from the interactive tools are reviewed the same way.
+4. **Screenshot review.** After every script, open every screenshot it saved with `Read` before giving any status: the returned values alone are not evidence. A step is ✅ only when both its values and its screenshot match «Очікується». A screenshot with a loader or skeleton, a half-transparent modal or overlay, an empty block where content is expected, or a state that differs from the returned values was taken too early: find the signal the step missed (wait for the content itself, add the loader to `loaders`), fix the script and re-take the step. The same picture after the fix means the app never finishes → ❌ with the cause. The arrow and the red frame are the script's own marks, not part of the app: check that they sit on the step's target; a step that typed, selected or uploaded and has no frame is missing `mark`. Screenshots from the interactive tools carry no marks and are reviewed the same way.
 5. **Script error or ❌.** Take `browser_snapshot` of the current state and continue this scenario step by step with the interactive tools (`browser_click`, `browser_fill_form`, …, `browser_take_screenshot` into the same numbering), then go to Step 5. A wrong selector is a script bug, not an app ❌: fix the selector and re-run the script from the failed step.
 6. **No fixed waits.** Never `browser_wait_for` with `time`, never `page.waitForTimeout` or polling loops with sleeps. Playwright actions already wait for their element. Wait for a concrete signal: `browser_wait_for` with `text` / `textGone`; in scripts `locator.waitFor()`, `page.waitForURL()`, `page.waitForResponse()`. Wait for the content the step checks, not for its container: a dialog, a section or a page shell appears before its data, and Playwright counts an element with `opacity: 0` as visible, so a wait for a dialog resolves on the first frame of its fade-in.
 7. **Console and network.** The errors the script returned, plus, for steps done with the interactive tools, `browser_console_messages` with `level: "error"` and `browser_network_requests` for the API host. Unexpected errors and 4xx/5xx go to the report even if every step passed; errors that come from code outside the task also go to `findings.md`.
 8. **Findings outside the scope.** Anything broken or suspicious you notice along the way that the task did not touch (a bug on a neighbouring page, a broken layout, a wrong text, a failing request of another feature, a pre-existing ❌ from Step 5) goes to `findings.md` right away, before the next step — with a screenshot in `findings/`. Do not fix it and do not skip it.
-9. **Visual tasks:** screenshot at the design's viewport, open it with `Read` and compare with the design material of the task; list every visible difference. Call it a visual comparison, not a pixel diff.
+9. **Visual tasks:** screenshot at the design's viewport without marks — the step does not call `mark` and ends its `act` with `await page.screencast.hideActions()` (the next step turns the arrow back on) — open it with `Read` and compare with the design material of the task; list every visible difference. Call it a visual comparison, not a pixel diff.
 10. **Responsive requirements:** repeat the relevant steps at 390×844 for mobile and 768×1024 for tablet when the task has it — `page.setViewportSize()` inside the script or `browser_resize` — then restore 1440×900.
 11. **Statuses:** ✅ — observed as expected; ❌ — observed differently; ⚠️ — not checked, with the reason (needs an email, a code the user did not send, a third-party service, data the environment lacks). Never mark ✅ what you did not see.
 12. `browser_close` when the run is finished.
 
-Script skeleton — replace the steps and extend `loaders`, keep `settle`, the error collection and the `finally`. A step is `act` (actions and the wait for its content) plus `read` (the values to return); `read` runs after `settle`, so the values and the screenshot show the same state:
+Script skeleton — replace the steps and extend `loaders`, keep `settle`, the marks (`showCursor`, `mark`, `drawFrame`), the error collection and the `finally`. A step is `act` (actions and the wait for its content) plus `read` (the values to return); `read` runs after `settle`, so the values and the screenshot show the same state:
 
 ```js
 async (page) => {
@@ -120,6 +121,21 @@ async (page) => {
   const onResponse = (r) => r.status() >= 400 && errors.push(`${r.status()} ${r.request().method()} ${r.url()}`);
   page.on('console', onConsole);
   page.on('response', onResponse);
+  // Draws an arrow at the point of the last click or hover; duration 0 adds no delay to actions.
+  const showCursor = () =>
+    page.screencast.showActions({ cursor: 'pointer', duration: 0, style: { title: 'display: none' } });
+  // Keyboard and form actions do not move the arrow, so their target gets a frame on the step's screenshot.
+  let target = null;
+  let frame = null;
+  const mark = (locator) => (target = locator);
+  const drawFrame = async () => {
+    if (!target || !(await target.count())) return;
+    const b = await target.first().boundingBox({ timeout: 1000 }).catch(() => null);
+    if (!b) return;
+    frame = await page.screencast.showOverlay(
+      `<div style="position:absolute;left:${b.x - 4}px;top:${b.y - 4}px;width:${b.width + 8}px;height:${b.height + 8}px;outline:3px solid #e11d48;border-radius:4px"></div>`,
+    );
+  };
   const loaders = page
     .locator(
       '[aria-busy="true"], [role="progressbar"]:not([aria-valuenow]), .animate-spin, [data-slot="skeleton"], [class*="skeleton" i], [class*="spinner" i], [class*="loader" i]',
@@ -159,9 +175,16 @@ async (page) => {
     page.screenshot({ path: `${dir}/${String(current.n).padStart(2, '0')}-${name}.png`, animations: 'disabled' });
   const step = async (n, slug, act, read) => {
     current = { n, slug };
+    // The arrow comes back only when this step clicks or hovers, so it never points at an earlier step's target.
+    await page.screencast.hideActions();
+    await showCursor();
+    await frame?.dispose();
+    frame = null;
+    target = null;
     await act();
     const pending = await settle();
     const actual = await read();
+    await drawFrame();
     await shot(slug);
     steps.push({ n, url: page.url(), actual, pending });
   };
@@ -180,7 +203,9 @@ async (page) => {
       'search',
       async () => {
         const response = page.waitForResponse((r) => r.url().includes('search=abc'), { timeout: 10000 });
-        await page.getByPlaceholder('Search').fill('abc');
+        const search = page.getByPlaceholder('Search');
+        await search.fill('abc');
+        mark(search);
         await response;
       },
       async () => ({ rows: await page.getByRole('row').allInnerTexts() }),
@@ -189,6 +214,8 @@ async (page) => {
     await shot(`${current.slug}-fail`).catch(() => {});
     steps.push({ n: current.n, url: page.url(), error: e.message.split('\n')[0] });
   } finally {
+    await frame?.dispose().catch(() => {});
+    await page.screencast.hideActions().catch(() => {});
     page.off('console', onConsole);
     page.off('response', onResponse);
   }

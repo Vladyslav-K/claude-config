@@ -55,13 +55,13 @@ The exact paths differ per project. Confirm explicitly:
 
 1. **Where do the handoff HTML files live?** Anywhere — could be `public/...`, `docs/...`, `client-handoff/...`, a separate folder outside the repo, etc. Call this `BUNDLE_ROOT`.
 2. **Does the bundle have a sub-directory structure for pages?** Many bundles organize pages under `<bundle>/pages/<persona>/*.html`. Some are flat. If nested, note the sub-root.
-3. **What's the target output directory inside the app?** Where should the ported `page.tsx` files live? Could be `src/app/demo/`, `app/(internal)/preview/`, `src/app/showcase/`, etc. Call this `OUT_ROOT`.
+3. **What's the target output directory inside the app?** Where should the ported `page.tsx` files live? Could be `src/app/demo/`, `app/(internal)/preview/`, `src/app/showcase/`, etc. Some projects keep demos in a separate local-only Next app (e.g. `demos/` with its own `app/`, `public/` and dev script) — then `OUT_ROOT` lives inside it, e.g. `demos/app/demo-v14/`. Check the project memory (`.claude/CLAUDE.md`) first. Call this `OUT_ROOT`.
 4. **What's the route prefix for the URLs?** Usually matches the output directory's URL — `/demo/`, `/preview/`, `/showcase/`. Call this `ROUTE_PREFIX`.
 5. **Are there multiple personas / roles?** (e.g. `executive`, `admin`, `hr`, `manager`) — each persona usually has its own `SITE_ROUTES` and `ProductSidebar` variant. List them.
 6. **Wrapper class name for isolation?** Default is `.demo-app`. If the project already uses `.demo-app` for something else, pick a non-clashing name (e.g. `.handoff-app`, `.preview-scope`). Call this `WRAPPER_CLASS`.
 7. **Fonts strategy:** reuse production fonts via CSS-variable cascade (recommended — one font pipeline, no faux-bold artifacts), or decode subset woff2 from the bundle? If reusing, get the production CSS variable names (e.g. `--font-archivo`, `--font-roobert`).
 8. **Any debug overlays to skip?** Common pattern: `TweaksPanel` for live-tweaking design tokens — not part of the product surface. The user names these or you discover them in inventory.
-9. **Where to put images (logos) extracted from the bundle?** Default `public/<scope>-images/`. The path must be web-accessible so demo pages can `<img src="...">` reference it.
+9. **Where to put images (logos) extracted from the bundle?** Default `public/<scope>-images/` of the app that serves `OUT_ROOT` (for a separate demo app — its own `public/`, e.g. `demos/public/<scope>-images/`). The path must be web-accessible so demo pages can `<img src="...">` reference it.
 10. **TypeScript stance for ported code:** exclude the demo output from `tsconfig` + ESLint (recommended), or fully type it?
 11. **Final cleanup:** delete the source bundle once done, or keep as backup?
 
@@ -72,7 +72,7 @@ Capture these as variables. Throughout this document, the placeholders are:
 | `${SKILL_DIR}` | Absolute path to this skill's folder | `~/.claude/skills/claude-design-unpacker-skill` |
 | `${BUNDLE_ROOT}` | Bundle source folder | `public/demo-handoff/`, `/Users/me/client-bundles/v2/` |
 | `${PAGES_SUBROOT}` | Sub-path inside bundle for pages | `pages/`, `` (empty if flat) |
-| `${OUT_ROOT}` | App folder for ported page.tsx files | `src/app/demo/`, `app/(internal)/preview/` |
+| `${OUT_ROOT}` | App folder for ported page.tsx files | `src/app/demo/`, `app/(internal)/preview/`, `demos/app/demo-v14/` |
 | `${ROUTE_PREFIX}` | URL prefix | `/demo/`, `/preview/` |
 | `${WRAPPER_CLASS}` | CSS wrapper class | `.demo-app`, `.handoff-app` |
 | `${COMPONENTS_IMPORT}` | TS-path-alias root for kit imports | `@/app/demo/_components`, `@/showcase/_components` |
@@ -172,6 +172,8 @@ Also exclude the output path from `tsconfig.json`:
 
 And from your ESLint config's `globalIgnores`.
 
+If `${OUT_ROOT}` lives in a separate demo app whose folder is already excluded as a whole (e.g. `demos`), these excludes already cover it — do not add per-space entries.
+
 ### Phase 2 — Port shared kits
 
 ```bash
@@ -244,7 +246,8 @@ python3 ${SKILL_DIR}/scripts/verify_css.py --root ${OUT_ROOT} \
 # Whatever the project uses — adapt to its package.json scripts:
 pnpm run format-and-check   # or: pnpm format && pnpm lint && pnpm typecheck
 
-# Smoke test all routes
+# Smoke test all routes (on the dev server that serves ${OUT_ROOT};
+# for a separate demo app that is its own script, e.g. `pnpm dev:demos`)
 python3 ${SKILL_DIR}/scripts/smoke_test.py --base-url http://localhost:3000 --pages-root ${OUT_ROOT}
 ```
 

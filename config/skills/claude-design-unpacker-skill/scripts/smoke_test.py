@@ -10,12 +10,22 @@ Usage:
 import argparse, subprocess, glob
 
 
+def default_app_root(pages_root):
+    # demos/app/demo-v14 → demos/app; falls back to src/app
+    parts = pages_root.rstrip('/').split('/')
+    if 'app' in parts:
+        last = len(parts) - 1 - parts[::-1].index('app')
+        return '/'.join(parts[: last + 1])
+    return 'src/app'
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--base-url', default='http://localhost:3000')
-    ap.add_argument('--pages-root', required=True, help='e.g. src/app/demo/')
-    ap.add_argument('--app-root', default='src/app', help='used to compute URL path')
+    ap.add_argument('--pages-root', required=True, help='e.g. src/app/demo/ or demos/app/demo-v14/')
+    ap.add_argument('--app-root', default=None, help='used to compute URL path; defaults to the pages-root prefix ending in /app')
     args = ap.parse_args()
+    app_root = (args.app_root or default_app_root(args.pages_root)).rstrip('/')
 
     pages = sorted(glob.glob(f'{args.pages_root.rstrip("/")}/**/page.tsx', recursive=True))
     print(f'Found {len(pages)} pages\n')
@@ -23,7 +33,7 @@ def main():
     ok, fail = [], []
     for p in pages:
         # src/app/demo/foo/bar/page.tsx → /demo/foo/bar
-        url_path = p.replace(args.app_root.rstrip('/'), '').replace('/page.tsx', '')
+        url_path = p.replace(app_root, '', 1).replace('/page.tsx', '')
         if '[' in url_path:  # dynamic-route page — skip
             continue
         url = args.base_url.rstrip('/') + url_path

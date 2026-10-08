@@ -44,11 +44,22 @@ def inline(text):
     text = re.sub(r'\x01(\d+)\x01', lambda m: imgs[int(m.group(1))], text)
     return text
 
+IMG_LINE = re.compile(r'^\s*!\[[^\]]*\]\([^)]+\)\s*$')
 body, para, items, table = [], [], [], []
+in_section = False
 def flush():
     global para, items, table
     if para:
-        body.append('<p>' + '<br>'.join(inline(l) for l in para) + '</p>'); para = []
+        # A line that holds only an image becomes a figure outside <p>, so the text before it stays a valid paragraph.
+        text = []
+        for l in para + [None]:
+            if l is not None and not IMG_LINE.match(l):
+                text.append(l); continue
+            if text:
+                body.append('<p>' + '<br>'.join(inline(t) for t in text) + '</p>'); text = []
+            if l is not None:
+                body.append(inline(l.strip()))
+        para = []
     if items:
         body.append('<ul>' + ''.join(f'<li>{inline(i)}</li>' for i in items) + '</ul>'); items = []
     if table:
@@ -61,7 +72,13 @@ for raw in lines:
     line = raw.rstrip()
     m = re.match(r'^(#{1,6})\s+(.*)$', line)
     if m:
-        flush(); n = len(m.group(1)); body.append(f'<h{n}>{inline(m.group(2))}</h{n}>'); continue
+        flush(); n = len(m.group(1))
+        # Every ### block (a step or a finding) is printed as one unit, so its text and screenshots share a page.
+        if n <= 3 and in_section:
+            body.append('</section>'); in_section = False
+        if n == 3:
+            body.append('<section class="block">'); in_section = True
+        body.append(f'<h{n}>{inline(m.group(2))}</h{n}>'); continue
     if line.startswith('|'):
         if para or items: flush()
         table.append(line); continue
@@ -76,6 +93,8 @@ for raw in lines:
     if items: flush()
     para.append(line)
 flush()
+if in_section:
+    body.append('</section>')
 
 css = '''
 @page { size: A4; margin: 14mm 12mm; }
@@ -87,7 +106,8 @@ h4 { font-size: 11pt; margin-top: 14px; break-after: avoid; }
 code { font-family: "DejaVu Sans Mono", monospace; font-size: 9pt; background: #f1f5f9; padding: 0 3px; border-radius: 3px; word-break: break-word; }
 figure { margin: 8px 0 12px; break-inside: avoid; }
 figure img { display: block; border: 1px solid #cbd5e1; border-radius: 4px; }
-figure.wide img { width: 100%; }
+figure.wide img { max-width: 100%; max-height: 200mm; }
+section.block { break-inside: avoid; }
 figure.narrow img { width: 45%; }
 figcaption { font-size: 8pt; color: #64748b; margin-top: 2px; }
 table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 9.5pt; }

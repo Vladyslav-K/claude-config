@@ -27,17 +27,19 @@ Run a test scenario in the real app, record what actually happened, fix what is 
 ├── accounts.md                  # Test accounts and created entities (user + you)
 ├── .auth/<account-id>.json      # Saved browser sessions, one per account
 ├── _artifacts/                  # MCP output dir (files saved without an explicit name)
-└── DD-MM-YYYY-<slug>/           # One folder per tested task / QA pass / ad-hoc test
-    ├── report.md
-    ├── report.pdf               # PDF copy of report.md with embedded screenshots (Step 6)
-    ├── findings.md              # Bugs and findings outside the task's scope
-    ├── findings.pdf             # PDF copy of findings.md (Step 6)
-    ├── findings/NN-<slug>.png   # Screenshots for findings.md
-    └── screens/01-<step>.png
+└── MM-YYYY/                     # Month folder: groups the runs created in that month
+    └── DD-MM-YYYY-<slug>/       # One folder per tested task / QA pass / ad-hoc test
+        ├── report.md
+        ├── report.pdf           # PDF copy of report.md with embedded screenshots (Step 6)
+        ├── findings.md          # Bugs and findings outside the task's scope
+        ├── findings.pdf         # PDF copy of findings.md (Step 6)
+        ├── findings/NN-<slug>.png  # Screenshots for findings.md
+        └── screens/01-<step>.png
 ```
 
+- **`<run>`** everywhere in this skill is the path `MM-YYYY/DD-MM-YYYY-<slug>` relative to `.project-meta/qa/`, e.g. `10-2026/05-10-2026-qa-feedback-29-09-fixes`. The month folder is the month of the run folder's date (`05-10-2026` → `10-2026`).
 - **Slug:** lowercase English kebab-case. QA pass of `/run-tasks` → `qa-<goal-summary>`; ad-hoc → `<short-summary>`. The date is the day the folder was created, in DD-MM-YYYY (`currentDate` `2026-09-25` → `25-09-2026`); every other date in this skill uses the same format.
-- **Re-run** of the same QA pass or ad-hoc test (after a fix, in testing mode, on another day) reuses its existing folder: empty `screens/` first, then write the new run; `report.md` describes the latest run and keeps one line per previous run in «Історія прогонів». `findings.md` and `findings/` are never emptied: new findings are appended (see «findings.md»). The PDFs are made again from the updated `.md` files.
+- **Re-run** of the same QA pass or ad-hoc test (after a fix, in testing mode, on another day — even in another month) reuses its existing folder where it already lies: empty `screens/` first, then write the new run; `report.md` describes the latest run and keeps one line per previous run in «Історія прогонів». `findings.md` and `findings/` are never emptied: new findings are appended (see «findings.md»). The PDFs are made again from the updated `.md` files.
 - `.project-meta/` is in the user's global gitignore on the host. `.auth/` and `accounts.md` hold live credentials and tokens, and screenshots show real data of the environment: never copy them anywhere else. The PDFs embed the screenshots and carry the same data.
 
 ---
@@ -250,7 +252,7 @@ The scripts are in the `scripts/` folder of this skill (`<skill dir>` — the ba
    No `PIL`, no `playwright-core`, or no `DejaVu Sans` / `Noto Color Emoji` fonts → no PDF: name what is missing in the output. Never substitute another tool or install a package without the user's ok.
 2. **Convert and print:**
    ```bash
-   RUN=<project root>/.project-meta/qa/<run>; TMP=/tmp/qapdf-<run>
+   RUN=<project root>/.project-meta/qa/<run>; TMP=/tmp/qapdf-<DD-MM-YYYY-slug>
    mkdir -p "$TMP"
    python3 <skill dir>/scripts/md2html.py "$RUN/report.md" "$TMP/report.html" "QA report"
    python3 <skill dir>/scripts/md2html.py "$RUN/findings.md" "$TMP/findings.html" "QA findings"

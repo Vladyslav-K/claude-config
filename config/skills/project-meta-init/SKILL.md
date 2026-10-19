@@ -23,7 +23,8 @@ Create the folder structure used by `/sort-and-plan`, `/plan-tasks`, `/run-tasks
 ├── qa/                      # Browser tests (/browser-test)
 │   ├── accounts.md          # Test accounts: the user's base ones + everything the tests create
 │   ├── .auth/               # Saved browser sessions per account
-│   └── DD-MM-YYYY-<slug>/   # One test run: report.md, screens/
+│   └── MM-YYYY/             # Month folder
+│       └── DD-MM-YYYY-<slug>/  # One test run: report.md, screens/
 └── files/                   # Markdown reports
 ```
 

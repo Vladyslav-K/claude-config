@@ -15,7 +15,7 @@ Create the folder structure used by `/sort-and-plan`, `/plan-tasks`, `/run-tasks
 │   ├── todo/                # Tasks fully ready to be executed
 │   ├── blocked/             # Tasks with a blocker; the reason is in the `## Blocked` block at the bottom of the task
 │   ├── waiting/             # Postponed by the user; no skill reads or touches this folder
-│   ├── done/                # Finished tasks, grouped by completion date: done/DD-MM-YYYY/
+│   ├── done/                # Finished tasks, grouped by completion date: done/MM-YYYY/DD-MM-YYYY/
 │   ├── screenshots/         # Shared design docs and screenshots
 │   ├── tasks.md             # Current plan (created by /plan-tasks)
 │   └── status.md            # Current plan statuses (created by /plan-tasks)
@@ -45,7 +45,7 @@ After creating, report what was created and remind usage:
 - Put new tasks into `tasks/todo/` (a `.md` file or a task folder), shared screenshots into `tasks/screenshots/`, postponed tasks into `tasks/waiting/`
 - `/sort-and-plan` — sort `todo/` and `blocked/` (ready / blocked / already done), then plan the ready tasks
 - `/plan-tasks` — plan the tasks from `todo/` without sorting
-- `/run-tasks` — execute planned tasks one by one, each one tested in the browser; finished tasks move to `done/DD-MM-YYYY/`
+- `/run-tasks` — execute planned tasks one by one, each one tested in the browser; finished tasks move to `done/MM-YYYY/DD-MM-YYYY/`
 - `qa/accounts.md` — put the base test accounts there (for example, an admin who can create companies); tests append every account they create
 - `/sync-swagger` — put `swagger.json` into `swagger/`; add `swagger-old.json` (the previous, already synced snapshot) to switch the skill into diff mode
 

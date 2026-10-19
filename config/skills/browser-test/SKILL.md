@@ -329,7 +329,7 @@ Ukrainian. Steps are written for a reader who does not open the code; UI texts, 
 _Дата: DD-MM-YYYY · Прогін N_
 
 **Результат:** ✅ 7 · ❌ 1 · ⚠️ 2
-**Сценарій:** `done/DD-MM-YYYY/qa.md` | ad-hoc (нижче)
+**Сценарій:** `done/MM-YYYY/DD-MM-YYYY/qa.md` | ad-hoc (нижче)
 **Середовище:** http://localhost:3000 · API <хост> · 1440×900
 **Акаунти:** admin, employee-01
 

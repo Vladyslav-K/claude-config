@@ -123,9 +123,7 @@
       "TaskCreate",
       "TaskUpdate",
       "TaskList",
-      "TaskGet",
-      "TaskOutput",
-      "TaskStop"
+      "TaskGet"
     ],
     "ask": [
       "Bash(rm:*)",
@@ -173,7 +171,7 @@
       "effortLevel": "high"
     },
     "claude-opus-5-5": {
-      "effortLevel": "high"
+      "effortLevel": "xhigh"
     }
   },
   "awaySummaryEnabled": false,

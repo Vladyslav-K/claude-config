@@ -128,7 +128,7 @@
     "ask": [
       "Read(./.env)",
       "Read(./.env.*)",
-      "Bash(git pull:*)",
+      "Bash(git pull:*)"
     ],
     "defaultMode": "auto"
   },

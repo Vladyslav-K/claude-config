@@ -6,15 +6,16 @@ This document is the oracle: what the scan **must** report, what it **must not**
 candidates are decoys that only triage (not the scanner) is expected to clear.
 
 The scan must be **stable across re-runs** — running it twice yields identical counts
-(46 candidates in 15 scanned files both times). It excludes its own `.security-audit/`
+(57 candidates in 22 scanned files both times). It excludes its own `.security-audit/`
 output; a second run that grows is the regression this fixture exists to catch.
 
-## Expected candidate counts (46 total)
+## Expected candidate counts (57 total)
 
 | category | count | notes |
 |---|---|---|
 | open-redirect | 9 | real: `?next=` router.push, `navigate(params.get(…))`, `history.push(target)`, `document.location =` (all `dynamic`); decoys: `/home`, ternary-of-literals, object-form `{ pathname: '/checkout' }`, `navigate('/dashboard')` (all `literal`), bare `pathname` (`template`) |
 | xss-dangerous-html | 6 | `dangerouslySetInnerHTML` raw + sanitized decoy (tagged `likelySanitized`) + `.mdx` copy, `srcDoc`, Svelte `{@html}`, Angular `bypassSecurityTrustHtml` |
+| cspt | 5 | all in `src/api/decks.ts`: `.get(`…`)`, the multi-line `.put(` with the path on its own line, `url:` in a request config, `useSWR(`…`)`, plus the `encodeURIComponent(id)` decoy (tagged `likelyEncoded`) |
 | secrets-hardcoded | 3 | `sk_live_…`, `sk-proj-…`, plus the `apiKey: 'department'` decoy (tagged `likelyFalsePositive`) |
 | server-injection | 3 | all `serverHint: true` |
 | dom-xss-source | 3 | `document.cookie`, `location.hash`, `decodeURIComponent` |
@@ -26,21 +27,42 @@ output; a second run that grows is the regression this fixture exists to catch.
 | tabnabbing | 2 | `target="_blank"`, `window.open` |
 | cookie-clientside | 2 | js-cookie `Cookies.set` **and** `document.cookie =` |
 | graphql-server | 2 | `new ApolloServer` + `introspection: true` |
+| iac-risk | 2 | `infra/lib/web.ts`: `Peer.anyIpv4()` on port 22 and `resources: ['*']` |
+| dev-surface | 2 | project check: `app/admin/dev-tools/page.tsx` (no `envGated`) + the `app/admin/debug-panel/page.tsx` decoy (tagged `envGated`) |
 | xss-code-exec | 1 | `eval` only — callback timers excluded |
 | prototype-pollution | 1 | unguarded `deepMerge` |
 | xss-url-protocol | 1 | `javascript:void(0)` decoy |
 | redos | 1 | the `/^([a-z0-9]+)+@…/` regex only |
 | sdk-browser-key | 1 | `dangerouslyAllowBrowser: true` in `src/llm-client.ts` |
 | headers-missing | 1 | project check: fixture `next.config.js` has no `headers()` and no middleware |
+| auth-callback-unbound | 1 | project check: `app/sso/callback/page.tsx`, no state/PKCE anywhere |
+| logout-cross-tab | 1 | project check: anchored at `logout()` in `src/auth.ts`, no `crossTab` listeners |
 
 `env-tracked` must be **absent**: the fixture is deliberately not a git repository, so the
 check skips silently. In a real repo with a tracked `.env*` file it emits one `low` finding
 per file (`.env.example`/`.sample`/`.template` excluded).
 
+`secrets-git-history` must be **absent** too: it runs only with `--git-history` (or
+`--only secrets-git-history`), and on this non-git fixture it prints a `[warn]` and adds nothing.
+Check it by hand on a throwaway repo: a secret committed and then deleted, and one on a side
+branch, must both appear with the `commit` that added them and the right `line`.
+
 ## Regression guards (the bugs these patterns were added to catch)
 
-- **No self-ingestion.** Two consecutive runs report 46 both times. If the second run is
+- **No self-ingestion.** Two consecutive runs report 57 both times. If the second run is
   larger, `.security-audit/` is being scanned again.
+- **New patterns don't touch the old files.** `cspt`, `iac-risk`, `auth-callback-unbound`,
+  `logout-cross-tab` and `dev-surface` hit only the files planted for them. A hit in any other
+  fixture file means a pattern got too broad.
+- **`iac-risk` stays on IaC paths.** The `'0.0.0.0/0'` constant in `src/decoys.ts` must **not**
+  be flagged; the same pattern in `infra/lib/web.ts` would be.
+- **`auth-callback-unbound` matches route names, not words.** `src/hooks/useCallbackRef.ts`
+  must **not** be flagged — "callback" has to end a path segment or a file name.
+- **`cspt` catches the multi-line call.** The path on its own line inside `apiClient.put(` must
+  appear; that's the service style the pattern exists for. The console shows
+  `[1 files, 1 likely-encoded]` on cspt.
+- **`envGated` tagging:** the `debug-panel` page carries it (its own `NODE_ENV` check); the
+  `dev-tools` page must **not**. The console shows `[1 env-gated]` on dev-surface.
 - **`redos` = 1, not 3.** The plain arithmetic in `src/merge.js` `scale()`
   (`(i + 1) * 2`, `(factor + 1) * doubled`) must **not** be flagged — only the regex literal.
 - **`actions.ts` has `serverHint: true`** via its `'use server'` directive, even though its
@@ -83,8 +105,9 @@ per file (`.env.example`/`.sample`/`.template` excluded).
   `.env` Stripe line shared by `secrets-hardcoded` and `secrets-env-public`.
 - **`headers-missing` = 1** — emitted from reading the fixture's `next.config.js`, not from
   an rg pattern. If a `headers(` / `headers:` token is added to the config, it must disappear.
-- **`totals.filesScanned` = 15** and the console prints `46 in 15 scanned files` — the file
-  counter runs over the same include/exclude globs as the categories.
+- **`totals.filesScanned` = 22** and the console prints `57 in 22 scanned files` — the file
+  counter runs over the same include/exclude globs as the categories (plus the IaC-only globs
+  on IaC paths).
 
 ## Decoys — scanner flags them, triage must clear them
 
@@ -101,3 +124,7 @@ is exercised; the scanner is *supposed* to surface them, and a human/LLM triage 
   at the point of insertion (§1) — pre-tagged `likelySanitized`, triage confirms the call
   actually wraps the sink value.
 - `xss-url-protocol` → `href="javascript:void(0)"` is a static no-op, not user-controlled (§3).
+- `cspt` → `encodeURIComponent(id)` in `deleteDeck` encodes the segment (§19) — pre-tagged
+  `likelyEncoded`; triage still checks that `.`/`..` are rejected.
+- `dev-surface` → `app/admin/debug-panel/page.tsx` calls `notFound()` in production (§20) —
+  pre-tagged `envGated`.

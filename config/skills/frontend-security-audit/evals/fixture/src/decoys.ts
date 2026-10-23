@@ -31,3 +31,6 @@ export function defer(fn: () => void) {
   setTimeout(fn, 300);
   setTimeout(() => fn(), 300);
 }
+
+// must NOT be flagged: iac-risk runs only on infrastructure paths
+export const ANY_IPV4_CIDR = '0.0.0.0/0';

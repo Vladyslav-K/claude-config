@@ -12,19 +12,32 @@
 // context. The model only spends tokens on triage and fixes, where judgment matters.
 //
 // Usage:
-//   node scan.mjs [root] [--out findings.json] [--exclude <glob>]... [--only <cat>] [--quiet]
+//   node scan.mjs [root] [--out findings.json] [--exclude <glob>]... [--only <cat>] [--git-history] [--quiet]
 //
 // Defaults: root = "." , out = "<root>/.security-audit/findings.json"
 // Requires: ripgrep (`rg`) on PATH. Install: `brew install ripgrep` / `apt install ripgrep`.
 //
-// Besides the rg categories it runs deterministic project checks for "absence" findings
-// (headers-missing, env-tracked) and tags findings with triage accelerators: `argKind` on
-// open-redirect, `likelyFalsePositive` on low-entropy secrets, `likelySanitized` on HTML
-// sinks with a same-line sanitizer call, `alsoIn` when one line trips several categories.
+// Besides the rg categories it runs deterministic project checks for "absence" and logic
+// findings (headers-missing, env-tracked, auth-callback-unbound, logout-cross-tab, dev-surface)
+// and tags findings with triage accelerators: `argKind` on open-redirect, `likelyFalsePositive`
+// on low-entropy secrets, `likelySanitized` on HTML sinks with a same-line sanitizer call,
+// `likelyEncoded` on API paths with a same-line encoder, `envGated` on dev surfaces,
+// `likelyHandled` on cross-tab logout, `alsoIn` when one line trips several categories.
+// `--git-history` adds secrets-git-history: the secret patterns over every commit on every ref.
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { basename, dirname, resolve, join } from 'node:path';
+import { basename, dirname, relative, resolve, join } from 'node:path';
+
+// iac-risk runs only on infrastructure code: IaC-named directories, Terraform/Docker/CI files,
+// and every directory that holds a cdk.json / Pulumi.yaml / serverless.yml / *.tf marker.
+const IAC_DIR =
+  /(^|\/)(infra|infrastructure|iac|cdk|terraform|pulumi|deploy|deployment|\.github\/workflows|\.circleci)\//i;
+const IAC_FILE =
+  /(^|\/)(Dockerfile[^/]*|[^/]+\.dockerfile|docker-compose[^/]*\.ya?ml|serverless\.ya?ml|\.gitlab-ci\.ya?ml|[^/]+\.(tf|tfvars|hcl))$/i;
+const IAC_MARKER_GLOBS = ['cdk.json', 'Pulumi.y*ml', 'serverless.y*ml', '*.tf'];
+// Terraform, Docker and shell files carry IaC but sit outside the frontend globs.
+const IAC_EXTRA_GLOBS = ['*.{tf,tfvars,hcl,sh}', 'Dockerfile*', '*.dockerfile'];
 
 // Each category is a cluster of related patterns plus a default severity and a one-line
 // rationale. Patterns use Rust regex syntax (ripgrep) — NO lookahead/lookbehind/backrefs.
@@ -257,6 +270,40 @@ const CATEGORIES = [
       'introspection\\s*:\\s*true',
     ],
   },
+  {
+    id: 'cspt',
+    severity: 'low',
+    why: 'URL-derived values interpolated into API paths without encoding can retarget authenticated requests (client-side path traversal).',
+    patterns: [
+      // Multi-line calls put the path template on its own line.
+      '^\\s*`/[^`]*\\$\\{',
+      '\\.(get|post|put|patch|delete|request)\\s*(<[^(]*>)?\\s*\\(\\s*`[^`]*\\$\\{',
+      'fetch\\s*\\(\\s*`[^`]*\\$\\{',
+      '\\buseSWR\\w*\\s*\\(\\s*`[^`]*\\$\\{',
+      // Request config objects: axios({ url }), RTK Query ({ url, method }).
+      '\\burl\\s*:\\s*`[^`]*\\$\\{',
+    ],
+  },
+  {
+    id: 'iac-risk',
+    severity: 'medium',
+    why: 'Infrastructure code that opens admin ports to the internet, grants wildcard IAM, or pipes remote scripts into a shell.',
+    iacOnly: true,
+    patterns: [
+      'Peer\\.anyIpv[46]\\(\\)',
+      '0\\.0\\.0\\.0/0',
+      '[\'"]::/0[\'"]',
+      'resources\\s*:\\s*\\[\\s*[\'"]\\*[\'"]',
+      '"Resource"\\s*:\\s*"\\*"',
+      'actions\\s*:\\s*\\[\\s*[\'"]([a-z0-9-]+:)?\\*[\'"]',
+      '"Action"\\s*:\\s*"([a-z0-9-]+:)?\\*"',
+      '(curl|wget)[^|\\n]*\\|\\s*(sudo\\s+)?(ba)?sh\\b',
+      '(npm (i|install)|pnpm (add|i|install))\\s+(-g|--global)\\b',
+      'yarn global add ',
+      'http_tokens\\s*=\\s*"optional"',
+      '\\bpull_request_target\\b',
+    ],
+  },
 ];
 
 // Paths that strongly hint server-side execution (where injection/SSRF actually bite).
@@ -302,9 +349,10 @@ function classifyNavArg(line) {
   return 'dynamic';
 }
 
-// Deterministic project-level checks for "absence" findings grep can't express. They emit
-// the same finding shape as the rg categories, so slices, summaries and triage treat them
-// uniformly. Catalog guidance: §21 (security headers), §20 (secrets in git).
+// Deterministic project-level checks for "absence" and logic findings grep can't express.
+// They emit the same finding shape as the rg categories, so slices, summaries and triage
+// treat them uniformly. Catalog guidance: §24 (headers, auth flows, session lifecycle),
+// §23 (secrets in git), §20 (dev surfaces).
 const PROJECT_CHECKS = [
   {
     id: 'headers-missing',
@@ -318,7 +366,88 @@ const PROJECT_CHECKS = [
     why: 'Env files tracked in git: even if current values are public, the first real secret added to the file gets committed forever.',
     run: checkEnvTracked,
   },
+  {
+    id: 'auth-callback-unbound',
+    severity: 'medium',
+    why: "An auth callback that exchanges a code from the URL without state/PKCE lets an attacker sign the victim into the attacker's account (login CSRF).",
+    run: checkAuthCallbackUnbound,
+  },
+  {
+    id: 'logout-cross-tab',
+    severity: 'low',
+    why: 'Logout that clears only the current tab leaves other open tabs signed in until the access token expires.',
+    run: checkLogoutCrossTab,
+  },
+  {
+    id: 'dev-surface',
+    severity: 'low',
+    why: 'Dev/debug routes, menu items and /api/dev calls shipped in production builds widen the attack surface; destructive dev actions must be env-gated.',
+    run: checkDevSurface,
+  },
 ];
+
+const HISTORY_CHECK = {
+  id: 'secrets-git-history',
+  severity: 'critical',
+  why: 'A secret added in any commit stays in history after removal: rotate it if real.',
+};
+
+// Files that can define routes, components or services, as opposed to data and config.
+const CODE_FILE = /\.(tsx?|jsx?|mts|cts|mjs|cjs|vue|svelte|astro)$/i;
+// Tests, mocks and stories never ship to users.
+const TEST_FILE =
+  /(^|\/)(__tests__|__mocks__|e2e|tests?|cypress|playwright)\/|\.(test|spec|stories)\.\w+$/i;
+
+// A path segment or file name ending in "callback": sso/callback/page.tsx, OAuthCallback.tsx.
+const CALLBACK_PATH = /(^|\/)[\w-]*callback(\/|\.)/i;
+const CALLBACK_ROUTE_PATTERNS = ['(?i)\\bpath\\s*[:=]\\s*\\{?\\s*[\'"`][^\'"`]*callback'];
+// Any of these anywhere in the code means some flow is bound to the browser that started it.
+const AUTH_BINDING_PATTERNS = [
+  '(?i)code[_-]?verifier',
+  '(?i)code[_-]?challenge',
+  '(?i)\\bpkce',
+  '(?i)oauth[_-]?state',
+  '\\.get\\(\\s*[\'"`]state[\'"`]\\s*\\)',
+];
+// Auth SDKs that may bind the flow and sync sessions across tabs themselves: triage reads
+// their config instead of looking for hand-written code.
+const AUTH_LIBRARIES = [
+  'next-auth',
+  '@auth/core',
+  '@auth0/auth0-react',
+  '@auth0/auth0-spa-js',
+  '@auth0/nextjs-auth0',
+  '@azure/msal-browser',
+  '@clerk/clerk-react',
+  '@clerk/nextjs',
+  '@okta/okta-auth-js',
+  '@supabase/supabase-js',
+  '@workos-inc/authkit-nextjs',
+  'aws-amplify',
+  'better-auth',
+  'firebase',
+  'keycloak-js',
+  'oidc-client-ts',
+];
+
+const LOGOUT_PATTERNS = ['(?i)\\b(log|sign)[_-]?out'];
+const LOGOUT_DEFINITION =
+  /(function\s+|(const|let|var)\s+|^\s*(export\s+)?(async\s+)?)(log|sign)[_-]?out\w*\s*[=(]/i;
+const CROSS_TAB_PATTERNS = [
+  'BroadcastChannel',
+  'addEventListener\\s*\\(\\s*[\'"`]storage[\'"`]',
+  '\\bonstorage\\b',
+];
+const SESSION_END_WORDS = /\b(log|sign)[_-]?out|(clear|end|forget|reset)[_-]?session/i;
+
+const DEV_PATH = /(^|\/)(dev-tools|debug|playground|sandbox|seed|simulate|__dev)[^/]*(\/|$)/i;
+const DEV_CONTENT_PATTERNS = [
+  '[\'"`]/api/(dev|debug|test|internal)/',
+  '(?i)\\b(href|to|path)\\s*[:=]\\s*\\{?\\s*[\'"`][^\'"`]*/(dev-tools|debug|playground|sandbox|seed|simulate|__dev)',
+];
+const ENV_GATE =
+  /(NODE_ENV|APP_ENV|VERCEL_ENV)\b|\bis(Dev|Prod)\w*|import\.meta\.env\.(DEV|PROD|MODE)\b/;
+const LAYOUT_FILES = ['layout.tsx', 'layout.jsx', 'layout.ts', 'layout.js'];
 
 // The scanned root is often a subdir (src/); accept a parent as the project dir only when
 // it actually holds package.json, so the walk never drifts into unrelated directories.
@@ -393,6 +522,146 @@ function checkEnvTracked(root) {
     }));
 }
 
+function relPath(root, file) {
+  return relative(root, file).replace(/\\/g, '/');
+}
+
+function readText(file) {
+  try {
+    return readFileSync(file, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+function detectAuthLibraries(projectDir) {
+  let pkg;
+  try {
+    pkg = JSON.parse(readFileSync(join(projectDir, 'package.json'), 'utf8'));
+  } catch {
+    return [];
+  }
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+  return AUTH_LIBRARIES.filter((name) => name in deps);
+}
+
+function checkAuthCallbackUnbound(root, ctx) {
+  const locations = new Map();
+  for (const file of listFiles(root, ctx.excludes) ?? []) {
+    const rel = relPath(root, file);
+    if (!CODE_FILE.test(rel) || TEST_FILE.test(rel) || !CALLBACK_PATH.test(rel)) continue;
+    // React's own hook name, not a route.
+    if (/(^|\/)use-?callback\.\w+$/i.test(rel)) continue;
+    locations.set(file, { line: 1, match: 'callback route path' });
+  }
+  for (const m of rgMatches(root, CALLBACK_ROUTE_PATTERNS, ctx.excludes).matches) {
+    if (!m.file || !CODE_FILE.test(m.file) || locations.has(m.file)) continue;
+    if (TEST_FILE.test(relPath(root, m.file))) continue;
+    locations.set(m.file, { line: m.line, match: m.matched });
+  }
+  if (locations.size === 0) return [];
+  // API docs and env files may name PKCE fields the frontend never sends; only code and
+  // package.json (a PKCE helper dependency) count as binding.
+  const bound = rgMatches(root, AUTH_BINDING_PATTERNS, ctx.excludes).matches.some(
+    (m) => m.file && (CODE_FILE.test(m.file) || basename(m.file) === 'package.json'),
+  );
+  if (bound) return [];
+  return [...locations].map(([file, loc]) => {
+    const finding = {
+      file,
+      line: loc.line,
+      text: 'auth callback route, and no state/PKCE handling anywhere in the code — verify the flow is bound to the browser that started it',
+      match: loc.match,
+      serverHint: false,
+    };
+    if (ctx.authLibraries.length > 0) finding.authLibrary = ctx.authLibraries.join(', ');
+    return finding;
+  });
+}
+
+function checkLogoutCrossTab(root, ctx) {
+  const logouts = rgMatches(root, LOGOUT_PATTERNS, ctx.excludes).matches.filter(
+    (m) => m.file && CODE_FILE.test(m.file) && !TEST_FILE.test(relPath(root, m.file)),
+  );
+  if (logouts.length === 0) return [];
+  const anchor = logouts.find((m) => LOGOUT_DEFINITION.test(m.raw)) ?? logouts[0];
+  const listeners = rgMatches(root, CROSS_TAB_PATTERNS, ctx.excludes).matches.filter(
+    (m) => m.file && CODE_FILE.test(m.file),
+  );
+  const finding = {
+    file: anchor.file,
+    line: anchor.line,
+    text:
+      listeners.length === 0
+        ? 'logout exists, but nothing listens for cross-tab changes (no BroadcastChannel, no storage event) — logout in one tab likely leaves other tabs signed in'
+        : 'logout exists and cross-tab listeners exist — verify one of them ends the session in every tab',
+    match: anchor.matched,
+    serverHint: false,
+  };
+  if (listeners.length > 0) {
+    finding.crossTab = listeners.map((m) => `${m.file}:${m.line}`);
+    const sessionFiles = [...new Set(listeners.map((m) => m.file))].filter((f) =>
+      SESSION_END_WORDS.test(readText(f)),
+    );
+    if (sessionFiles.length > 0) {
+      finding.likelyHandled = `listener in a file that also ends sessions (${sessionFiles.join(', ')}) — confirm it clears this tab's session`;
+    }
+  }
+  if (ctx.authLibraries.length > 0) finding.authLibrary = ctx.authLibraries.join(', ');
+  return [finding];
+}
+
+// A Next.js layout in the file's own or a parent directory gates every page below it.
+function findEnvGate(root, file) {
+  if (ENV_GATE.test(readText(file))) return 'env check in this file';
+  let dir = dirname(file);
+  const stop = resolve(root);
+  while (resolve(dir).startsWith(stop)) {
+    for (const name of LAYOUT_FILES) {
+      const layout = join(dir, name);
+      if (layout !== file && existsSync(layout) && ENV_GATE.test(readText(layout))) {
+        return `env check in ${relPath(root, layout)}`;
+      }
+    }
+    if (resolve(dir) === stop) break;
+    dir = dirname(dir);
+  }
+  return null;
+}
+
+function checkDevSurface(root, ctx) {
+  const byFile = new Map();
+  for (const file of listFiles(root, ctx.excludes) ?? []) {
+    const rel = relPath(root, file);
+    if (!CODE_FILE.test(rel) || TEST_FILE.test(rel)) continue;
+    const seg = rel.match(DEV_PATH);
+    if (seg) {
+      byFile.set(file, {
+        line: 1,
+        text: 'dev/debug route or module — confirm production builds do not serve it',
+        match: `path segment: ${seg[2]}`,
+      });
+    }
+  }
+  // One finding per file: the first content hit replaces a path-only entry.
+  for (const m of rgMatches(root, DEV_CONTENT_PATTERNS, ctx.excludes).matches) {
+    if (!m.file || !CODE_FILE.test(m.file) || TEST_FILE.test(relPath(root, m.file))) continue;
+    if (byFile.get(m.file)?.fromContent) continue;
+    byFile.set(m.file, {
+      line: m.line,
+      text: truncate(m.raw, 240),
+      match: truncate(m.matched, 80),
+      fromContent: true,
+    });
+  }
+  return [...byFile].map(([file, loc]) => {
+    const finding = { file, line: loc.line, text: loc.text, match: loc.match, serverHint: false };
+    const gate = findEnvGate(root, file);
+    if (gate) finding.envGated = `${gate} — confirm it hides the surface in production`;
+    return finding;
+  });
+}
+
 const DEFAULT_EXCLUDES = [
   '**/node_modules/**',
   '**/.git/**',
@@ -405,6 +674,8 @@ const DEFAULT_EXCLUDES = [
   // The scanner's own output quotes matched vulnerable lines verbatim — re-scanning it
   // would resurrect every old candidate as a phantom finding on the Phase-6 re-run.
   '**/.security-audit/**',
+  // Task notes, QA artifacts and audit reports quote code and API docs; none of it ships.
+  '**/.project-meta/**',
   '**/.vercel/**',
   '**/.netlify/**',
   '**/.svelte-kit/**',
@@ -430,13 +701,14 @@ const INCLUDE_GLOBS = [
 ];
 
 function parseArgs(argv) {
-  const opts = { root: '.', out: null, excludes: [], only: null, quiet: false };
+  const opts = { root: '.', out: null, excludes: [], only: null, quiet: false, gitHistory: false };
   const positional = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--out') opts.out = argv[++i];
     else if (a === '--exclude') opts.excludes.push(argv[++i]);
     else if (a === '--only') opts.only = argv[++i];
+    else if (a === '--git-history') opts.gitHistory = true;
     else if (a === '--quiet') opts.quiet = true;
     else if (a === '--help' || a === '-h') opts.help = true;
     else positional.push(a);
@@ -445,26 +717,95 @@ function parseArgs(argv) {
   return opts;
 }
 
+// --no-ignore-vcs pins the semantics across ripgrep versions: since rg 14 a positive -g glob
+// already overrides .gitignore, older versions skip ignored files. We always want gitignored
+// files scanned — a gitignored .env still feeds NEXT_PUBLIC_* into the bundle and gitignored
+// generated code still ships. Build dirs are excluded explicitly.
+function rgBaseArgs(excludes, globs = INCLUDE_GLOBS) {
+  const args = ['--hidden', '--no-ignore-vcs', '--no-messages'];
+  for (const g of globs) args.push('-g', g);
+  for (const g of [...DEFAULT_EXCLUDES, ...excludes]) args.push('-g', `!${g}`);
+  return args;
+}
+
+function truncate(s, n) {
+  return s.length > n ? `${s.slice(0, n)}…` : s;
+}
+
+function parseRgJson(stdout) {
+  const matches = [];
+  for (const line of (stdout ?? '').split('\n')) {
+    if (!line) continue;
+    let obj;
+    try {
+      obj = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (obj.type !== 'match') continue;
+    matches.push({
+      file: obj.data.path?.text,
+      line: obj.data.line_number,
+      raw: (obj.data.lines?.text ?? '').replace(/\s+/g, ' ').trim(),
+      // Which pattern hit, to speed up triage of multi-pattern categories.
+      matched: (obj.data.submatches?.[0]?.match?.text ?? '').replace(/\s+/g, ' ').trim(),
+    });
+  }
+  return matches;
+}
+
+// rg's output order across files is nondeterministic; sorting keeps "first match" stable.
+function byFileAndLine(a, b) {
+  if (a.file !== b.file) return a.file < b.file ? -1 : 1;
+  return a.line - b.line;
+}
+
+function rgMatches(root, patterns, excludes, globs = INCLUDE_GLOBS) {
+  const args = ['--json', ...rgBaseArgs(excludes, globs)];
+  for (const p of patterns) args.push('-e', p);
+  args.push('--', root);
+  const res = spawnSync('rg', args, { encoding: 'utf8', maxBuffer: 1024 * 1024 * 512 });
+  // rg exit codes: 0 = matches, 1 = no matches, 2 = error.
+  if (res.status === 2) return { matches: [], error: res.stderr || 'rg error' };
+  return { matches: parseRgJson(res.stdout).sort(byFileAndLine) };
+}
+
+// Returns null when rg fails, so callers can tell "no files" from "could not list".
+function listFiles(root, excludes, globs = INCLUDE_GLOBS) {
+  const args = ['--files', ...rgBaseArgs(excludes, globs), '--', root];
+  const res = spawnSync('rg', args, { encoding: 'utf8', maxBuffer: 1024 * 1024 * 64 });
+  if (res.error || res.status === 2) return null;
+  return (res.stdout ?? '').split('\n').filter(Boolean).sort();
+}
+
 // Files carrying a 'use server' directive are server actions regardless of their path.
 function collectUseServerFiles(root, excludes) {
-  const args = ['--files-with-matches', '--hidden', '--no-ignore-vcs', '--no-messages'];
-  for (const g of INCLUDE_GLOBS) args.push('-g', g);
-  for (const g of [...DEFAULT_EXCLUDES, ...excludes]) args.push('-g', `!${g}`);
+  const args = ['--files-with-matches', ...rgBaseArgs(excludes)];
   args.push('-e', '^\\s*[\'"`]use server[\'"`]', '--', root);
   const res = spawnSync('rg', args, { encoding: 'utf8', maxBuffer: 1024 * 1024 * 64 });
   if (res.status === 2 || !res.stdout) return new Set();
   return new Set(res.stdout.split('\n').filter(Boolean));
 }
 
-// Feeds the report's "Scanned N files" line — one cheap extra rg pass over the same globs.
-function countScannedFiles(root, excludes) {
-  const args = ['--files', '--hidden', '--no-ignore-vcs', '--no-messages'];
-  for (const g of INCLUDE_GLOBS) args.push('-g', g);
-  for (const g of [...DEFAULT_EXCLUDES, ...excludes]) args.push('-g', `!${g}`);
-  args.push('--', root);
-  const res = spawnSync('rg', args, { encoding: 'utf8', maxBuffer: 1024 * 1024 * 64 });
-  if (res.error || res.status === 2 || !res.stdout) return null;
-  return res.stdout.split('\n').filter(Boolean).length;
+function collectIacRoots(root, excludes) {
+  const markers = listFiles(root, excludes, IAC_MARKER_GLOBS) ?? [];
+  return [...new Set(markers.map((f) => `${dirname(f).replace(/\\/g, '/')}/`))];
+}
+
+function isIacPath(file, ctx) {
+  const norm = file.replace(/\\/g, '/');
+  if (ctx.iacRoots.some((dir) => norm.startsWith(dir))) return true;
+  // The root's own name counts too, so scanning infra/ directly still runs the category.
+  const rel = `${basename(ctx.root)}/${relPath(ctx.root, file)}`;
+  return IAC_DIR.test(rel) || IAC_FILE.test(rel);
+}
+
+// Feeds the report's "Scanned N files" line — the frontend globs plus the IaC-only files.
+function countScannedFiles(ctx) {
+  const files = listFiles(ctx.root, ctx.excludes);
+  if (files === null) return null;
+  const iacExtra = listFiles(ctx.root, ctx.excludes, IAC_EXTRA_GLOBS) ?? [];
+  return files.length + iacExtra.filter((f) => isIacPath(f, ctx)).length;
 }
 
 function ensureRg() {
@@ -478,51 +819,46 @@ function ensureRg() {
   }
 }
 
-function runCategory(cat, root, excludes, useServerFiles) {
-  // --no-ignore-vcs pins the semantics across ripgrep versions: since rg 14 a positive
-  // -g glob already overrides .gitignore, older versions skip ignored files. We always
-  // want gitignored files scanned — a gitignored .env still feeds NEXT_PUBLIC_* into the
-  // bundle and gitignored generated code still ships. Build dirs are excluded explicitly.
-  const args = ['--json', '--hidden', '--no-ignore-vcs', '--no-messages'];
-  for (const g of INCLUDE_GLOBS) args.push('-g', g);
-  for (const g of [...DEFAULT_EXCLUDES, ...excludes]) args.push('-g', `!${g}`);
-  for (const p of cat.patterns) args.push('-e', p);
-  args.push('--', root);
+// Generic key/secret assignments whose value is an identifier-like word are field names
+// ("apiKey: 'department'", "apiKey: 'jobLevel'"), not credentials — pre-tag so triage
+// clears them in bulk. Real credentials virtually always carry digits/symbols/length.
+// Provider-format matches (sk_live_…, AKIA…) never carry [:=]'…' in the matched text.
+// For password/secret keywords only the strict lowercase-words rule applies — a plain
+// dictionary password is weak but real, so it must stay untagged for triage.
+function tagLowEntropySecret(finding, matched) {
+  const kv = matched.match(/^([A-Za-z_-]+)\s*[:=]\s*['"]([^'"]+)['"]$/);
+  if (!kv) return;
+  const [, key, value] = kv;
+  const plainWords = /^[a-z]+([_-][a-z]+)*$/.test(value);
+  const identifierWord = /^[a-z][A-Za-z]*$/.test(value);
+  const sensitiveKey = /pass|secret/i.test(key);
+  if (value.length < 24 && (plainWords || (identifierWord && !sensitiveKey))) {
+    finding.likelyFalsePositive = 'low-entropy value (identifier-like word, no digits)';
+  }
+}
 
-  const res = spawnSync('rg', args, { encoding: 'utf8', maxBuffer: 1024 * 1024 * 512 });
-  // rg exit codes: 0 = matches, 1 = no matches, 2 = error.
-  if (res.status === 2) {
-    console.error(`[warn] category "${cat.id}" produced an rg error and was skipped:\n${res.stderr}`);
+function runCategory(cat, ctx) {
+  const globs = cat.iacOnly ? [...INCLUDE_GLOBS, ...IAC_EXTRA_GLOBS] : INCLUDE_GLOBS;
+  const { matches, error } = rgMatches(ctx.root, cat.patterns, ctx.excludes, globs);
+  if (error) {
+    console.error(`[warn] category "${cat.id}" produced an rg error and was skipped:\n${error}`);
     return [];
   }
-  if (!res.stdout) return [];
 
   const seen = new Set();
   const findings = [];
-  for (const line of res.stdout.split('\n')) {
-    if (!line) continue;
-    let obj;
-    try {
-      obj = JSON.parse(line);
-    } catch {
-      continue;
-    }
-    if (obj.type !== 'match') continue;
-    const file = obj.data.path?.text;
-    const lineNo = obj.data.line_number;
+  for (const { file, line: lineNo, raw, matched } of matches) {
     if (!file || !lineNo) continue;
+    if (cat.iacOnly && !isIacPath(file, ctx)) continue;
     const key = `${file}:${lineNo}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const raw = (obj.data.lines?.text ?? '').replace(/\s+/g, ' ').trim();
-    const matched = (obj.data.submatches?.[0]?.match?.text ?? '').replace(/\s+/g, ' ').trim();
     const finding = {
       file,
       line: lineNo,
-      text: raw.length > 240 ? `${raw.slice(0, 240)}…` : raw,
-      // Which pattern hit, to speed up triage of multi-pattern categories.
-      match: matched.length > 80 ? `${matched.slice(0, 80)}…` : matched,
-      serverHint: SERVER_HINT.test(file.replace(/\\/g, '/')) || useServerFiles.has(file),
+      text: truncate(raw, 240),
+      match: truncate(matched, 80),
+      serverHint: SERVER_HINT.test(file.replace(/\\/g, '/')) || ctx.useServerFiles.has(file),
     };
     // open-redirect is the noisiest category — tag the destination kind so triage can jump
     // straight to the `dynamic` entries (constant/template internal routes are ~always safe).
@@ -530,24 +866,7 @@ function runCategory(cat, root, excludes, useServerFiles) {
       const argKind = classifyNavArg(raw);
       if (argKind) finding.argKind = argKind;
     }
-    // Generic key/secret assignments whose value is an identifier-like word are field names
-    // ("apiKey: 'department'", "apiKey: 'jobLevel'"), not credentials — pre-tag so triage
-    // clears them in bulk. Real credentials virtually always carry digits/symbols/length.
-    // Provider-format matches (sk_live_…, AKIA…) never carry [:=]'…' in the matched text.
-    // For password/secret keywords only the strict lowercase-words rule applies — a plain
-    // dictionary password is weak but real, so it must stay untagged for triage.
-    if (cat.id === 'secrets-hardcoded') {
-      const kv = matched.match(/^([A-Za-z_-]+)\s*[:=]\s*['"]([^'"]+)['"]$/);
-      if (kv) {
-        const [, key, value] = kv;
-        const plainWords = /^[a-z]+([_-][a-z]+)*$/.test(value);
-        const identifierWord = /^[a-z][A-Za-z]*$/.test(value);
-        const sensitiveKey = /pass|secret/i.test(key);
-        if (value.length < 24 && (plainWords || (identifierWord && !sensitiveKey))) {
-          finding.likelyFalsePositive = 'low-entropy value (identifier-like word, no digits)';
-        }
-      }
-    }
+    if (cat.id === 'secrets-hardcoded') tagLowEntropySecret(finding, matched);
     // A sanitizer call sharing the line with the HTML sink usually means the value is
     // cleaned at the point of insertion — pre-tag so triage confirms with a glance instead
     // of a file read. A hint, not a verdict: a hand-rolled sanitize*() can be a bare regex.
@@ -555,16 +874,95 @@ function runCategory(cat, root, excludes, useServerFiles) {
       finding.likelySanitized =
         'sanitizer call on the same line — confirm it wraps the sink value and is a real sanitizer (DOMPurify), not a regex replace';
     }
+    // Same idea for API paths. encodeURI() is left out on purpose: it keeps `/` and `..` as is.
+    if (cat.id === 'cspt' && /\bencode(?!URI\s*\()\w*\s*\(/i.test(raw)) {
+      finding.likelyEncoded =
+        'encoder call on the same line — confirm it wraps every interpolated segment and rejects "." / ".." (encoding leaves them as is)';
+    }
     findings.push(finding);
   }
   return findings;
 }
 
-function main() {
+const HISTORY_SKIP =
+  /(^|\/)(pnpm-lock\.yaml|package-lock\.json|yarn\.lock|bun\.lockb?)$|\.min\.|\.map$|(^|\/)\.security-audit\//;
+
+// Walks the rg hits over `git log -p -U0`: commit and file headers set the context, hunk
+// headers give the new-file line (with -U0 a hunk lists its removed lines, then its added ones).
+function collectHistorySecrets(matches) {
+  const found = new Map();
+  let commit = null;
+  let file = null;
+  let hunk = null;
+  for (const m of matches) {
+    if (/^commit [0-9a-f]{40}$/.test(m.raw)) {
+      commit = m.raw.slice(7);
+      continue;
+    }
+    if (m.raw.startsWith('+++ ')) {
+      file = m.raw.startsWith('+++ b/') ? m.raw.slice(6) : null;
+      continue;
+    }
+    const h = m.raw.match(/^@@ -\d+(?:,(\d+))? \+(\d+)(?:,\d+)? @@/);
+    if (h) {
+      hunk = { removed: h[1] === undefined ? 1 : Number(h[1]), start: Number(h[2]), at: m.line };
+      continue;
+    }
+    if (!commit || !file || !hunk || !m.raw.startsWith('+') || HISTORY_SKIP.test(file)) continue;
+    const key = `${file}\0${m.matched}`;
+    const prev = found.get(key);
+    // git log lists newest commits first, so the last occurrence is where the secret was added.
+    const finding = {
+      file,
+      line: hunk.start + (m.line - hunk.at - 1 - hunk.removed),
+      commit,
+      commits: (prev?.commits ?? 0) + 1,
+      text: truncate(m.raw.slice(1).trim(), 240),
+      match: truncate(m.matched, 80),
+      serverHint: false,
+    };
+    tagLowEntropySecret(finding, m.matched);
+    found.set(key, finding);
+  }
+  return [...found.values()].sort(byFileAndLine);
+}
+
+// Resolves to null when the project is not a git repository.
+function scanGitHistory(root) {
+  const cwd = findProjectDir(root);
+  const probe = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd, encoding: 'utf8' });
+  if (probe.error || probe.status !== 0) return Promise.resolve(null);
+  const patterns = CATEGORIES.find((c) => c.id === 'secrets-hardcoded').patterns;
+  const rgArgs = ['--json', '--no-messages'];
+  for (const p of ['^commit [0-9a-f]{40}$', '^\\+\\+\\+ ', '^@@ ', ...patterns]) {
+    rgArgs.push('-e', p);
+  }
+  const gitArgs = ['log', '-p', '--all', '--no-color', '--no-ext-diff', '--no-textconv', '-U0'];
+  return new Promise((done) => {
+    const git = spawn('git', [...gitArgs, '--format=commit %H'], {
+      cwd,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const rg = spawn('rg', rgArgs, { stdio: ['pipe', 'pipe', 'ignore'] });
+    let out = '';
+    rg.stdout.setEncoding('utf8');
+    rg.stdout.on('data', (chunk) => {
+      out += chunk;
+    });
+    // rg exiting early closes the pipe; git's EPIPE is expected then, not a crash.
+    rg.stdin.on('error', () => {});
+    git.on('error', () => rg.stdin.end());
+    rg.on('error', () => done([]));
+    git.stdout.pipe(rg.stdin);
+    rg.on('close', () => done(collectHistorySecrets(parseRgJson(out))));
+  });
+}
+
+async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.help) {
     console.log(
-      'Usage: node scan.mjs [root] [--out file] [--exclude glob]... [--only category] [--quiet]',
+      'Usage: node scan.mjs [root] [--out file] [--exclude glob]... [--only category] [--git-history] [--quiet]',
     );
     process.exit(0);
   }
@@ -573,7 +971,7 @@ function main() {
   const root = resolve(opts.root);
   const outPath = opts.out ? resolve(opts.out) : join(root, '.security-audit', 'findings.json');
 
-  const knownIds = [...CATEGORIES, ...PROJECT_CHECKS].map((c) => c.id);
+  const knownIds = [...CATEGORIES, ...PROJECT_CHECKS, HISTORY_CHECK].map((c) => c.id);
   if (opts.only && !knownIds.includes(opts.only)) {
     console.error(`Unknown category "${opts.only}". Known: ${knownIds.join(', ')}`);
     process.exit(2);
@@ -582,16 +980,23 @@ function main() {
   const selectedChecks = opts.only
     ? PROJECT_CHECKS.filter((c) => c.id === opts.only)
     : PROJECT_CHECKS;
+  const runHistory = opts.only ? opts.only === HISTORY_CHECK.id : opts.gitHistory;
 
-  const useServerFiles = collectUseServerFiles(root, opts.excludes);
-  const filesScanned = countScannedFiles(root, opts.excludes);
+  const ctx = {
+    root,
+    excludes: opts.excludes,
+    useServerFiles: collectUseServerFiles(root, opts.excludes),
+    iacRoots: collectIacRoots(root, opts.excludes),
+    authLibraries: detectAuthLibraries(findProjectDir(root)),
+  };
+  const filesScanned = countScannedFiles(ctx);
 
   const categories = [];
   const bySeverity = { critical: 0, high: 0, medium: 0, low: 0 };
   let total = 0;
 
   for (const cat of selected) {
-    const findings = runCategory(cat, root, opts.excludes, useServerFiles);
+    const findings = runCategory(cat, ctx);
     total += findings.length;
     bySeverity[cat.severity] += findings.length;
     const entry = {
@@ -615,21 +1020,51 @@ function main() {
         literal: findings.filter((f) => f.argKind === 'literal').length,
       };
     }
+    if (cat.id === 'cspt') {
+      entry.files = new Set(findings.map((f) => f.file)).size;
+      entry.likelyEncoded = findings.filter((f) => f.likelyEncoded).length;
+    }
     categories.push(entry);
   }
 
   for (const check of selectedChecks) {
-    const findings = check.run(root);
+    const findings = check.run(root, ctx);
     total += findings.length;
     bySeverity[check.severity] += findings.length;
-    categories.push({
+    const entry = {
       category: check.id,
       severity: check.severity,
       why: check.why,
       count: findings.length,
       serverHits: 0,
       findings,
-    });
+    };
+    const envGated = findings.filter((f) => f.envGated).length;
+    if (envGated > 0) entry.envGated = envGated;
+    const likelyHandled = findings.filter((f) => f.likelyHandled).length;
+    if (likelyHandled > 0) entry.likelyHandled = likelyHandled;
+    categories.push(entry);
+  }
+
+  if (runHistory) {
+    const findings = await scanGitHistory(root);
+    if (findings === null) {
+      console.error('[warn] --git-history: not a git repository — commit history was not scanned');
+    } else {
+      total += findings.length;
+      bySeverity[HISTORY_CHECK.severity] += findings.length;
+      const entry = {
+        category: HISTORY_CHECK.id,
+        severity: HISTORY_CHECK.severity,
+        why: HISTORY_CHECK.why,
+        count: findings.length,
+        serverHits: 0,
+        findings,
+      };
+      const likelyFalsePositives = findings.filter((f) => f.likelyFalsePositive).length;
+      if (likelyFalsePositives > 0) entry.likelyFalsePositives = likelyFalsePositives;
+      categories.push(entry);
+    }
   }
 
   // One source line can trip several categories (document.cookie → dom-xss-source AND
@@ -707,6 +1142,15 @@ function main() {
       }
       if (c.likelySanitized) {
         tags += `  [${c.likelySanitized} likely-sanitized]`;
+      }
+      if (c.category === 'cspt') {
+        tags += `  [${c.files} files, ${c.likelyEncoded} likely-encoded]`;
+      }
+      if (c.envGated) {
+        tags += `  [${c.envGated} env-gated]`;
+      }
+      if (c.likelyHandled) {
+        tags += `  [${c.likelyHandled} likely-handled]`;
       }
       console.log(`  ${c.severity.toUpperCase().padEnd(8)} ${c.category.padEnd(22)} ${String(c.count).padStart(5)}${tags}`);
     }

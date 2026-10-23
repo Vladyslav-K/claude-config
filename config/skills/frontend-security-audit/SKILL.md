@@ -6,9 +6,12 @@ description: >-
   vulnerabilities — XSS, DOM-XSS, leaked secrets / NEXT_PUBLIC_ keys, insecure
   token storage, open redirects, reverse tabnabbing, postMessage/CORS flaws,
   prototype pollution, ReDoS, server-side injection/SSRF in route handlers and
-  server actions, unsafe Next.js config, missing CSP/security headers, and
-  vulnerable dependencies. Built to scale to large/bloated codebases (100k+ LOC)
-  via a deterministic grep-first scanner plus triage. Use this whenever the user
+  server actions, unsafe Next.js config, missing CSP/security headers, client-side
+  path traversal in API paths, OAuth/SSO login CSRF, sessions that outlive logout,
+  dev/debug surfaces left in production, IaC exposure in infra sub-projects,
+  secrets in git history, and vulnerable dependencies. Built to scale to
+  large/bloated codebases (100k+ LOC) via a deterministic grep-first scanner plus
+  triage. Use this whenever the user
   wants to "audit", "security-check", "harden", "find vulnerabilities in", "scan
   for XSS / leaked secrets", "make secure", or "pentest" a frontend project, app,
   or repo as a whole — or asks "is my app/frontend secure?", "can hackers attack
@@ -45,6 +48,10 @@ recon → scan (script) → deps+secrets audit → triage → baseline report (s
   triage (see Scaling). No agent writes code.
 - **Trace to the source.** A sink is only dangerous if attacker-controlled data
   reaches it. If all inputs are literals/enums/validated data, it's a false positive.
+- **Logic flaws have no sink line.** Auth flows, the session lifecycle, how API paths are
+  built and environment gates don't show up as a characteristic line of code. The scanner
+  emits candidates for them (`auth-callback-unbound`, `logout-cross-tab`, `dev-surface`,
+  `cspt`), but they're confirmed by reading the flow end to end — Phase 0 lists what to read.
 
 ## Phase 0 — Recon & scope
 
@@ -76,6 +83,16 @@ Establish what you're auditing before scanning. Read, don't guess:
    image config, rewrites), the auth/token layer (axios/fetch client, interceptors, where the
    token lives), and `.env*`. Two of the most impactful findings — **missing security headers**
    and **token-in-localStorage** — surface from reading these, not from a candidate line.
+   Read the **auth flows** as well: OAuth/OIDC/SSO callback pages, magic-link and
+   password-reset pages, invite/join links, and the logout path. Login CSRF and sessions that
+   outlive logout live there (catalog §24).
+6. **Sub-projects and IaC.** List every `package.json` outside `node_modules`
+   (`find . -name package.json -not -path '*/node_modules/*'`). Each one with its own lockfile
+   gets its own dependency audit in Phase 2, run with that lockfile's manager. Then look for
+   IaC: `infra/`, `cdk.json`, `*.tf`, `serverless.yml`, `Dockerfile`, `.github/workflows/`. Ask
+   the user whether to include it (in the same batch as the item 2 question). Included → the
+   scanner's `iac-risk` category and the catalog §21 checklist cover it. Excluded → it goes into
+   the report's "Not covered" section: an excluded directory must never read as "checked, clean".
 
 ## Phase 1 — Run the scanner
 
@@ -97,47 +114,73 @@ Scanner behavior worth knowing:
 
 - It deliberately **ignores `.gitignore`** (`--no-ignore-vcs`): a gitignored `.env`
   still feeds `NEXT_PUBLIC_*` into the bundle and gitignored generated code still
-  ships. Build artifacts are excluded by built-in globs; exclude project-specific
-  generated dirs with `--exclude`.
+  ships. Build artifacts are excluded by built-in globs, and so is `.project-meta/` (task
+  notes, QA artifacts, earlier audit reports — they quote code and API docs but never ship);
+  exclude project-specific generated dirs with `--exclude`.
 - Its output quotes vulnerable lines (and any found secrets) **verbatim** — make
   sure `.security-audit/` is gitignored and never committed. If you can't guarantee that
   (the repo must stay untouched, or `.security-audit/` isn't in `.gitignore`), point `--out`
   **outside the repo tree** (a temp dir) so the verbatim dump can never be committed.
   The scanner prints a `[warn]` when the dump lands in a git repo without a covering
   `.gitignore` entry — treat that warning as a hard stop and move the output.
-- Two **deterministic project checks** run alongside the grep categories and land in the
-  same output: `headers-missing` (a next.config with no `headers()`) and `env-tracked`
-  (`.env*` files tracked in git). They cover the auto-checkable slice of catalog §20–§21;
-  CSP quality, CSRF, IDOR and the other absence checks remain manual reading.
+- Five **deterministic project checks** run alongside the grep categories and land in the
+  same output: `headers-missing` (a next.config with no `headers()`), `env-tracked`
+  (`.env*` files tracked in git), `auth-callback-unbound` (a callback route and no state/PKCE
+  anywhere in the code), `logout-cross-tab` (logout exists; lists the cross-tab listeners to
+  verify) and `dev-surface` (dev/debug routes, `/api/dev` calls and links to them). They cover
+  the auto-checkable slice of catalog §20 and §23–§24; CSP quality, CSRF, IDOR and the rest of
+  the flow review remain manual reading.
+- `iac-risk` runs only on IaC paths (catalog §21) and reads `*.tf`, `*.hcl`, `*.sh` and
+  Dockerfiles there on top of the usual globs. `--exclude` on the IaC directory turns it off.
 - **Triage accelerators in the JSON:** `argKind` on open-redirect entries;
   `likelyFalsePositive` on `secrets-hardcoded` entries whose value is a plain low-entropy
   word (`apiKey: 'department'`) — confirm with a glance and clear those in bulk;
   `likelySanitized` on `xss-dangerous-html` entries with a `sanitize*()` call on the same
-  line — confirm the call wraps the sink value and is a real sanitizer, then clear; `alsoIn`
-  when the same line tripped several categories — triage the line once, not per category.
+  line — confirm the call wraps the sink value and is a real sanitizer, then clear;
+  `likelyEncoded` on `cspt` entries with an encoder call on the same line (the summary also
+  prints how many files the category spans); `envGated` on `dev-surface` entries with an env
+  check in the file or a parent Next.js layout; `likelyHandled` on `logout-cross-tab` when a
+  cross-tab listener sits in a file that also ends sessions; `authLibrary` listing auth SDKs
+  from package.json on the auth checks; `alsoIn` when the same line tripped several
+  categories — triage the line once, not per category.
   `totals.filesScanned` in the JSON feeds the report's "Scanned N files" line.
 
 ## Phase 2 — Dependency & secrets-in-git audit
 
-These complement the source scan (see catalog §19–§20):
+These complement the source scan (see catalog §22–§23):
 
-- **Dependencies:** run the project's audit (`pnpm audit` / `npm audit` / `yarn`). If it
-  can't run (offline, private registry), record "audit: not run — <reason>" in the report
-  rather than skipping silently.
+- **Dependencies:** run the project's audit (`pnpm audit` / `npm audit` / `yarn`) — in the
+  root and in every sub-project with its own lockfile (Phase 0 item 6), each with its lockfile's
+  manager. Record the date and time (UTC) of each run next to its result: advisories appear
+  daily, and "0 vulnerabilities" can go stale within two weeks. If it can't run (offline,
+  private registry), record "audit: not run — <reason>" in the report rather than skipping
+  silently.
   Prioritize critical/high in **prod** deps that reach the client bundle, and known
   XSS / prototype-pollution / ReDoS advisories. Judge impact by **where the code runs,
   not which package.json section it sits in** — build tools (`@svgr/webpack`, PostCSS
   plugins) often live in `dependencies`, and a build-time-only advisory that processes
-  your own files is low practical impact. Scan `package.json` for typosquatting.
+  your own files is low practical impact. For every prod advisory, also check the
+  **preconditions in the advisory text**: fetch it from
+  `https://api.github.com/advisories/<GHSA-id>` and test each condition in the code ("needs a
+  Server Action" → is there any `'use server'`?). Catalog §22 has examples.
+  Scan `package.json` for typosquatting.
   When a version looks "wrong" (typosquat suspect, or suspiciously newer than you recall),
   **verify it against the registry before flagging** — `npm view <pkg> dist-tags.latest` and
   `npm view <pkg>@<ver> version`. Your memory of "the latest version" is frozen at the model's
   training cutoff; the registry is the source of truth, and a real, current release is not a
   finding. Only a version the registry lacks (or a name that isn't the real package) is one.
 - **Secrets in git:** the scanner pre-emits tracked env files as `env-tracked` findings
-  (git repos only). On top of that: read `.gitignore`, and if the source scan found a
-  real secret, check whether it was ever committed with `git log -S` — and what the
-  tracked env files contained **historically** (`git show <commit>:<file>`), not just now.
+  (git repos only). On top of that, scan the **whole history**, not a sample of providers:
+  - gitleaks installed (`which gitleaks`): `gitleaks git --redact --report-path <tmp-dir>/gitleaks.json`.
+  - no gitleaks: `node <skill>/scripts/scan.mjs <root> --only secrets-git-history --out <tmp-dir>/history/findings.json`
+    — the `secrets-hardcoded` patterns over every line added on any ref. Give it its own `--out`
+    directory: each run rewrites the `categories/` slices next to its output.
+
+  Keep both reports outside the repo, like the scanner dump. Write in the report which tool ran
+  and over what. List every hit cleared as a false positive with its reason, and with gitleaks
+  suggest a `.gitleaksignore` for them so later scans stay readable (the user decides). Also read
+  `.gitignore`, and check what the tracked env files contained **historically**
+  (`git show <commit>:<file>`), not just now.
 
 ## Phase 3 — Triage
 
@@ -152,20 +195,28 @@ through `findings.json`:
   **`dynamic`** entries (and any untagged multi-line calls) first; constant and
   template-internal-route destinations are the bulk and almost always false positives. The same
   literal-vs-variable reasoning clears most `ssrf` and `dom-xss-source` noise by hand.
+- `cspt` is usually one pattern repeated across the API layer, not dozens of separate bugs. Trace
+  the sources of a sample first: if any value comes from the URL, report the category as one
+  finding with the reachable mutating sinks listed, and fix it in one place (catalog §19).
 - For each candidate, decide **true positive / false positive / needs-human** using
   the catalog. Use the matched line first; open the file only when you need the
   data-flow context (trace the value to its source).
 - Record a verdict + reason for every candidate you classify. False positives get a
   one-line reason (e.g. "`apiKey: 'department'` is a data field name, not a secret";
   "`NEXT_PUBLIC_TURNSTILE_SITE_KEY` is a public site key by design").
-- Some issues are about **absence** and won't appear as grep findings — the scanner
-  auto-emits two of them (`headers-missing`, `env-tracked`); check the rest of catalog §21
+- Some issues are about **absence** or flow logic and won't appear as grep findings — the
+  scanner auto-emits five of them (`headers-missing`, `env-tracked`, `auth-callback-unbound`,
+  `logout-cross-tab`, `dev-surface`); check the rest of catalog §24
   (CSP **quality**, CSRF on cookie-auth route handlers, client-only auth guards / IDOR,
   dynamic `href`/`src` URL bindings, tokens in URLs, mixed content, `Math.random()` for
-  tokens, missing SRI on CDN scripts, prod source maps) by reading the relevant files.
+  tokens, missing SRI on CDN scripts, prod source maps, auth-flow binding, session lifecycle)
+  by reading the relevant files.
 - **Think in chains, not just per-category.** A finding's severity isn't only its isolated
   category: a token in `localStorage` (a "needs-human" item) **plus** any XSS = token
-  exfiltration → account takeover. When a low/medium finding amplifies a high one, say so and
+  exfiltration → account takeover. The same applies to the logic categories: CSPT plus a
+  mutating sink = CSRF; login CSRF plus a page where the victim enters sensitive data = that
+  data in the attacker's account; a dev surface plus a role-only backend check = one admin
+  click wipes an environment. When a low/medium finding amplifies a high one, say so and
   rate the combined impact.
 
 ## Phase 4 — Baseline report, then stop
@@ -214,8 +265,16 @@ Scanned <N files — from the scanner's totals.filesScanned> — <M> candidates 
 <the scary-looking candidates that are safe, with the one-line reason>
 
 ## Dependencies
-<audit results + recommended upgrades>
+<per project/sub-project: audit command, date and time (UTC) of the run, results with
+reachability, recommended upgrades>
+
+## Not covered
+<excluded directories and sub-projects and why; tools that didn't run (audit, gitleaks) and
+why; what only the backend or a live environment can confirm>
 ```
+
+The "Not covered" section is mandatory even when it's short: without it, an excluded directory
+or a tool that never ran reads as "checked, clean".
 
 Then ask the user how to proceed: fix all confirmed, fix a subset, or hold. Present the
 "needs a human decision" items as explicit choices — don't decide auth architecture for them.
@@ -256,8 +315,10 @@ or overwrite the baseline. Default path:
 baseline (`-initial`, pre-fix) and this final report (`-final`, post-fix).
 
 Summarize: what was fixed (with file:line), what still needs a human decision and why,
-residual risk, and recommended follow-ups (e.g. add a CSP, rotate an exposed key). Be
-honest about what wasn't done. Open with the same at-a-glance severity table as Phase 4,
+residual risk, the "Not covered" section (carried over from the baseline and updated), and
+recommended follow-ups (e.g. add a CSP, rotate an exposed key). Always recommend re-running the
+dependency audit (`<pm> audit --prod`) before every release or in CI — its result goes stale in
+days. Be honest about what wasn't done. Open with the same at-a-glance severity table as Phase 4,
 updated with a "Fixed" column. Finally, clean up after yourself: delete the scanner dump
 (or say exactly where it lives) — `findings.json` quotes vulnerable lines and any found
 secrets verbatim and shouldn't outlive the audit unnoticed.
@@ -281,7 +342,7 @@ that grows is **triage**. For a big result set:
 
 - `scripts/scan.mjs` — the grep-first candidate scanner. Run it; read its JSON output.
 - `references/vulnerability-catalog.md` — per-category confirm / false-positive / fix
-  guidance (and §19–§21 for deps, git secrets, and absence-checks). Read before triage.
+  guidance (and §22–§24 for deps, git secrets, and checks that need reading). Read before triage.
 - `evals/fixture/` — intentionally-vulnerable mini-project with planted findings and
   decoys; `evals/expected-findings.md` lists what a scan of it must (and must not)
   report. Re-run it after any change to the scanner's patterns.
